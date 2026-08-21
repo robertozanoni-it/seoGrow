@@ -1,0 +1,108 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.1.0</title><style>:root{--bg:#f6f7f8;--panel:#fff;--text:#17201a;--muted:#6b746d;--line:#dde2de;--green:#146c43;--green2:#eaf5ef;--dark:#0f1712;--warn:#9a6500;--danger:#a13232}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,select{font:inherit}button{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 12px;cursor:pointer}button:hover{border-color:#aab5ad}.primary{background:var(--green);color:#fff;border-color:var(--green)}header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:10}header strong{font-size:20px}.version{margin-left:10px;color:var(--muted);font-size:12px}.project{display:flex;gap:8px}.project select{min-width:210px;border:1px solid var(--line);border-radius:10px;padding:8px}.shell{display:grid;grid-template-columns:250px 1fr;min-height:calc(100vh - 64px)}aside{background:var(--dark);padding:20px 14px;color:#fff}.brand{display:flex;align-items:center;gap:10px;padding:6px 8px 22px}.brand h1{font-size:20px;margin:0}.brand p{margin:3px 0 0;color:#9eaaa1;font-size:12px}.mark{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:#d9f3e4;color:#0d5132;font-weight:900}.nav{width:100%;border:0;background:transparent;color:#b9c2bb;text-align:left;margin:2px 0;padding:11px 12px}.nav:hover,.nav.active{background:#1b271f;color:#fff}.nav.active{box-shadow:inset 3px 0 0 #54c88a}main{padding:28px;max-width:1500px;width:100%}.hero{background:linear-gradient(135deg,#fff,#f0f7f3);border:1px solid var(--line);border-radius:22px;padding:28px;margin-bottom:18px}.hero h2{font-size:32px;line-height:1.08;margin:8px 0}.hero p{max-width:800px;color:var(--muted);font-size:16px}.eyebrow{font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--green)}.actions{display:flex;gap:8px;margin-top:18px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.kpi,.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px}.kpi b{display:block;font-size:30px}.kpi span{color:var(--muted)}.card h3{margin-top:0}.pipeline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.pipeline span{background:var(--green2);border-radius:999px;padding:8px 11px;font-weight:700}.pipeline i{color:var(--muted)}.table{display:grid}.tr{display:grid;grid-template-columns:minmax(280px,2fr) 120px 140px minmax(220px,1fr);gap:12px;padding:13px 4px;border-bottom:1px solid var(--line);align-items:center}.th{font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase}.tr small,.task small{display:block;color:var(--muted);margin-top:4px}.rowactions{display:flex;gap:6px;flex-wrap:wrap}.status{font-style:normal;font-size:12px;font-weight:800;border-radius:999px;padding:5px 8px;background:#ecefec}.status.validated,.status.done,.status.resolved{background:#e7f5ec;color:var(--green)}.status.excluded,.status.archived{background:#f1eeee;color:#7c5555}.status.tasked,.status.pending{background:#fff1d6;color:var(--warn)}.task{display:grid;grid-template-columns:1fr 90px 100px auto;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}@media(max-width:900px){.shell{grid-template-columns:1fr}aside{display:flex;overflow:auto;gap:6px}.brand{display:none}.nav{width:auto;white-space:nowrap}.kpis{grid-template-columns:1fr 1fr}.tr{grid-template-columns:1fr}.th{display:none}main{padding:16px}header{padding:0 12px}.project select{min-width:120px}}
+</style></head><body><div id="app"></div><script>(function(SG){
+  class EventBus{
+    constructor(){this.events=new Map()}
+    on(name,fn){if(!this.events.has(name))this.events.set(name,new Set());this.events.get(name).add(fn);return()=>this.off(name,fn)}
+    off(name,fn){this.events.get(name)?.delete(fn)}
+    emit(name,payload){(this.events.get(name)||[]).forEach(fn=>{try{fn(payload)}catch(e){console.error('[seoGrow:event]',name,e)}})}
+  }
+  SG.EventBus=EventBus;
+})(window.seoGrow=window.seoGrow||{});
+
+(function(SG){
+  class Storage{
+    constructor(prefix='seogrow'){this.prefix=prefix}
+    key(k){return `${this.prefix}:${k}`}
+    get(k,fallback=null){try{const v=localStorage.getItem(this.key(k));return v===null?fallback:JSON.parse(v)}catch{return fallback}}
+    set(k,v){localStorage.setItem(this.key(k),JSON.stringify(v));return v}
+    remove(k){localStorage.removeItem(this.key(k))}
+    export(){const out={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k?.startsWith(this.prefix+':'))out[k]=localStorage.getItem(k)}return out}
+  }
+  SG.Storage=Storage;
+})(window.seoGrow=window.seoGrow||{});
+
+(function(SG){
+  const clone=v=>structuredClone?structuredClone(v):JSON.parse(JSON.stringify(v));
+  class Store{
+    constructor(initial,bus){this.state=clone(initial);this.bus=bus}
+    get(){return this.state}
+    select(path){return String(path||'').split('.').filter(Boolean).reduce((o,k)=>o?.[k],this.state)}
+    update(mutator,meta={}){const next=clone(this.state);mutator(next);this.state=next;this.bus.emit('state:changed',{state:this.state,meta});return this.state}
+    replace(next,meta={}){this.state=clone(next);this.bus.emit('state:changed',{state:this.state,meta})}
+  }
+  SG.Store=Store;
+})(window.seoGrow=window.seoGrow||{});
+
+(function(SG){
+  const norm=v=>{try{return new URL(/^https?:\/\//i.test(v)?v:`https://${v}`).hostname.replace(/^www\./,'').toLowerCase()}catch{return ''}};
+  class ProjectManager{
+    constructor(store,bus){this.store=store;this.bus=bus}
+    current(){const s=this.store.get();return s.projects.find(p=>p.id===s.activeProjectId)||null}
+    create(input){const domain=norm(input.domain||'');if(!domain)throw new Error('Dominio non valido');const id=crypto.randomUUID?.()||`p_${Date.now()}`;const p={id,name:input.name||domain,domain,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};this.store.update(s=>{s.projects.push(p);s.activeProjectId=id},{source:'project:create'});this.bus.emit('project:changed',p);return p}
+    setActive(id){this.store.update(s=>{if(s.projects.some(p=>p.id===id))s.activeProjectId=id},{source:'project:active'});this.bus.emit('project:changed',this.current())}
+  }
+  SG.ProjectManager=ProjectManager;
+})(window.seoGrow=window.seoGrow||{});
+
+(function(SG){
+  const STATUSES=['candidate','validated','excluded','tasked','resolved'];
+  class FindingEngine{
+    constructor(store,bus){this.store=store;this.bus=bus}
+    list(projectId){return this.store.get().findings.filter(f=>f.projectId===projectId)}
+    create(input){if(!input.projectId||!input.type||!input.title)throw new Error('Finding incompleto');const finding={id:crypto.randomUUID?.()||`f_${Date.now()}`,projectId:input.projectId,type:input.type,title:input.title,summary:input.summary||'',status:'candidate',confidence:Math.max(0,Math.min(100,Number(input.confidence??50))),severity:input.severity||'medium',evidence:Array.isArray(input.evidence)?input.evidence:[],affected:Array.isArray(input.affected)?input.affected:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),source:input.source||'manual'};this.store.update(s=>s.findings.push(finding),{source:'finding:create'});this.bus.emit('finding:created',finding);return finding}
+    setStatus(id,status){if(!STATUSES.includes(status))throw new Error('Stato finding non valido');let out;this.store.update(s=>{const f=s.findings.find(x=>x.id===id);if(f){f.status=status;f.updatedAt=new Date().toISOString();out=f}},{source:'finding:status'});if(out)this.bus.emit('finding:status',out);return out}
+  }
+  SG.FindingEngine=FindingEngine;
+})(window.seoGrow=window.seoGrow||{});
+
+(function(SG){
+  class TaskManager{
+    constructor(store,bus,findingEngine){this.store=store;this.bus=bus;this.findings=findingEngine}
+    fromFinding(findingId){const f=this.store.get().findings.find(x=>x.id===findingId);if(!f)throw new Error('Finding non trovato');if(f.status!=='validated')throw new Error('Il finding deve essere validato prima di creare una task');const existing=this.store.get().tasks.find(t=>t.findingId===findingId&&!['done','archived'].includes(t.status));if(existing)return existing;const t={id:crypto.randomUUID?.()||`t_${Date.now()}`,projectId:f.projectId,findingId:f.id,title:f.title,description:f.summary,status:'todo',priority:f.severity==='high'?'Alta':f.severity==='low'?'Bassa':'Media',createdAt:new Date().toISOString(),completedAt:null};this.store.update(s=>s.tasks.push(t),{source:'task:create'});this.findings.setStatus(f.id,'tasked');this.bus.emit('task:created',t);return t}
+    setStatus(id,status){const allowed=['todo','pending','done','archived'];if(!allowed.includes(status))throw new Error('Stato task non valido');let out;this.store.update(s=>{const t=s.tasks.find(x=>x.id===id);if(t){t.status=status;t.completedAt=status==='done'?new Date().toISOString():null;out=t}},{source:'task:status'});if(out)this.bus.emit('task:status',out);return out}
+  }
+  SG.TaskManager=TaskManager;
+})(window.seoGrow=window.seoGrow||{});
+
+(function(SG){
+  class BaseEngine{constructor(name,findings){this.name=name;this.findings=findings}run(){return []}}
+  class CannibalizationEngine extends BaseEngine{
+    constructor(findings){super('Cannibalization',findings)}
+    analyze(projectId,rows=[]){const byQ=new Map();rows.filter(r=>r.query&&r.url).forEach(r=>{const k=r.query.toLowerCase().trim();if(!byQ.has(k))byQ.set(k,[]);byQ.get(k).push(r)});const created=[];for(const [query,list] of byQ){const pages=list.sort((a,b)=>(b.impressions||0)-(a.impressions||0));const total=pages.reduce((n,r)=>n+(+r.impressions||0),0);if(pages.length<2||total<20)continue;const second=pages[1];if((second.impressions||0)<5||(second.impressions||0)/total<.12)continue;created.push(this.findings.create({projectId,type:'cannibalization',title:`Possibile cannibalizzazione: ${query}`,summary:`${pages.length} URL ricevono impressioni reali per la stessa query.`,confidence:85,severity:'medium',source:'gsc-page-query',affected:pages.map(x=>x.url),evidence:pages.map(x=>({url:x.url,impressions:+x.impressions||0,clicks:+x.clicks||0,position:+x.position||0}))}))}return created}
+  }
+  class BrokenLinkEngine extends BaseEngine{
+    constructor(findings){super('BrokenLink',findings)}
+    analyze(projectId,links=[]){return links.filter(x=>[404,410].includes(+x.status)).map(x=>this.findings.create({projectId,type:'broken_internal_link',title:'Link interno rotto confermato',summary:`${x.source} punta a ${x.target} con HTTP ${x.status}.`,confidence:100,severity:'high',source:'crawl-http',affected:[x.source,x.target],evidence:[x]}))}
+  }
+  SG.CannibalizationEngine=CannibalizationEngine;SG.BrokenLinkEngine=BrokenLinkEngine;
+})(window.seoGrow=window.seoGrow||{});
+
+(function(SG){
+  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const labels={dashboard:'Dashboard',findings:'Findings',keywords:'Keyword Research',pages:'Pagine',competitors:'Competitor',content:'Content Intelligence',links:'Link Intelligence',technical:'Technical SEO',tasks:'Task',settings:'Impostazioni'};
+  class AppUI{
+    constructor(app){this.app=app;this.view='dashboard'}
+    mount(){this.root=document.getElementById('app');this.bindGlobal();this.render()}
+    bindGlobal(){this.app.bus.on('state:changed',()=>this.render());document.addEventListener('click',e=>{const nav=e.target.closest('[data-view]');if(nav){this.view=nav.dataset.view;this.render();return}const act=e.target.closest('[data-action]');if(!act)return;this.action(act.dataset.action,act)})}
+    action(name,el){const s=this.app.store.get(),pid=s.activeProjectId;if(name==='new-project'){const domain=prompt('Dominio del progetto');if(domain)this.app.projects.create({domain})}if(name==='validate-finding')this.app.findings.setStatus(el.dataset.id,'validated');if(name==='exclude-finding')this.app.findings.setStatus(el.dataset.id,'excluded');if(name==='task-from-finding')this.app.tasks.fromFinding(el.dataset.id);if(name==='task-done')this.app.tasks.setStatus(el.dataset.id,'done');if(name==='demo-findings'&&pid){this.app.findings.create({projectId:pid,type:'onpage',title:'Title da verificare',summary:'Esempio di finding candidato: non è ancora una task.',confidence:62,severity:'medium',source:'demo',affected:['/pagina-esempio/'],evidence:[{field:'title',reason:'lunghezza o focus da verificare'}]})}}
+    nav(){return Object.keys(labels).map(k=>`<button class="nav ${this.view===k?'active':''}" data-view="${k}">${labels[k]}</button>`).join('')}
+    header(){const s=this.app.store.get();return `<header><div><strong>seoGrow</strong><span class="version">0.1.0 Foundation</span></div><div class="project"><select id="projectSelect">${s.projects.map(p=>`<option value="${p.id}" ${p.id===s.activeProjectId?'selected':''}>${esc(p.domain)}</option>`).join('')}</select><button data-action="new-project">+ Progetto</button></div></header>`}
+    render(){if(!this.root)return;this.root.innerHTML=`${this.header()}<div class="shell"><aside><div class="brand"><div class="mark">sG</div><div><h1>seoGrow</h1><p>SEO Intelligence & Actions</p></div></div>${this.nav()}</aside><main>${this.viewHtml()}</main></div>`;const sel=document.getElementById('projectSelect');if(sel)sel.onchange=()=>this.app.projects.setActive(sel.value)}
+    empty(title,desc){return `<section class="hero"><span class="eyebrow">MODULO</span><h2>${title}</h2><p>${desc}</p></section><div class="card"><h3>Foundation pronta</h3><p>Il modulo è isolato dal Core e potrà essere implementato senza modificare Task Manager, Finding Engine o Storage.</p></div>`}
+    dashboard(){const s=this.app.store.get(),pid=s.activeProjectId,fs=s.findings.filter(x=>x.projectId===pid),ts=s.tasks.filter(x=>x.projectId===pid);return `<section class="hero"><span class="eyebrow">OVERVIEW</span><h2>SEO che distingue dati, diagnosi e azioni</h2><p>Nessuna attività nasce direttamente da un'analisi. Prima viene creato e validato un finding.</p><div class="actions"><button class="primary" data-view="findings">Apri Findings</button><button data-action="demo-findings">Crea finding demo</button></div></section><div class="kpis"><div class="kpi"><b>${fs.length}</b><span>Finding</span></div><div class="kpi"><b>${fs.filter(x=>x.status==='validated').length}</b><span>Validati</span></div><div class="kpi"><b>${ts.filter(x=>x.status==='todo').length}</b><span>Da fare</span></div><div class="kpi"><b>${ts.filter(x=>x.status==='done').length}</b><span>Completati</span></div></div><div class="card"><h3>Pipeline</h3><div class="pipeline"><span>Dati</span><i>→</i><span>Analisi</span><i>→</i><span>Finding</span><i>→</i><span>Validazione</span><i>→</i><span>Task</span><i>→</i><span>Applicazione</span><i>→</i><span>Verifica</span></div></div>`}
+    findingsView(){const s=this.app.store.get(),pid=s.activeProjectId,rows=s.findings.filter(x=>x.projectId===pid);return `<section class="hero"><span class="eyebrow">QUALITY GATE</span><h2>Finding Engine</h2><p>Candidati, validati, esclusi, trasformati in task e risolti.</p></section><div class="card">${rows.length?`<div class="table"><div class="tr th"><span>Finding</span><span>Confidenza</span><span>Stato</span><span>Azioni</span></div>${rows.map(f=>`<div class="tr"><span><b>${esc(f.title)}</b><small>${esc(f.summary)}</small></span><span>${f.confidence}%</span><span><em class="status ${f.status}">${f.status}</em></span><span class="rowactions">${f.status==='candidate'?`<button data-action="validate-finding" data-id="${f.id}">Valida</button><button data-action="exclude-finding" data-id="${f.id}">Escludi</button>`:''}${f.status==='validated'?`<button class="primary" data-action="task-from-finding" data-id="${f.id}">Crea task</button>`:''}</span></div>`).join('')}</div>`:'<p>Nessun finding per questo progetto.</p>'}</div>`}
+    tasksView(){const s=this.app.store.get(),pid=s.activeProjectId,rows=s.tasks.filter(x=>x.projectId===pid);return `<section class="hero"><span class="eyebrow">OPERATIONS</span><h2>Task Manager</h2><p>Le task possono nascere soltanto da finding validati.</p></section><div class="card">${rows.length?rows.map(t=>`<div class="task"><div><b>${esc(t.title)}</b><small>${esc(t.description)}</small></div><span>${t.priority}</span><em class="status ${t.status}">${t.status}</em>${t.status==='todo'?`<button data-action="task-done" data-id="${t.id}">Completa</button>`:''}</div>`).join(''):'<p>Nessuna task.</p>'}</div>`}
+    viewHtml(){if(this.view==='dashboard')return this.dashboard();if(this.view==='findings')return this.findingsView();if(this.view==='tasks')return this.tasksView();const maps={keywords:['Keyword Research','Query, intent, clustering e opportunità.'],pages:['Pagine','Performance e diagnosi per URL.'],competitors:['Competitor','Competitor organici, keyword gap e content gap.'],content:['Content Intelligence','Opportunità editoriali e refresh.'],links:['Link Intelligence','Internal linking, pagine orfane e link rotti confermati.'],technical:['Technical SEO','Crawl, indexability, canonical, redirect e schema.'],settings:['Impostazioni','Progetti, connettori, fonti dati e backup.']};return this.empty(...(maps[this.view]||['Modulo','']))}
+  }
+  SG.AppUI=AppUI;
+})(window.seoGrow=window.seoGrow||{});
+
+(function(SG){
+  const initial={version:'0.1.0',activeProjectId:null,projects:[],findings:[],tasks:[],datasets:[],settings:{autosave:true}};
+  class SeoGrowApp{
+    constructor(){this.bus=new SG.EventBus();this.storage=new SG.Storage('seogrow');const saved=this.storage.get('state');this.store=new SG.Store(saved||initial,this.bus);this.projects=new SG.ProjectManager(this.store,this.bus);this.findings=new SG.FindingEngine(this.store,this.bus);this.tasks=new SG.TaskManager(this.store,this.bus,this.findings);this.engines={cannibalization:new SG.CannibalizationEngine(this.findings),brokenLinks:new SG.BrokenLinkEngine(this.findings)};this.ui=new SG.AppUI(this);this.bus.on('state:changed',({state})=>{if(state.settings.autosave)this.storage.set('state',state)})}
+    start(){if(!this.store.get().projects.length)this.projects.create({domain:'example.it',name:'Progetto demo'});this.ui.mount()}
+  }
+  SG.SeoGrowApp=SeoGrowApp;document.addEventListener('DOMContentLoaded',()=>{window.app=new SeoGrowApp();window.app.start()});
+})(window.seoGrow=window.seoGrow||{});
+</script></body></html>
