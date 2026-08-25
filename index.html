@@ -11,7 +11,7 @@ window.SeoGrowModules.contracts = {
   }
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
-SeoGrow.VERSION = '0.10.8'; SeoGrow.SCHEMA_VERSION = 3;
+SeoGrow.VERSION = '0.10.9'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -185,6 +185,866 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     var checked=Number(provenance.checkedLinks||0);
     var checkedLabel=checked?checked+' link importati':'Crawl senza righe di dettaglio';
     return base+'<section class="card"><h2>Ultimo crawl link interni</h2><p class="status '+(passed?'verified':'candidate')+'">'+title+'</p><p>'+detail+'</p><p class="muted">'+checkedLabel+' · '+new Date(audit.importedAt).toLocaleString('it-IT')+'</p></section>';
+  };
+})();
+</script>
+<script>
+/* seoGrow 0.10.9 — collegamento WordPress e integrità degli import. */
+(function () {
+  'use strict';
+  if (SeoGrow.__hardening109) return;
+  SeoGrow.__hardening109 = true;
+  SeoGrow.VERSION = '0.10.9';
+  SeoGrow.SCHEMA_VERSION = 4;
+
+  function appError(message, code) {
+    var error = new Error(message);
+    error.code = code;
+    return error;
+  }
+
+  function isSuperseded(error) {
+    return Boolean(error && error.code === 'WP_CONNECTION_SUPERSEDED');
+  }
+
+  function normalizeHeader(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  }
+
+  function pageOrigin() {
+    if (typeof location === 'undefined') return 'origine sconosciuta';
+    if (location.protocol === 'file:') return 'file:// (origine null)';
+    return location.origin;
+  }
+
+  function fileOrigin() {
+    return typeof location !== 'undefined' && location.protocol === 'file:';
+  }
+
+  function normalizeSite(value) {
+    var raw = String(value || '').trim();
+    if (!raw) throw appError('Inserisci l’URL HTTPS completo del sito WordPress.', 'WP_SITE_REQUIRED');
+    var url;
+    try {
+      url = new URL(raw);
+    } catch (error) {
+      throw appError('L’URL del sito WordPress non è valido.', 'WP_SITE_INVALID');
+    }
+    if (url.protocol !== 'https:') {
+      throw appError('Il collegamento WordPress richiede un URL HTTPS, ad esempio https://tuosito.it.', 'WP_HTTPS_REQUIRED');
+    }
+    url.search = '';
+    url.hash = '';
+    return url.href.replace(/\/+$/, '');
+  }
+
+  function shortFingerprint(value) {
+    var hash = 2166136261;
+    for (var index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
+  }
+
+  function basicAuthorization(username, password) {
+    var value = String(username || '') + ':' + String(password || '').replace(/\s/g, '');
+    var bytes = new TextEncoder().encode(value);
+    var binary = '';
+    for (var index = 0; index < bytes.length; index += 1) {
+      binary += String.fromCharCode(bytes[index]);
+    }
+    return 'Basic ' + btoa(binary);
+  }
+
+  function normalizeCredentials(input) {
+    var source = input || {};
+    var base = normalizeSite(source.site);
+    var token = String(source.token || '').trim();
+    var username = String(source.username || '').trim();
+    var password = String(source.password || '').replace(/\s/g, '');
+
+    if (!token && (!username || !password)) {
+      throw appError('Incolla la chiave seoGrow oppure inserisci utente WordPress e Password applicazione.', 'WP_CREDENTIALS_REQUIRED');
+    }
+
+    var mode = token ? 'token' : 'basic';
+    var secret = token || (username + ':' + password);
+    return {
+      base: base,
+      mode: mode,
+      username: username,
+      headers: token ? {'X-SeoGrow-Token': token, Accept: 'application/json'} : {Authorization: basicAuthorization(username, password), Accept: 'application/json'},
+      fingerprint: base + '|' + mode + '|' + shortFingerprint(secret)
+    };
+  }
+
+  function hasCredentials(input) {
+    if (!input) return false;
+    return Boolean(String(input.token || '').trim() || String(input.username || '').trim() || String(input.password || '').trim());
+  }
+
+  function connectionRequiredError() {
+    return appError('Collega prima WordPress nella sezione “Pagine e on-page”. Non vengono più aperti prompt del browser con credenziali.', 'WP_CONNECTION_REQUIRED');
+  }
+
+  function supersededError() {
+    return appError('Il tentativo di connessione è stato sostituito da credenziali più recenti.', 'WP_CONNECTION_SUPERSEDED');
+  }
+
+  function corsOrNetworkError(base) {
+    return appError(
+      'Il browser non può leggere la risposta di ' + base + '. Se il sito è raggiungibile, è quasi certamente un preflight CORS: il connettore deve consentire l’origine ' + pageOrigin() + ', i metodi GET, POST, OPTIONS e gli header X-SeoGrow-Token, Authorization, Content-Type. Apri seoGrow da HTTPS o localhost, non da file://.',
+      'WP_CORS_OR_NETWORK'
+    );
+  }
+
+  async function responseData(response) {
+    var raw = '';
+    try {
+      raw = await response.text();
+    } catch (error) {
+      raw = '';
+    }
+    if (!raw) return {raw: '', json: null};
+    try {
+      return {raw: raw, json: JSON.parse(raw)};
+    } catch (error) {
+      return {raw: raw, json: null};
+    }
+  }
+
+  function apiError(response, payload, base) {
+    var message = payload && (payload.message || payload.code || payload.error);
+    if (response.status === 404) {
+      return appError('Il sito non espone seoGrow Connector su ' + base + '/wp-json/seogrow/v1/. Attiva il connettore corretto: RZ Organic Growth OS usa un protocollo distinto e non è compatibile con questa chiave seoGrow.', 'WP_CONNECTOR_NOT_FOUND');
+    }
+    if (response.status === 401 || response.status === 403) {
+      return appError(message || 'Autenticazione WordPress rifiutata. Controlla chiave seoGrow oppure utente e Password applicazione.', 'WP_AUTH_REJECTED');
+    }
+    return appError(message || ('Il connettore WordPress ha restituito HTTP ' + response.status + '.'), 'WP_API_ERROR');
+  }
+
+  async function wpRequest(base, path, options) {
+    if (fileOrigin()) {
+      throw appError('seoGrow è stato aperto come file locale. Per collegare WordPress pubblicalo su HTTPS oppure avvialo da localhost; file:// invia un’origine null che i server WordPress normalmente rifiutano.', 'WP_FILE_ORIGIN');
+    }
+    var response;
+    try {
+      response = await fetch(base + path, Object.assign({mode: 'cors', credentials: 'omit'}, options || {}));
+    } catch (error) {
+      if (error && error.name === 'AbortError') throw error;
+      throw corsOrNetworkError(base);
+    }
+    var decoded = await responseData(response);
+    return {response: response, payload: decoded.json, raw: decoded.raw};
+  }
+
+  function persistConnection(app, connection, status) {
+    if (!app.store) return;
+    app.store.dispatch({
+      type: 'CONNECTION_UPDATED',
+      connection: 'wordpress',
+      value: {
+        base: connection.base,
+        status: status || 'last_verified',
+        lastVerifiedAt: connection.connectedAt
+      }
+    });
+  }
+
+  function safeDraft(app) {
+    var draft = app.wordpressDraft || {};
+    return {site: String(draft.site || ''), username: String(draft.username || '')};
+  }
+
+  SeoGrowApp.prototype.pendingWordPress = function () {
+    return safeDraft(this);
+  };
+
+  SeoGrowApp.prototype.rememberWordPress = function (values) {
+    var next = Object.assign({}, safeDraft(this), values || {});
+    this.wordpressDraft = {
+      site: String(next.site || '').trim(),
+      username: String(next.username || '').trim()
+    };
+    return this.wordpressDraft;
+  };
+
+  SeoGrowApp.prototype.cancelWordPressImport = function () {
+    var attempt = this.wordpressImportAttempt;
+    if (!attempt) return;
+    attempt.superseded = true;
+    if (attempt.controller && typeof attempt.controller.abort === 'function') {
+      try { attempt.controller.abort(); } catch (error) {}
+    }
+  };
+
+  SeoGrowApp.prototype.disconnectWordPress = function () {
+    var base = this.wordpress && this.wordpress.base;
+    var saved = this.store && this.store.select(function (state) {
+      return state.settings && state.settings.connections && state.settings.connections.wordpress;
+    });
+    this.cancelWordPressImport();
+    this.wordpress = null;
+    this.wordpressPromise = null;
+    if (this.wordpressConnectionAttempt) {
+      this.wordpressConnectionAttempt.superseded = true;
+      if (this.wordpressConnectionAttempt.controller) {
+        try { this.wordpressConnectionAttempt.controller.abort(); } catch (error) {}
+      }
+    }
+    this.wordpressConnectionAttempt = null;
+    if (base || (saved && saved.base)) {
+      this.rememberWordPress({site: base || saved.base});
+      if (this.store) {
+        this.store.dispatch({
+          type: 'CONNECTION_UPDATED',
+          connection: 'wordpress',
+          value: {
+            base: base || saved.base,
+            status: 'disconnected',
+            lastDisconnectedAt: SeoGrowUtils.now(),
+            lastVerifiedAt: saved && saved.lastVerifiedAt ? saved.lastVerifiedAt : null
+          }
+        });
+      }
+    }
+  };
+
+  SeoGrowApp.prototype.connectWordPress = async function (credentials) {
+    if (!credentials) {
+      if (this.wordpress) return this.wordpress;
+      throw connectionRequiredError();
+    }
+    if (fileOrigin()) {
+      throw appError('Apri seoGrow da un URL HTTPS o da localhost prima di collegare WordPress. Il protocollo file:// non offre un’origine CORS affidabile.', 'WP_FILE_ORIGIN');
+    }
+
+    var normalized = normalizeCredentials(credentials);
+    if (this.wordpress && this.wordpress.fingerprint === normalized.fingerprint) {
+      return this.wordpress;
+    }
+
+    var active = this.wordpressConnectionAttempt;
+    if (active) {
+      if (active.fingerprint === normalized.fingerprint) return active.promise;
+      active.superseded = true;
+      if (active.controller && typeof active.controller.abort === 'function') {
+        try { active.controller.abort(); } catch (error) {}
+      }
+    }
+
+    if (this.wordpress && this.wordpress.fingerprint !== normalized.fingerprint) {
+      this.cancelWordPressImport();
+      this.wordpress = null;
+    }
+
+    var app = this;
+    var controller = typeof AbortController === 'function' ? new AbortController() : null;
+    var attempt = {
+      fingerprint: normalized.fingerprint,
+      controller: controller,
+      superseded: false,
+      promise: null
+    };
+
+    attempt.promise = (async function () {
+      var result;
+      try {
+        result = await wpRequest(normalized.base, '/wp-json/seogrow/v1/capabilities', {
+          method: 'GET',
+          headers: normalized.headers,
+          signal: controller ? controller.signal : undefined
+        });
+      } catch (error) {
+        if (attempt.superseded || (error && error.name === 'AbortError')) throw supersededError();
+        throw error;
+      }
+
+      if (attempt.superseded || app.wordpressConnectionAttempt !== attempt) throw supersededError();
+      if (!result.response.ok) throw apiError(result.response, result.payload, normalized.base);
+      if (!result.payload || typeof result.payload !== 'object') {
+        throw appError('Il connettore WordPress non ha restituito JSON valido.', 'WP_INVALID_RESPONSE');
+      }
+
+      var connection = {
+        id: SeoGrowUtils.id('wp_session'),
+        base: normalized.base,
+        headers: normalized.headers,
+        fingerprint: normalized.fingerprint,
+        connectedAt: SeoGrowUtils.now(),
+        capabilities: result.payload
+      };
+      if (attempt.superseded || app.wordpressConnectionAttempt !== attempt) throw supersededError();
+      app.wordpress = connection;
+      app.rememberWordPress({site: connection.base, username: normalized.username});
+      persistConnection(app, connection, 'last_verified');
+      return connection;
+    })();
+
+    this.wordpressConnectionAttempt = attempt;
+    this.wordpressPromise = attempt.promise;
+    try {
+      return await attempt.promise;
+    } finally {
+      if (this.wordpressConnectionAttempt === attempt) this.wordpressConnectionAttempt = null;
+      if (this.wordpressPromise === attempt.promise) this.wordpressPromise = null;
+    }
+  };
+
+  SeoGrowApp.prototype.importWordPressPages = async function (credentials) {
+    var app = this;
+    var connection;
+    if (hasCredentials(credentials)) {
+      connection = await this.connectWordPress(credentials);
+    } else {
+      if (!this.wordpress) throw connectionRequiredError();
+      var requestedSite = credentials && String(credentials.site || '').trim();
+      if (requestedSite && normalizeSite(requestedSite) !== this.wordpress.base) {
+        throw appError('Hai indicato un sito diverso: inserisci anche una chiave o una Password applicazione per sostituire la connessione.', 'WP_NEW_SITE_CREDENTIALS_REQUIRED');
+      }
+      connection = this.wordpress;
+    }
+
+    var active = this.wordpressImportAttempt;
+    if (active) {
+      if (active.connectionId === connection.id) return active.promise;
+      active.superseded = true;
+      if (active.controller && typeof active.controller.abort === 'function') {
+        try { active.controller.abort(); } catch (error) {}
+      }
+    }
+
+    var controller = typeof AbortController === 'function' ? new AbortController() : null;
+    var attempt = {connectionId: connection.id, controller: controller, superseded: false, promise: null};
+    attempt.promise = (async function () {
+      var all = [];
+      var perPage = 100;
+      var page = 1;
+      var total = Infinity;
+
+      while (all.length < total) {
+        var result;
+        try {
+          result = await wpRequest(connection.base, '/wp-json/seogrow/v1/pages?per_page=' + perPage + '&page=' + page, {
+            method: 'GET',
+            headers: connection.headers,
+            signal: controller ? controller.signal : undefined
+          });
+        } catch (error) {
+          if (attempt.superseded || (error && error.name === 'AbortError')) throw supersededError();
+          throw error;
+        }
+        if (attempt.superseded || app.wordpress !== connection || app.wordpressImportAttempt !== attempt) throw supersededError();
+        if (!result.response.ok) throw apiError(result.response, result.payload, connection.base);
+
+        var rows = Array.isArray(result.payload && result.payload.rows) ? result.payload.rows.map(function (row) {
+          return {
+            url: row.url,
+            title: row.title || '',
+            meta: row.metaDescription || '',
+            h1: row.h1 || '',
+            canonical: row.canonical || '',
+            indexability: row.indexability || 'unknown'
+          };
+        }) : [];
+        all.push.apply(all, rows);
+        total = Number(result.payload && result.payload.total || all.length);
+        if (!rows.length || rows.length < perPage) break;
+        page += 1;
+      }
+
+      if (attempt.superseded || app.wordpress !== connection || app.wordpressImportAttempt !== attempt) throw supersededError();
+      if (!all.length) throw appError('Il connettore non ha restituito pagine pubblicate.', 'WP_EMPTY_PAGES');
+
+      var projectId = app.store.select(function (state) { return state.activeProjectId; });
+      app.store.dispatch({
+        type: 'DATASET_IMPORTED',
+        dataset: {
+          id: SeoGrowUtils.id('dataset'),
+          projectId: projectId,
+          type: 'pages-onpage',
+          source: 'WORDPRESS_CONNECTOR',
+          importedAt: SeoGrowUtils.now(),
+          records: all.length,
+          invalid: 0,
+          data: all,
+          provenance: {pagesFetched: page, site: connection.base}
+        }
+      });
+      SeoGrowPages.analyze(projectId, all).forEach(function (finding) { app.findings.create(finding); });
+      return {records: all.length, pages: page};
+    })();
+
+    this.wordpressImportAttempt = attempt;
+    this.wordpressImportPromise = attempt.promise;
+    try {
+      return await attempt.promise;
+    } finally {
+      if (this.wordpressImportAttempt === attempt) this.wordpressImportAttempt = null;
+      if (this.wordpressImportPromise === attempt.promise) this.wordpressImportPromise = null;
+    }
+  };
+
+  SeoGrowApp.prototype.importDataForSeoCompetitors = async function () {
+    var connection = this.wordpress;
+    if (!connection) throw connectionRequiredError();
+
+    var projectId = this.store.select(function (state) { return state.activeProjectId; });
+    var project = this.store.select(function (state) { return state.projects.find(function (item) { return item.id === projectId; }); });
+    if (!project) throw appError('Seleziona un progetto prima di aggiornare i competitor.', 'PROJECT_REQUIRED');
+    if (!confirm('Verrà eseguita una chiamata DataForSEO Live per ' + project.domain + ', che può consumare credito API. Vuoi procedere?')) {
+      return {cancelled: true};
+    }
+
+    var result = await wpRequest(connection.base, '/wp-json/seogrow/v1/dataforseo/competitors', {
+      method: 'POST',
+      headers: Object.assign({}, connection.headers, {'Content-Type': 'application/json'}),
+      body: JSON.stringify({target: project.domain})
+    });
+    if (!result.response.ok) throw apiError(result.response, result.payload, connection.base);
+    var rows = Array.isArray(result.payload && result.payload.rows) ? result.payload.rows : [];
+    if (!rows.length) throw appError('DataForSEO non ha restituito competitor per questo dominio.', 'DATAFORSEO_EMPTY');
+    this.store.dispatch({
+      type: 'DATASET_IMPORTED',
+      dataset: {
+        id: SeoGrowUtils.id('dataset'),
+        projectId: projectId,
+        type: 'dataforseo-competitors',
+        source: 'DATAFORSEO',
+        importedAt: SeoGrowUtils.now(),
+        records: rows.length,
+        invalid: 0,
+        data: rows,
+        provenance: {
+          target: result.payload.target || project.domain,
+          retrievedAt: result.payload.retrievedAt || SeoGrowUtils.now(),
+          cost: result.payload.cost
+        }
+      }
+    });
+    return {records: rows.length, cost: result.payload.cost, retrievedAt: result.payload.retrievedAt};
+  };
+
+  var Csv = window.SeoGrowCsv = window.SeoGrowCsv || {};
+  Csv.detectSeparator = function (text) {
+    var source = String(text || '').replace(/^\uFEFF/, '');
+    var comma = 0;
+    var semicolon = 0;
+    var quoted = false;
+    for (var index = 0; index < source.length; index += 1) {
+      var character = source[index];
+      if (character === '"') {
+        if (quoted && source[index + 1] === '"') {
+          index += 1;
+        } else {
+          quoted = !quoted;
+        }
+      } else if (!quoted && (character === '\n' || character === '\r')) {
+        break;
+      } else if (!quoted && character === ',') {
+        comma += 1;
+      } else if (!quoted && character === ';') {
+        semicolon += 1;
+      }
+    }
+    return semicolon > comma ? ';' : ',';
+  };
+
+  Csv.parse = function (text) {
+    var source = String(text || '').replace(/^\uFEFF/, '');
+    if (!source.trim()) return {separator: ',', headers: [], rows: []};
+    var separator = Csv.detectSeparator(source);
+    var rows = [];
+    var row = [];
+    var value = '';
+    var quoted = false;
+
+    function pushRow() {
+      row.push(value.trim());
+      if (row.some(function (cell) { return cell !== ''; })) rows.push(row);
+      row = [];
+      value = '';
+    }
+
+    for (var index = 0; index < source.length; index += 1) {
+      var character = source[index];
+      if (quoted) {
+        if (character === '"') {
+          if (source[index + 1] === '"') {
+            value += '"';
+            index += 1;
+          } else {
+            quoted = false;
+          }
+        } else {
+          value += character;
+        }
+        continue;
+      }
+
+      if (character === '"') {
+        quoted = true;
+      } else if (character === separator) {
+        row.push(value.trim());
+        value = '';
+      } else if (character === '\n') {
+        pushRow();
+      } else if (character !== '\r') {
+        value += character;
+      }
+    }
+    if (quoted) throw appError('CSV non valido: una cella contiene virgolette non chiuse.', 'CSV_UNCLOSED_QUOTE');
+    if (row.length || value !== '') pushRow();
+    var headers = rows.shift() || [];
+    return {separator: separator, headers: headers, rows: rows};
+  };
+
+  SeoGrowTechnical.parseLinks = function (text) {
+    var cleaned = String(text || '').replace(/^\uFEFF/, '').trim();
+    if (!cleaned) return [];
+    if (cleaned.charAt(0) === '[') {
+      var json = JSON.parse(cleaned);
+      if (!Array.isArray(json)) throw appError('Il JSON deve contenere un array.', 'LINK_JSON_NOT_ARRAY');
+      return json.map(function (item) {
+        return {source: String(item.source || '').trim(), target: String(item.target || '').trim(), status: Number(item.status)};
+      });
+    }
+    var csv = Csv.parse(cleaned);
+    var headers = csv.headers.map(normalizeHeader);
+    var at = function (name) { return headers.indexOf(name); };
+    if ([at('source'), at('target'), at('status')].some(function (index) { return index < 0; })) {
+      throw appError('CSV non valido: servono le colonne source, target, status.', 'LINK_COLUMNS_REQUIRED');
+    }
+    return csv.rows.map(function (cells) {
+      return {
+        source: String(cells[at('source')] || '').trim(),
+        target: String(cells[at('target')] || '').trim(),
+        status: Number(cells[at('status')])
+      };
+    });
+  };
+
+  SeoGrowTechnical.isExplicitEmptyAudit = function (text) {
+    var cleaned = String(text || '').replace(/^\uFEFF/, '').trim();
+    if (!cleaned) return false;
+    if (cleaned.charAt(0) === '[') {
+      try { return Array.isArray(JSON.parse(cleaned)) && JSON.parse(cleaned).length === 0; } catch (error) { return false; }
+    }
+    try {
+      var csv = Csv.parse(cleaned);
+      var headers = csv.headers.map(normalizeHeader);
+      return csv.rows.length === 0 && ['source', 'target', 'status'].every(function (name) { return headers.indexOf(name) > -1; });
+    } catch (error) {
+      return false;
+    }
+  };
+
+  SeoGrowTechnical.analyzeBrokenLinks = function (projectId, records) {
+    return records.filter(function (record) { return [404, 410].indexOf(record.status) > -1; }).map(function (record) {
+      return {
+        projectId: projectId,
+        type: 'broken_internal_link',
+        title: 'Link interno rotto confermato',
+        description: record.source + ' punta a ' + record.target + ' e restituisce HTTP ' + record.status + '.',
+        severity: 'high',
+        impact: 'high',
+        confidence: 100,
+        source: 'IMPORTED',
+        affectedItems: [record.source, record.target],
+        evidence: [{type: 'http_status', source: 'IMPORTED', value: record.status, reliability: 'CONFIRMED', timestamp: SeoGrowUtils.now(), note: 'Origine: ' + record.source}],
+        signature: SeoGrowUtils.signature(projectId, 'broken_internal_link', record.source, record.target)
+      };
+    });
+  };
+
+  SeoGrowSearchConsole.parse = function (text) {
+    var csv = Csv.parse(text);
+    if (!csv.rows.length) throw appError('Il CSV Search Console non contiene record.', 'GSC_ROWS_REQUIRED');
+    var headers = csv.headers.map(normalizeHeader);
+    var at = function () {
+      var names = Array.prototype.slice.call(arguments);
+      return headers.findIndex(function (header) { return names.indexOf(header) > -1; });
+    };
+    var query = at('query', 'query principale');
+    var url = at('page', 'pagina', 'url');
+    var clicks = at('clicks', 'clic');
+    var impressions = at('impressions', 'impressioni');
+    var position = at('position', 'posizione');
+    if ([query, url, clicks, impressions, position].some(function (index) { return index < 0; })) {
+      throw appError('CSV non supportato: servono Query, Page, Clicks, Impressions e Position.', 'GSC_COLUMNS_REQUIRED');
+    }
+    return csv.rows.map(function (cells) {
+      return {
+        query: String(cells[query] || '').trim(),
+        url: String(cells[url] || '').trim(),
+        clicks: Number(String(cells[clicks] || '').replace(',', '.')),
+        impressions: Number(String(cells[impressions] || '').replace(',', '.')),
+        position: Number(String(cells[position] || '').replace(',', '.'))
+      };
+    }).filter(function (row) {
+      return row.query && SeoGrowUtils.safeUrl(row.url) && Number.isFinite(row.impressions);
+    });
+  };
+
+  SeoGrowCompetitors.parse = function (text) {
+    var csv = Csv.parse(text);
+    if (!csv.rows.length) throw appError('Il CSV competitor non contiene record.', 'COMPETITOR_ROWS_REQUIRED');
+    var headers = csv.headers.map(normalizeHeader);
+    var at = function () {
+      var names = Array.prototype.slice.call(arguments);
+      return headers.findIndex(function (header) { return names.indexOf(header) > -1; });
+    };
+    var keyword = at('keyword', 'query');
+    var domain = at('domain', 'dominio');
+    var position = at('position', 'posizione');
+    var url = at('url', 'page', 'pagina');
+    if ([keyword, domain, position].some(function (index) { return index < 0; })) {
+      throw appError('CSV non supportato: servono Keyword, Domain e Position.', 'COMPETITOR_COLUMNS_REQUIRED');
+    }
+    return csv.rows.map(function (cells) {
+      return {
+        keyword: String(cells[keyword] || '').trim(),
+        domain: String(cells[domain] || '').replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/.*$/, '').toLowerCase(),
+        position: Number(String(cells[position] || '').replace(',', '.')),
+        url: url < 0 ? '' : SeoGrowUtils.safeUrl(cells[url])
+      };
+    }).filter(function (row) {
+      return row.keyword && row.domain && Number.isFinite(row.position);
+    });
+  };
+
+  SeoGrowSearchConsoleBundle.kind = function (headers) {
+    var normalized = headers.map(normalizeHeader);
+    var has = function (names) { return normalized.some(function (header) { return names.indexOf(header) > -1; }); };
+    var metricCount = [
+      has(['clic', 'clicks']),
+      has(['impressioni', 'impressions']),
+      has(['ctr']),
+      has(['posizione', 'position'])
+    ].filter(Boolean).length;
+    var isGscShape = metricCount >= 3;
+    if (has(['query', 'query principale']) && isGscShape) return 'queries';
+    if (has(['pagine principali', 'pagine', 'top pages', 'page', 'pages', 'url']) && isGscShape) return 'pages';
+    if (has(['paese', 'country']) && isGscShape) return 'countries';
+    if (has(['dispositivo', 'device']) && isGscShape) return 'devices';
+    if (has(['aspetto nella ricerca', 'search appearance']) && isGscShape) return 'searchAppearance';
+    if (has(['filtra', 'filter']) && isGscShape) return 'filters';
+    if (has(['data', 'date']) && isGscShape) return 'chart';
+    return 'unknown';
+  };
+
+  SeoGrowPages.searchConsolePages = function (text) {
+    var csv = Csv.parse(text);
+    if (!csv.rows.length) return null;
+    var headers = csv.headers.map(normalizeHeader);
+    var at = function (names) {
+      return headers.findIndex(function (header) { return names.indexOf(header) > -1; });
+    };
+    var url = at(['pagine principali', 'pagine', 'top pages', 'page', 'pages', 'url']);
+    var clicks = at(['clic', 'clicks']);
+    var impressions = at(['impressioni', 'impressions']);
+    var position = at(['posizione', 'position']);
+    if ([url, clicks, impressions, position].some(function (index) { return index < 0; })) return null;
+    return csv.rows.map(function (cells) {
+      return {
+        url: SeoGrowUtils.safeUrl(cells[url]),
+        clicks: Number(String(cells[clicks] || '').replace(',', '.')),
+        impressions: Number(String(cells[impressions] || '').replace(',', '.')),
+        position: Number(String(cells[position] || '').replace(',', '.'))
+      };
+    }).filter(function (row) { return row.url && Number.isFinite(row.impressions); });
+  };
+
+  function brokenPair(finding) {
+    var items = Array.isArray(finding && finding.affectedItems) ? finding.affectedItems : [];
+    return [String(items[0] || '').trim(), String(items[1] || '').trim()];
+  }
+
+  function matchingFinding(findings, candidate) {
+    return findings.find(function (existing) {
+      if (candidate.signature && existing.signature === candidate.signature) return true;
+      if (candidate.type !== 'broken_internal_link' || existing.type !== 'broken_internal_link' || existing.projectId !== candidate.projectId) return false;
+      var oldPair = brokenPair(existing);
+      var newPair = brokenPair(candidate);
+      return oldPair[0] === newPair[0] && oldPair[1] === newPair[1];
+    });
+  }
+
+  function preserveFinding(existing, candidate) {
+    if (!existing) return candidate;
+    return Object.assign({}, existing, candidate, {
+      id: existing.id,
+      status: existing.status,
+      createdAt: existing.createdAt,
+      signature: existing.signature,
+      updatedAt: SeoGrowUtils.now()
+    });
+  }
+
+  var originalDispatch = SeoGrowCore.Store.prototype.dispatch;
+  SeoGrowCore.Store.prototype.dispatch = function (action) {
+    if (action && action.type === 'FINDING_UPSERTED' && action.finding) {
+      var existing = matchingFinding(this.state.findings || [], action.finding);
+      if (existing) {
+        action = Object.assign({}, action, {finding: preserveFinding(existing, action.finding)});
+      }
+    }
+    return originalDispatch.call(this, action);
+  };
+
+  SeoGrowServices.FindingService.prototype.create = function (candidate) {
+    var now = SeoGrowUtils.now();
+    var existing = matchingFinding(this.store.select(function (state) { return state.findings; }), candidate);
+    var finding = existing ? preserveFinding(existing, candidate) : {
+      id: SeoGrowUtils.id('finding'),
+      projectId: candidate.projectId,
+      type: candidate.type,
+      title: candidate.title,
+      description: candidate.description || '',
+      status: 'candidate',
+      severity: candidate.severity || 'medium',
+      impact: candidate.impact || 'medium',
+      confidence: Number(candidate.confidence || 0),
+      evidence: candidate.evidence || [],
+      affectedItems: candidate.affectedItems || [],
+      source: candidate.source || 'UNKNOWN',
+      signature: candidate.signature,
+      createdAt: now,
+      updatedAt: now
+    };
+    this.store.dispatch({type: 'FINDING_UPSERTED', finding: finding, projectId: finding.projectId});
+    var saved = this.store.select(function (state) {
+      return state.findings.find(function (item) { return item.id === finding.id; });
+    }) || finding;
+    this.bus.emit(existing ? 'finding:updated' : 'finding:created', saved);
+    return saved;
+  };
+
+  var proto = SeoGrowUI.App.prototype;
+  var legacyClick = proto.click;
+
+  function inputValue(id) {
+    var input = document.getElementById(id);
+    return input ? input.value : '';
+  }
+
+  function formCredentials(app) {
+    var values = {
+      site: inputValue('wpSite') || app.pendingWordPress().site,
+      token: inputValue('wpToken'),
+      username: inputValue('wpUsername') || app.pendingWordPress().username,
+      password: inputValue('wpPassword')
+    };
+    return hasCredentials(values) ? values : {site: values.site};
+  }
+
+  function connectionStatus(app, state) {
+    if (app.wordpress) {
+      return '<p class="status verified">WordPress attivo in questa sessione: ' + SeoGrowUtils.escapeHTML(app.wordpress.base) + '</p>';
+    }
+    var saved = state.settings && state.settings.connections && state.settings.connections.wordpress;
+    if (saved && saved.base) {
+      var when = saved.lastVerifiedAt ? ' Ultima verifica: ' + new Date(saved.lastVerifiedAt).toLocaleString('it-IT') + '.' : '';
+      return '<p class="status candidate">Nessuna sessione WordPress attiva.' + when + ' Ricollega il sito per importare nuovi dati.</p>';
+    }
+    return '<p><small>La chiave e la Password applicazione non vengono salvate nel backup.</small></p>';
+  }
+
+  proto.pages = function () {
+    var state = this.state();
+    var project = state.activeProjectId;
+    var datasets = state.datasets.filter(function (dataset) { return dataset.projectId === project; });
+    var latest = function (type) {
+      var list = datasets.filter(function (dataset) { return dataset.type === type; });
+      return list.length ? list[list.length - 1] : null;
+    };
+    var gsc = latest('search-console-pages');
+    var pages = latest('pages-onpage');
+    var draft = this.app.pendingWordPress();
+    var saved = state.settings && state.settings.connections && state.settings.connections.wordpress;
+    var defaultSite = draft.site || (this.app.wordpress && this.app.wordpress.base) || (saved && saved.base) || '';
+    var imports = (gsc ? '<p class="status verified">Search Console · Pagine: ' + gsc.records + ' URL salvati.</p>' : '') + (pages ? '<p class="status verified">On-page: ' + pages.records + ' URL salvati.</p>' : '');
+    var localWarning = fileOrigin() ? '<div class="notice error">Stai usando seoGrow come file locale. Per collegare WordPress apri l’app da HTTPS o localhost: file:// usa un’origine null e viene normalmente bloccata dal CORS.</div>' : '';
+    var action = this.app.wordpress ? 'Verifica/aggiorna e importa da WordPress' : 'Collega e importa da WordPress';
+    var disconnect = this.app.wordpress ? '<button data-action="wp-disconnect">Disconnetti</button>' : '';
+    return '<h1>Pagine e on-page</h1><p class="muted">Collega WordPress con un solo flusso controllato, oppure importa un crawl on-page. La connessione rimane attiva solo nella sessione corrente.</p>' +
+      localWarning +
+      '<section class="card"><h2>Importazione automatica WordPress</h2>' + connectionStatus(this.app, state) +
+      '<label for="wpSite">URL del sito WordPress</label><input id="wpSite" type="url" placeholder="https://tuosito.it" value="' + SeoGrowUtils.escapeHTML(defaultSite) + '">' +
+      '<label for="wpToken">Chiave seoGrow</label><input id="wpToken" type="password" autocomplete="off"><p><small>Metodo consigliato. L’header X-SeoGrow-Token richiede che il connettore autorizzi il CORS.</small></p>' +
+      '<details><summary>Usa invece Password applicazione WordPress</summary><label for="wpUsername">Utente WordPress</label><input id="wpUsername" autocomplete="username" value="' + SeoGrowUtils.escapeHTML(draft.username) + '">' +
+      '<label for="wpPassword">Password applicazione WordPress</label><input id="wpPassword" type="password" autocomplete="off"></details>' +
+      '<div class="actions"><button class="primary" data-action="wp-connect-import">' + action + '</button>' + disconnect + '</div></section>' +
+      '<section class="card"><h2>Importazione CSV</h2>' + imports +
+      '<label for="pagesFile">CSV pagine</label><input id="pagesFile" type="file" accept=".csv,text/csv"><p><small>Crawl on-page: URL, Title, Meta Description, H1, Canonical, Indexability. Search Console: Pagine principali, Clic, Impressioni, CTR, Posizione.</small></p><button data-action="import-pages">Importa e verifica</button></section>';
+  };
+
+  proto.competitors = function () {
+    var connected = Boolean(this.app.wordpress);
+    var connection = connected ? '<p class="status verified">WordPress attivo: ' + SeoGrowUtils.escapeHTML(this.app.wordpress.base) + '</p>' : '<p class="muted">Collega prima WordPress nella sezione Pagine e on-page; non verranno richieste credenziali nei popup del browser.</p>';
+    var automatic = connected ? '<button class="primary" data-action="dataforseo-import-competitors">Aggiorna competitor con DataForSEO</button>' : '<button class="primary" data-action="wp-open-connection">Collega WordPress</button>';
+    return '<h1>Competitor e keyword gap</h1><p class="muted">Scegli l’aggiornamento automatico per avere competitor organici reali, oppure importa un CSV per il keyword gap.</p><section class="card"><h2>Competitor automatici con DataForSEO</h2>' +
+      connection + '<p>Il connettore WordPress esegue la richiesta con le credenziali configurate sul sito. seoGrow non riceve né salva la chiave DataForSEO.</p><p><small>Una chiamata Live può consumare credito DataForSEO.</small></p>' + automatic +
+      '</section><section class="card"><h2>Keyword gap da CSV</h2><label for="competitorFile">CSV posizionamenti</label><input id="competitorFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Keyword, Domain, Position. Opzionale: URL.</small></p><button data-action="import-competitors">Importa e confronta</button></section>';
+  };
+
+  proto.click = async function (event) {
+    var element = event.target.closest('[data-action],[data-view]');
+    if (!element) return;
+    var action = element.dataset.action;
+    if (action === 'wp-open-connection' || action === 'wp-import-pages') {
+      this.view = 'pages';
+      this.notify('Inserisci l’URL e una chiave seoGrow o una Password applicazione per collegare WordPress.');
+      return;
+    }
+    if (action === 'wp-disconnect') {
+      this.app.disconnectWordPress();
+      this.notify('Connessione WordPress chiusa. Nessuna chiave è stata salvata.');
+      return;
+    }
+    if (action === 'wp-connect-import') {
+      if (element.disabled) return;
+      element.disabled = true;
+      element.textContent = 'Connessione in corso…';
+      try {
+        var credentials = formCredentials(this.app);
+        var imported = await this.app.importWordPressPages(credentials);
+        this.app.rememberWordPress({site: this.app.wordpress && this.app.wordpress.base, username: credentials.username});
+        var tokenInput = document.getElementById('wpToken');
+        var passwordInput = document.getElementById('wpPassword');
+        if (tokenInput) tokenInput.value = '';
+        if (passwordInput) passwordInput.value = '';
+        this.notify('Importate e salvate ' + imported.records + ' pagine da WordPress. I riscontri sono pronti per la revisione.');
+      } catch (error) {
+        if (!isSuperseded(error)) this.notify(error.message, 'error');
+      } finally {
+        if (element.isConnected) {
+          element.disabled = false;
+          element.textContent = 'Collega e importa da WordPress';
+        }
+      }
+      return;
+    }
+    if (action === 'dataforseo-import-competitors') {
+      if (element.disabled) return;
+      element.disabled = true;
+      try {
+        var result = await this.app.importDataForSeoCompetitors();
+        if (!result.cancelled) {
+          var cost = result.cost === null || typeof result.cost === 'undefined' ? '' : ' Costo riportato: $' + Number(result.cost).toFixed(4) + '.';
+          this.notify('Competitor aggiornati automaticamente: ' + result.records + ' domini salvati nel progetto.' + cost);
+        }
+      } catch (error) {
+        if (error && error.code === 'WP_CONNECTION_REQUIRED') this.view = 'pages';
+        if (!isSuperseded(error)) this.notify(error.message, 'error');
+      } finally {
+        if (element.isConnected) element.disabled = false;
+      }
+      return;
+    }
+    return legacyClick.call(this, event);
   };
 })();
 </script></body></html>
