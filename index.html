@@ -11,7 +11,7 @@ window.SeoGrowModules.contracts = {
   }
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
-SeoGrow.VERSION = '0.10.7'; SeoGrow.SCHEMA_VERSION = 3;
+SeoGrow.VERSION = '0.10.8'; SeoGrow.SCHEMA_VERSION = 3;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -89,5 +89,102 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
   proto.importPages=async function(){var result=await oldImportPages.call(this);await this.app.storage.save(this.app.store.getState());return result;};
   proto.pages=function(){var state=this.state(),project=state.activeProjectId,datasets=state.datasets.filter(function(dataset){return dataset.projectId===project;}),last=function(type){var list=datasets.filter(function(dataset){return dataset.type===type;});return list.length?list[list.length-1]:null;},gsc=last('search-console-pages'),pages=last('pages-onpage'),draft=this.app.pendingWordPress(),connection=this.app.wordpress||((state.settings.connections||{}).wordpress),connected=connection&&connection.base?'<p class="status verified">WordPress collegato: '+SeoGrowUtils.escapeHTML(connection.base)+'</p>':'<p><small>La chiave viene mantenuta solo nella sessione corrente e non entra nel backup.</small></p>',imports=(gsc?'<p class="status verified">Search Console · Pagine: '+gsc.records+' URL salvati · '+new Date(gsc.importedAt).toLocaleString('it-IT')+'</p>':'')+(pages?'<p class="status verified">On-page: '+pages.records+' URL salvati · '+new Date(pages.importedAt).toLocaleString('it-IT')+'</p>':'');return '<h1>Pagine e on-page</h1><p class="muted">Importa un crawl on-page o collegati a WordPress. Un CSV Search Console “Pagine principali” viene riconosciuto e salvato come dataset Search Console.</p><section class="card"><h2>Importazione automatica WordPress</h2>'+connected+'<label for="wpSite">URL del sito WordPress</label><input id="wpSite" type="url" placeholder="https://tuosito.it" value="'+SeoGrowUtils.escapeHTML(draft.site||(connection&&connection.base)||'')+'"><label for="wpToken">Chiave seoGrow</label><input id="wpToken" type="password" autocomplete="off" value="'+SeoGrowUtils.escapeHTML(draft.token||'')+'"><p><small>Nel plugin WordPress: Impostazioni → seoGrow Connector. È il metodo consigliato.</small></p><details><summary>Usa invece Password applicazione WordPress</summary><label for="wpUsername">Utente WordPress</label><input id="wpUsername" autocomplete="username" value="'+SeoGrowUtils.escapeHTML(draft.username||'')+'"><label for="wpPassword">Password applicazione WordPress</label><input id="wpPassword" type="password" autocomplete="off" value="'+SeoGrowUtils.escapeHTML(draft.password||'')+'"></details><button class="primary" data-action="wp-import-pages-form">Collega e importa da WordPress</button></section><section class="card"><h2>Importazione CSV</h2>'+imports+'<label for="pagesFile">CSV pagine</label><input id="pagesFile" type="file" accept=".csv,text/csv"><p><small>Crawl on-page: URL, Title, Meta Description, H1, Canonical, Indexability. Search Console: Pagine principali, Clic, Impressioni, CTR, Posizione.</small></p><button data-action="import-pages">Importa e verifica</button></section>';};
   proto.click=async function(event){var element=event.target.closest('[data-action]');if(element&&element.dataset.action==='wp-import-pages-form'){if(element.disabled)return;var draft=this.app.pendingWordPress(),field=function(id){var input=document.getElementById(id);return input?input.value:'';},credentials={site:field('wpSite')||draft.site,token:field('wpToken')||draft.token,username:field('wpUsername')||draft.username,password:field('wpPassword')||draft.password};this.app.rememberWordPress(credentials);element.disabled=true;element.textContent='Verifica connessione…';try{var result=await this.app.importWordPressPages(credentials);this.app.rememberWordPress({site:credentials.site,token:'',password:''});await this.app.storage.save(this.app.store.getState());this.notify('Importate e salvate '+result.records+' pagine da WordPress. I riscontri sono pronti per la revisione.');}catch(error){this.notify(error.message,'error');}finally{if(element.isConnected){element.disabled=false;element.textContent='Collega e importa da WordPress';}}return;}return oldClick.call(this,event);};
+})();
+</script><script>
+/* Crawl link interni: registra anche gli esiti senza errori 404/410. */
+(function(){
+  var proto=SeoGrowUI.App.prototype;
+  var previousFindings=proto.findings;
+  var previousSettings=proto.settings;
+
+  SeoGrowTechnical.isExplicitEmptyAudit=function(text){
+    var cleaned=String(text||'').replace(/^\uFEFF/,'').trim();
+    if(!cleaned)return false;
+    if(cleaned.charAt(0)==='['){
+      try{var json=JSON.parse(cleaned);return Array.isArray(json)&&json.length===0;}catch(error){return false;}
+    }
+    var lines=cleaned.split(/\r?\n/).filter(function(line){return line.trim()!=='';});
+    if(lines.length!==1)return false;
+    var separator=lines[0].indexOf(';')>-1?';':',';
+    var headers=lines[0].split(separator).map(function(header){return header.trim().toLowerCase();});
+    return ['source','target','status'].every(function(name){return headers.indexOf(name)>-1;});
+  };
+
+  proto.importLinks=async function(){
+    var file=document.getElementById('linkFile')&&document.getElementById('linkFile').files[0];
+    if(!file)throw Error('Seleziona un CSV o JSON');
+
+    var text=await file.text();
+    var records=SeoGrowTechnical.parseLinks(text);
+    var result=SeoGrowTechnical.validateLinks(records);
+    var emptyAudit=SeoGrowTechnical.isExplicitEmptyAudit(text);
+    if(!result.valid.length&&!emptyAudit){
+      throw Error(result.invalid.length?'Nessun record link valido: controlla URL e codici HTTP.':'Il file non contiene un crawl valido. Per registrare un controllo senza errori usa il CSV con le sole intestazioni source,target,status oppure un JSON [].');
+    }
+
+    var project=this.app.store.select(function(state){return state.activeProjectId;});
+    var findings=SeoGrowTechnical.analyzeBrokenLinks(project,result.valid);
+    var auditStatus=findings.length?'broken_links_found':'no_broken_links';
+    var source=/\.json$/i.test(file.name)?'JSON':'CSV';
+    this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{
+      id:SeoGrowUtils.id('dataset'),
+      projectId:project,
+      type:'internal-links',
+      source:source,
+      importedAt:SeoGrowUtils.now(),
+      records:result.valid.length,
+      invalid:result.invalid.length,
+      data:result.valid,
+      provenance:{
+        fileName:file.name,
+        auditStatus:auditStatus,
+        checkedLinks:result.valid.length,
+        confirmedBrokenLinks:findings.length,
+        emptyAudit:emptyAudit,
+        auditedAt:SeoGrowUtils.now()
+      }
+    }});
+    findings.forEach(this.app.findings.create.bind(this.app.findings));
+
+    if(auditStatus==='no_broken_links'){
+      var checked=result.valid.length?' su '+result.valid.length+' link importati':'';
+      var ignored=result.invalid.length?' '+result.invalid.length+' righe non valide ignorate.':'';
+      this.notify('Crawl registrato: nessun link interno rotto (HTTP 404/410) trovato'+checked+'.'+ignored);
+      return;
+    }
+    this.notify('Crawl registrato: '+findings.length+' link interni rotti confermati. '+result.invalid.length+' righe non valide ignorate.');
+  };
+
+  proto.technical=function(){
+    return '<h1>Verifica link interni</h1><p class="muted">Importa CSV/JSON con <code>source,target,status</code>. Vengono creati riscontri solo per HTTP 404/410 confermati.</p><section class="card"><label for="linkFile">File CSV o JSON</label><input id="linkFile" type="file" accept=".csv,.json,application/json,text/csv"><p><small>Se il crawl non trova errori, puoi importare un CSV con le sole intestazioni <code>source,target,status</code> oppure un JSON <code>[]</code>: seoGrow registrerà il controllo come completato.</small></p><button class="primary" data-action="import-links">Importa e analizza</button></section>';
+  };
+
+  proto.findings=function(){
+    var state=this.state();
+    var project=state.activeProjectId;
+    var rows=state.findings.filter(function(finding){return finding.projectId===project;});
+    var latestAudit=state.datasets.filter(function(dataset){return dataset.projectId===project&&dataset.type==='internal-links';}).slice(-1)[0];
+    if(!rows.length&&latestAudit&&latestAudit.provenance&&latestAudit.provenance.auditStatus==='no_broken_links'){
+      var links=Number(latestAudit.provenance.checkedLinks||0);
+      return '<h1>Riscontri</h1><section class="card"><div class="empty"><b>Nessun link rotto trovato.</b><p>Il crawl di link interni del '+new Date(latestAudit.importedAt).toLocaleString('it-IT')+(links?' ha controllato '+links+' link importati':' non contiene link con HTTP 404/410')+'.</p></div></section>';
+    }
+    return previousFindings.call(this);
+  };
+
+  proto.settings=function(){
+    var base=previousSettings.call(this);
+    var state=this.state();
+    var project=state.activeProjectId;
+    var audit=state.datasets.filter(function(dataset){return dataset.projectId===project&&dataset.type==='internal-links';}).slice(-1)[0];
+    if(!audit||!audit.provenance||!audit.provenance.auditStatus)return base;
+
+    var provenance=audit.provenance;
+    var passed=provenance.auditStatus==='no_broken_links';
+    var title=passed?'Nessun link rotto trovato':'Link rotti confermati';
+    var detail=passed?'Crawl completato senza errori HTTP 404/410.':'Sono stati rilevati '+Number(provenance.confirmedBrokenLinks||0)+' link interni rotti con HTTP 404/410.';
+    var checked=Number(provenance.checkedLinks||0);
+    var checkedLabel=checked?checked+' link importati':'Crawl senza righe di dettaglio';
+    return base+'<section class="card"><h2>Ultimo crawl link interni</h2><p class="status '+(passed?'verified':'candidate')+'">'+title+'</p><p>'+detail+'</p><p class="muted">'+checkedLabel+' · '+new Date(audit.importedAt).toLocaleString('it-IT')+'</p></section>';
+  };
 })();
 </script></body></html>
