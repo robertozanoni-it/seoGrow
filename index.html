@@ -1435,8 +1435,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
   if (!window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowActionPlan) return;
   window.SeoGrowActionPlan = true;
-  SeoGrow.VERSION = '0.10.13';
-  document.title = 'seoGrow 0.10.13';
+  SeoGrow.VERSION = '0.10.14';
+  document.title = 'seoGrow 0.10.14';
 
   function escapeHtml(value) {
     return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
@@ -1617,6 +1617,93 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return '<section class="card action-plan-card"><h2>Piano d’azione prioritario</h2><p class="muted">Ordine calcolato da gravità, impatto, confidenza e stato operativo. Il piano non sostituisce la verifica: ogni voce mantiene la sua evidenza.</p><div class="action-plan-list">' + shown + '</div><div class="actions"><button class="primary" data-view="findings">Apri tutti i riscontri</button><button data-view="tasks">Apri attività</button></div></section>';
   }
 
+  function dashboardProviderInfo(app, state) {
+    var connections = state.settings && state.settings.connections ? state.settings.connections : {};
+    var saved = connections.wordpress || {};
+    var live = app && app.wordpress ? app.wordpress : null;
+    var liveCapabilities = live && live.capabilities && typeof live.capabilities === 'object' ? live.capabilities : {};
+    var savedCapabilities = saved && saved.capabilities && typeof saved.capabilities === 'object' ? saved.capabilities : {};
+    var capabilities = live ? liveCapabilities : savedCapabilities;
+    var base = live && live.base ? live.base : (saved.base || '');
+    var configured = typeof capabilities.dataforseoConfigured === 'boolean' ? capabilities.dataforseoConfigured : null;
+    var credentialsSaved = typeof capabilities.dataforseoCredentialsSaved === 'boolean' ? capabilities.dataforseoCredentialsSaved : null;
+    return {
+      live: Boolean(live && live.base),
+      base: String(base || ''),
+      configured: configured,
+      credentialsSaved: credentialsSaved,
+      version: capabilities.version ? String(capabilities.version) : '',
+      verifiedAt: live && live.lastCapabilitiesAt ? live.lastCapabilitiesAt : (saved.lastVerifiedAt || saved.connectedAt || ''),
+      settingsUrl: capabilities.connectorSettingsUrl || (base ? String(base).replace(/\/+$/, '') + '/wp-admin/options-general.php?page=seogrow-connector' : ''),
+      apiAccessUrl: capabilities.dataforseoApiAccessUrl || 'https://app.dataforseo.com/api-access'
+    };
+  }
+
+  function dateLabel(value) {
+    try {
+      return value ? new Date(value).toLocaleString('it-IT') : '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function dashboardLink(url, label) {
+    var href = safeHttpUrl(url);
+    if (!href) return '';
+    return '<a class="dashboard-action-link" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>';
+  }
+
+  function dashboardProviderCard(app, state) {
+    var info = dashboardProviderInfo(app, state);
+    var wordpressState = info.live ? '<p class="status verified">Collegamento WordPress attivo</p><p class="muted">' + escapeHtml(info.base) + '</p>' : info.base ? '<p class="status candidate">Sessione WordPress non attiva</p><p class="muted">Ultimo sito collegato: ' + escapeHtml(info.base) + '. Ricollega il sito per una verifica in tempo reale.</p>' : '<p class="status candidate">WordPress non collegato</p><p class="muted">Collega il sito nella sezione Pagine e on-page.</p>';
+    var dataForSeoState = '';
+    if (info.live && info.configured === true) {
+      dataForSeoState = '<p class="status verified">DataForSEO configurato nel plugin</p><p class="muted">Le credenziali restano nel connettore WordPress e non vengono salvate nel browser.</p>';
+    } else if (!info.live && info.configured === true) {
+      dataForSeoState = '<p class="status candidate">DataForSEO risultava configurato</p><p class="muted">Questo è l’ultimo stato noto: ricollega WordPress per confermarlo ora.</p>';
+    } else if (info.credentialsSaved === true) {
+      dataForSeoState = '<p class="status candidate">Credenziali da verificare</p><p class="muted">Sono salvate nel plugin, ma serve il controllo gratuito per confermarne l’uso.</p>';
+    } else if (info.live) {
+      dataForSeoState = '<p class="status candidate">DataForSEO non configurato</p><p class="muted">Inserisci Login API e Password API nelle impostazioni del connettore, poi esegui la verifica gratuita.</p>';
+    } else {
+      dataForSeoState = '<p class="status unknown">Stato DataForSEO da verificare</p><p class="muted">Collega WordPress per leggere lo stato attuale dal plugin.</p>';
+    }
+    var action = info.live ? '<button class="primary" data-action="refresh-dataforseo-status">Verifica collegamento e DataForSEO</button>' : '<button class="primary" data-view="pages">Collega WordPress</button>';
+    var verified = dateLabel(info.verifiedAt);
+    var detail = verified ? '<p class="muted"><small>Ultimo controllo: ' + escapeHtml(verified) + (info.version ? ' · RZ seoGrow Connector v' + escapeHtml(info.version) : '') + '.</small></p>' : (info.version ? '<p class="muted"><small>RZ seoGrow Connector v' + escapeHtml(info.version) + '.</small></p>' : '');
+    return '<section class="card dashboard-provider-card"><h2>Collegamento WordPress e DataForSEO</h2><p class="muted">Verifica da qui che la sessione sia attiva e che il plugin confermi DataForSEO prima di aggiornare i competitor.</p><div class="dashboard-provider-grid"><div><h3>WordPress</h3>' + wordpressState + '</div><div><h3>DataForSEO</h3>' + dataForSeoState + '</div></div><div class="actions">' + action + dashboardLink(info.settingsUrl, 'Apri impostazioni connettore') + dashboardLink(info.apiAccessUrl, 'Apri API Access DataForSEO') + '</div>' + detail + '</section>';
+  }
+
+  function dashboardCompetitorCard(state, projectId) {
+    var dataset = latestCompetitorDataset(state, projectId);
+    if (!dataset) {
+      return '<section class="card dashboard-competitor-card"><h2>Competitor</h2><p class="muted">Non hai ancora un elenco competitor DataForSEO per questo progetto. L’aggiornamento è opzionale e può consumare credito API.</p><div class="actions"><button class="primary" data-view="competitors">Apri competitor e keyword gap</button></div></section>';
+    }
+    var list = dataset.data.slice().sort(function (left, right) {
+      return Number(right.intersections || right.intersection || 0) - Number(left.intersections || left.intersection || 0);
+    }).slice(0, 5);
+    var rows = list.map(function (item) {
+      var domain = String(item.domain || item.target || item.url || 'Dominio non disponibile');
+      var domainUrl = safeHttpUrl(domain) || safeHttpUrl('https://' + domain.replace(/^https?:\/\//i, ''));
+      var domainLabel = escapeHtml(domain.replace(/^https?:\/\//i, '').replace(/\/$/, ''));
+      var domainCell = domainUrl ? '<a href="' + escapeHtml(domainUrl) + '" target="_blank" rel="noopener noreferrer">' + domainLabel + '</a>' : domainLabel;
+      var shared = formatNumber(item.intersections || item.intersection);
+      var position = formatNumber(item.avgPosition || item.avg_position || item.average_position || item.position, 1);
+      return '<li><span>' + domainCell + '</span><span><strong>' + shared + '</strong> keyword condivise · pos. media ' + position + '</span></li>';
+    }).join('');
+    var imported = dateLabel(dataset.importedAt) || 'data non disponibile';
+    return '<section class="card dashboard-competitor-card"><h2>Competitor</h2><p class="muted">Ultimo import DataForSEO: ' + escapeHtml(imported) + '. Mostrati i primi ' + list.length + ' di ' + dataset.data.length + ' domini.</p><ul class="dashboard-competitor-list">' + rows + '</ul><div class="actions"><button class="primary" data-view="competitors">Vedi elenco completo</button></div></section>';
+  }
+
+  function dashboardMetrics(state, projectId) {
+    var datasets = state.datasets.filter(function (item) { return item.projectId === projectId; });
+    var findings = state.findings.filter(function (item) { return item.projectId === projectId; });
+    var tasks = state.tasks.filter(function (item) { return item.projectId === projectId; });
+    var openTasks = tasks.filter(function (item) { return ['verified', 'archived', 'obsolete'].indexOf(item.status) === -1; });
+    var verifiedTasks = tasks.filter(function (item) { return item.status === 'verified'; });
+    return '<section class="metrics"><div><b>' + datasets.length + '</b><span>Dataset</span></div><div><b>' + findings.length + '</b><span>Riscontri</span></div><div><b>' + openTasks.length + '</b><span>Attività aperte</span></div><div><b>' + verifiedTasks.length + '</b><span>Verificate</span></div></section>';
+  }
+
   function installStyle() {
     if (document.getElementById('seogrow-action-plan-style')) return;
     var style = document.createElement('style');
@@ -1633,7 +1720,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       '.finding-evidence{margin-top:.75rem;padding:.65rem .8rem;border-radius:.55rem;background:#f7f9f7}.finding-evidence summary{cursor:pointer;font-weight:650}.finding-evidence ul{margin:.5rem 0 0;padding-left:1.15rem}',
       '.finding-next{margin-top:.7rem;padding:.6rem .75rem;border-left:3px solid #287a54;background:#f3faf5}.finding-task{margin-top:.6rem}',
       '.competitor-list-card{margin:1rem 0}.competitor-table-wrap{overflow:auto}.competitor-table{width:100%;border-collapse:collapse;min-width:700px}.competitor-table th,.competitor-table td{padding:.7rem;text-align:left;border-bottom:1px solid var(--line,#e5e7eb);vertical-align:top}.competitor-table th{white-space:nowrap;color:var(--muted,#637267);font-size:.88rem}.competitor-table a{overflow-wrap:anywhere}',
-      '@media (max-width:720px){.action-plan-item{grid-template-columns:2rem minmax(0,1fr)}.action-plan-item .actions{grid-column:2}.finding-row{grid-template-columns:1fr}.finding-actions{text-align:left}}'
+      '.dashboard-provider-card{margin-top:1rem}.dashboard-provider-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin:1rem 0}.dashboard-provider-grid>div{padding:.9rem;border:1px solid var(--line,#e5e7eb);border-radius:.65rem;background:#fbfcfb}.dashboard-provider-grid h3{margin:0 0 .45rem;font-size:1rem}.dashboard-provider-grid p{margin:.35rem 0}.dashboard-competitor-card{margin-top:1rem}.dashboard-competitor-list{list-style:none;margin:1rem 0;padding:0;display:grid;gap:.55rem}.dashboard-competitor-list li{display:flex;justify-content:space-between;gap:1rem;padding:.65rem .75rem;border:1px solid var(--line,#e5e7eb);border-radius:.55rem;background:#fbfcfb}.dashboard-competitor-list li span:last-child{color:var(--muted,#637267);text-align:right}.dashboard-competitor-list a{overflow-wrap:anywhere}',
+      '@media (max-width:720px){.action-plan-item{grid-template-columns:2rem minmax(0,1fr)}.action-plan-item .actions{grid-column:2}.finding-row{grid-template-columns:1fr}.finding-actions{text-align:left}.dashboard-provider-grid{grid-template-columns:1fr}.dashboard-competitor-list li{display:block}.dashboard-competitor-list li span:last-child{display:block;margin-top:.25rem;text-align:left}}'
     ].join('');
     document.head.appendChild(style);
   }
@@ -1645,8 +1733,9 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
   proto.dashboard = function () {
     installStyle();
-    var output = previousDashboard.call(this);
-    return output.replace('<section class="metrics">', actionPlan(this.state(), this.state().activeProjectId) + '<section class="metrics">');
+    var state = this.state();
+    var projectId = state.activeProjectId;
+    return '<section class="hero"><h1>Dati SEO verificabili, decisioni controllate</h1><p>Controlla la connessione, consulta i competitor già importati e lavora sulle priorità basate su evidenze reali.</p><div class="actions"><button class="primary" data-view="pages">Importa pagine</button><button data-view="technical">Verifica link interni</button><button data-view="competitors">Competitor e DataForSEO</button></div></section>' + dashboardProviderCard(this.app, state) + dashboardCompetitorCard(state, projectId) + actionPlan(state, projectId) + dashboardMetrics(state, projectId);
   };
 
   proto.competitors = function () {
