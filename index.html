@@ -1247,4 +1247,181 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       '<section class="card"><h2>Keyword gap da CSV</h2><label for="competitorFile">CSV posizionamenti</label><input id="competitorFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Keyword, Domain, Position. Opzionale: URL.</small></p><button data-action="import-competitors">Importa e confronta</button></section>';
   };
 })();
+</script>
+<script>
+/* seoGrow 0.10.12 — refresh esplicito dello stato DataForSEO. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrowApp || !window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowDataForSeoRefresh) return;
+  window.SeoGrowDataForSeoRefresh = true;
+  SeoGrow.VERSION = '0.10.12';
+  document.title = 'seoGrow 0.10.12';
+
+  function escapeHtml(value) {
+    return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
+  }
+
+  function safeHttpUrl(value) {
+    try {
+      var url = new URL(String(value || ''), window.location.href);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+      return url.href;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function externalLink(url, label, primary) {
+    var href = safeHttpUrl(url);
+    if (!href) return '';
+    return '<a class="dashboard-action-link' + (primary ? ' primary' : '') + '" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>';
+  }
+
+  function providerInfo(app, state) {
+    var saved = state.settings && state.settings.connections && state.settings.connections.wordpress;
+    var live = app.wordpress || null;
+    var capabilities = live && live.capabilities && typeof live.capabilities === 'object' ? live.capabilities : {};
+    var base = live && live.base ? live.base : (saved && saved.base ? saved.base : '');
+    return {
+      live: Boolean(live),
+      base: base,
+      version: capabilities.version ? String(capabilities.version) : '',
+      configured: typeof capabilities.dataforseoConfigured === 'boolean' ? capabilities.dataforseoConfigured : null,
+      credentialsSaved: typeof capabilities.dataforseoCredentialsSaved === 'boolean' ? capabilities.dataforseoCredentialsSaved : null,
+      settingsUrl: capabilities.connectorSettingsUrl || (base ? String(base).replace(/\/+$/, '') + '/wp-admin/options-general.php?page=seogrow-connector' : ''),
+      apiAccessUrl: capabilities.dataforseoApiAccessUrl || 'https://app.dataforseo.com/api-access'
+    };
+  }
+
+  function ensureStyle() {
+    if (document.getElementById('seogrow-dataforseo-refresh-style')) return;
+    var style = document.createElement('style');
+    style.id = 'seogrow-dataforseo-refresh-style';
+    style.textContent = '.dataforseo-status-card{border-left:4px solid #5bd28e}.dataforseo-status-card .actions{align-items:center}.dataforseo-status-card .connector-version{margin-top:10px}';
+    document.head.appendChild(style);
+  }
+
+  function statusCard(app, state) {
+    var info = providerInfo(app, state);
+    var settings = externalLink(info.settingsUrl, 'Apri impostazioni RZ seoGrow Connector', false);
+    var access = externalLink(info.apiAccessUrl, 'Apri DataForSEO → API Access', false);
+    var version = info.version ? '<p class="muted connector-version"><small>Connettore rilevato: RZ seoGrow Connector v' + escapeHtml(info.version) + '.</small></p>' : '';
+
+    if (!info.live) {
+      return '<section class="card dataforseo-status-card"><h2>Stato DataForSEO</h2><p class="status candidate">Sessione WordPress non attiva</p><p>Ricollega WordPress per leggere lo stato attuale del plugin. La verifica delle credenziali avviene solo nella pagina impostazioni WordPress, mai nel browser.</p><div class="actions"><button class="primary" data-view="pages">Ricollega WordPress</button>' + settings + access + '</div></section>';
+    }
+
+    if (info.configured === true) {
+      return '<section class="card dataforseo-status-card"><h2>Stato DataForSEO</h2><p class="status candidate">Credenziali salvate nel connettore</p><p>Apri le impostazioni WordPress e usa “Salva e verifica credenziali (gratis)” per confermarle prima di una ricerca competitor.</p><div class="actions"><button class="primary" data-action="refresh-dataforseo-status">Aggiorna stato dal plugin</button>' + settings + '</div>' + version + '</section>';
+    }
+
+    if (info.credentialsSaved === true) {
+      return '<section class="card dataforseo-status-card"><h2>Stato DataForSEO</h2><p class="status candidate">Credenziali salvate ma non leggibili dal connettore</p><p>Reinserisci Login API e Password API nelle impostazioni WordPress, poi scegli “Salva e verifica credenziali (gratis)”. Questo può accadere dopo un cambio di password o di configurazione del server.</p><div class="actions"><button class="primary" data-action="refresh-dataforseo-status">Aggiorna stato dal plugin</button>' + settings + access + '</div>' + version + '</section>';
+    }
+
+    return '<section class="card dataforseo-status-card"><h2>Stato DataForSEO</h2><p class="status candidate">DataForSEO non risulta configurato</p><p>Lo stato è letto dal connettore in tempo reale. Dopo aver salvato le credenziali in WordPress, premi qui “Aggiorna stato dal plugin”.</p><div class="actions"><button class="primary" data-action="refresh-dataforseo-status">Aggiorna stato dal plugin</button>' + settings + access + '</div>' + version + '</section>';
+  }
+
+  SeoGrowApp.prototype.refreshWordPressCapabilities = async function () {
+    var app = this;
+    var connection = this.wordpress;
+    if (!connection || !connection.base) throw new Error('Collega prima WordPress nella sezione Pagine e on-page.');
+    if (this.wordpressCapabilitiesPromise) return this.wordpressCapabilitiesPromise;
+
+    var separator = connection.base.indexOf('?') === -1 ? '?' : '&';
+    var url = connection.base + '/wp-json/seogrow/v1/capabilities' + separator + 'seogrow_status=' + Date.now();
+    var request = (async function () {
+      var response;
+      try {
+        response = await fetch(url, {
+          method: 'GET',
+          headers: Object.assign({}, connection.headers || {}, {Accept: 'application/json'}),
+          mode: 'cors',
+          credentials: 'omit'
+        });
+      } catch (error) {
+        throw new Error('Non riesco ad aggiornare lo stato dal plugin WordPress. Verifica la connessione CORS e riprova.');
+      }
+
+      var raw = await response.text();
+      var payload = null;
+      try { payload = raw ? JSON.parse(raw) : null; } catch (error) {}
+      if (!response.ok) throw new Error((payload && payload.message) || 'Il connettore WordPress ha restituito HTTP ' + response.status + '.');
+      if (!payload || typeof payload !== 'object') throw new Error('Il connettore WordPress non ha restituito uno stato valido.');
+      if (app.wordpress !== connection) throw new Error('La connessione WordPress è cambiata: aggiorna di nuovo lo stato.');
+
+      connection.capabilities = payload;
+      connection.lastCapabilitiesAt = SeoGrowUtils.now();
+      app.store.dispatch({
+        type: 'CONNECTION_UPDATED',
+        connection: 'wordpress',
+        value: {
+          base: connection.base,
+          status: 'last_verified',
+          lastVerifiedAt: connection.lastCapabilitiesAt,
+          capabilities: {
+            version: payload.version,
+            dataforseoConfigured: payload.dataforseoConfigured,
+            dataforseoCredentialsSaved: payload.dataforseoCredentialsSaved
+          }
+        }
+      });
+      return payload;
+    })();
+
+    this.wordpressCapabilitiesPromise = request;
+    try {
+      return await request;
+    } finally {
+      if (this.wordpressCapabilitiesPromise === request) this.wordpressCapabilitiesPromise = null;
+    }
+  };
+
+  var proto = SeoGrowUI.App.prototype;
+  var previousClick = proto.click;
+  var previousDashboard = proto.dashboard;
+  var previousCompetitors = proto.competitors;
+
+  proto.dashboard = function () {
+    ensureStyle();
+    var output = previousDashboard.call(this);
+    return output.replace('<section class="metrics">', statusCard(this.app, this.state()) + '<section class="metrics">');
+  };
+
+  proto.competitors = function () {
+    ensureStyle();
+    var output = previousCompetitors.call(this);
+    return output.replace('<section class="card"><h2>Keyword gap da CSV</h2>', statusCard(this.app, this.state()) + '<section class="card"><h2>Keyword gap da CSV</h2>');
+  };
+
+  proto.click = async function (event) {
+    var element = event.target.closest('[data-action],[data-view]');
+    if (element && element.dataset.action === 'refresh-dataforseo-status') {
+      if (element.disabled) return;
+      element.disabled = true;
+      var originalText = element.textContent;
+      element.textContent = 'Aggiornamento in corso…';
+      try {
+        var capabilities = await this.app.refreshWordPressCapabilities();
+        if (capabilities.dataforseoConfigured === true) {
+          this.notify('Stato aggiornato: le credenziali DataForSEO sono salvate nel connettore. Apri le impostazioni WordPress per eseguire il controllo gratuito.');
+        } else if (capabilities.dataforseoCredentialsSaved === true) {
+          this.notify('Stato aggiornato: reinserisci e verifica la password API nelle impostazioni WordPress.', 'error');
+        } else {
+          this.notify('Stato aggiornato: DataForSEO non risulta ancora configurato nel connettore WordPress.', 'error');
+        }
+      } catch (error) {
+        this.notify(error.message, 'error');
+      } finally {
+        if (element.isConnected) {
+          element.disabled = false;
+          element.textContent = originalText;
+        }
+      }
+      return;
+    }
+    return previousClick.call(this, event);
+  };
+})();
 </script></body></html>
