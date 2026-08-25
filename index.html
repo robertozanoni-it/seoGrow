@@ -1,4 +1,4 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.18</title>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.19</title>
 <style>:root{--bg:#f5f7f6;--surface:#fff;--text:#162019;--muted:#617066;--line:#dce4de;--green:#146c43;--dark:#102017;--danger:#a13232;--warning:#8a5a00;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,select,input{font:inherit}button{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 12px;cursor:pointer}button:hover{border-color:#91a99b}.primary{background:var(--green);border-color:var(--green);color:#fff}header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:3}header small{color:var(--muted);font-weight:500}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 64px)}aside{background:var(--dark);padding:20px 12px}.brand{color:#fff;padding:0 10px 20px}.brand span{display:block;color:#aebbb2;font-size:12px}.nav{width:100%;text-align:left;border:0;background:transparent;color:#b7c4ba;margin:2px 0}.nav.active,.nav:hover{background:#1f3728;color:#fff;box-shadow:inset 3px 0 #5bd28e}main{padding:28px;max-width:1300px}.hero,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px}.hero{background:linear-gradient(135deg,#fff,#eef8f1)}h1{font-size:30px;line-height:1.15;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted,small{color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metrics div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px}.metrics b{display:block;font-size:28px}.metrics span{color:var(--muted)}.row{display:grid;grid-template-columns:minmax(0,1fr) 150px 180px;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:15px 0}.row:last-child{border-bottom:0}.row p{margin:4px 0}.status{font-size:12px;font-weight:700;text-transform:capitalize;padding:5px 8px;border-radius:99px;background:#eef0ef;display:inline-block}.status.candidate,.status.todo,.status.pending_approval,.status.verification_pending{background:#fff2d8;color:var(--warning)}.status.validated,.status.approved,.status.executing,.status.completed,.status.verified,.status.resolved,.status.task_created{background:#e6f5eb;color:var(--green)}.status.excluded,.status.obsolete,.status.archived{background:#f2eded;color:#795252}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:22px;background:#f7faf8;border-radius:10px;color:var(--muted)}.notice{margin-bottom:16px;border-radius:10px;padding:11px 14px;background:#e6f5eb;color:var(--green);border:1px solid #c5e4d0}.notice.error{background:#fbeeee;color:var(--danger);border-color:#efcccc}label{font-weight:700;display:block;margin-bottom:8px}input[type=file],input[type=url],input[type=password],input:not([type]){display:block;width:min(560px,100%);max-width:100%;margin-bottom:14px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}@media(max-width:850px){header{padding:0 12px}.shell{grid-template-columns:1fr}aside{display:flex;overflow:auto;padding:10px;gap:4px}.brand{display:none}.nav{width:auto;white-space:nowrap}.metrics{grid-template-columns:1fr 1fr}main{padding:16px}.row{grid-template-columns:1fr;gap:8px}}@media(max-width:420px){.metrics{grid-template-columns:1fr}h1{font-size:26px}}
 .progress{height:9px;border-radius:99px;background:#dfe8e2;margin:18px 0 6px;overflow:hidden}.progress span{display:block;height:100%;background:var(--green);border-radius:99px}.wizard-list{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px}.wizard-step{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;border-bottom:1px solid var(--line)}.wizard-step:last-child{border-bottom:0}.wizard-step p{margin:4px 0 0;color:var(--muted)}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eef1ef;font-weight:800;color:var(--muted)}.wizard-step.complete .step-number{background:#e6f5eb;color:var(--green)}@media(max-width:560px){.wizard-step{grid-template-columns:34px 1fr}.wizard-step>div:last-child{grid-column:2}.wizard-step button{width:100%}}
 .dataset-summary{margin:0;padding-left:20px}.dataset-summary li{margin:7px 0;color:var(--muted)}.dataset-summary b{color:var(--text)}.dataset-list{display:grid;gap:10px}.dataset-row{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.dataset-row p{margin:3px 0}.dataset-row details{min-width:180px}.dataset-row summary{cursor:pointer;font-weight:700}.dataset-row pre{max-width:420px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f7faf8;padding:10px;border-radius:8px;font-size:12px}@media(max-width:700px){.dataset-row{display:block}.dataset-row details{margin-top:10px}}
@@ -1579,6 +1579,14 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return tasks.find(function (task) { return task.findingId === findingId && ['archived', 'obsolete'].indexOf(task.status) === -1; }) || null;
   }
 
+  function confirmedForActionPlan(finding) {
+    if (finding.type !== 'noindex_page') return true;
+    return (finding.evidence || []).some(function (evidence) {
+      var source = evidence && evidence.value && typeof evidence.value === 'object' ? String(evidence.value.source || '') : '';
+      return evidence.type === 'robots_directive' && /^public_(?:meta_robots|x_robots_tag)$/.test(source) && evidence.reliability === 'CONFIRMED';
+    });
+  }
+
   function formatNumber(value, decimals) {
     if (value === null || value === undefined || value === '') return '—';
     var number = Number(value);
@@ -1620,7 +1628,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
   function actionPlan(state, projectId) {
     var tasks = state.tasks.filter(function (task) { return task.projectId === projectId; });
     var findings = state.findings.filter(function (finding) {
-      return finding.projectId === projectId && ['excluded', 'resolved', 'obsolete'].indexOf(finding.status) === -1;
+      return finding.projectId === projectId && ['excluded', 'resolved', 'obsolete'].indexOf(finding.status) === -1 && confirmedForActionPlan(finding);
     }).sort(function (left, right) { return priorityScore(right) - priorityScore(left); });
 
     if (!findings.length) {
@@ -2054,21 +2062,47 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return '<section class="card local-competitor-card"><h2>Competitor locali importati</h2><p class="muted">Query: “' + escapeHtml(provenance.keyword || '—') + '” · Codice località: ' + escapeHtml(provenance.locationCode || '—') + ' · Aggiornati ' + escapeHtml(dateLabel(dataset.importedAt) || '—') + cost + '.</p><div class="local-table-wrap"><table class="local-table"><thead><tr><th>Pos.</th><th>Attività</th><th>Sito</th><th>Valutazione</th></tr></thead><tbody>' + body + '</tbody></table></div></section>';
   }
 
+  function topicalTokens(value) {
+    var stop = new Set(['della', 'delle', 'degli', 'dello', 'nella', 'nelle', 'allo', 'alla', 'come', 'cosa', 'sono', 'anche', 'corso', 'corsi', 'centro', 'home', 'page', 'https', 'www']);
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(function (token) {
+      return token.length >= 4 && !stop.has(token) && !/^\d+$/.test(token);
+    });
+  }
+
+  function projectVocabulary(state, projectId) {
+    var vocabulary = new Set();
+    var project = state.projects.find(function (item) { return item.id === projectId; });
+    topicalTokens(project && project.domain).forEach(function (token) { vocabulary.add(token); });
+    var pages = latestDataset(state, projectId, 'pages-onpage');
+    (pages && pages.data || []).forEach(function (row) {
+      topicalTokens([row.url, row.title, row.h1].join(' ')).forEach(function (token) { vocabulary.add(token); });
+    });
+    var local = state.settings && state.settings.connections && state.settings.connections.local_competitors || {};
+    topicalTokens(local.keyword).forEach(function (token) { vocabulary.add(token); });
+    return vocabulary;
+  }
+
   function keywordPositionList(state, projectId) {
     var dataset = latestDataset(state, projectId, 'dataforseo-keyword-positions');
     if (!dataset) {
       return '<section class="card keyword-position-card"><h2>Posizioni keyword importate</h2><p class="muted">Nessun dato ancora. Aggiorna le posizioni dal connettore oppure importa un export Query da Search Console per analizzare le query reali.</p></section>';
     }
     var provenance = dataset.provenance || {};
-    var rows = dataset.data.slice().sort(function (left, right) { return Number(left.position || 999) - Number(right.position || 999); });
+    var allRows = dataset.data.slice().sort(function (left, right) { return Number(left.position || 999) - Number(right.position || 999); });
+    var vocabulary = projectVocabulary(state, projectId);
+    var relevantRows = vocabulary.size ? allRows.filter(function (row) {
+      return topicalTokens(row.keyword).some(function (token) { return vocabulary.has(token); });
+    }) : allRows;
+    var rows = relevantRows.length ? relevantRows : allRows;
     var body = rows.length ? rows.map(function (row) {
       var href = safeHttpUrl(row.url);
       var page = href ? '<a href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(shortUrl(href)) + '</a>' : '—';
       return '<tr><td class="position-rank">' + formatNumber(row.position) + '</td><td>' + escapeHtml(row.keyword || '—') + '</td><td>' + page + '</td><td>' + formatNumber(row.searchVolume) + '</td><td>' + formatNumber(row.estimatedTraffic, 2) + '</td></tr>';
     }).join('') : '<tr><td colspan="5">DataForSEO non ha restituito keyword organiche per il dominio e la località configurata.</td></tr>';
     var cost = provenance.cost === undefined || provenance.cost === null ? '' : ' · Costo API: $' + escapeHtml(provenance.cost);
-    var coverage = provenance.total ? ' · Mostrate ' + rows.length + ' di ' + escapeHtml(provenance.total) + ' keyword disponibili' : ' · Mostrate fino a ' + escapeHtml(provenance.limit || rows.length) + ' keyword';
-    return '<section class="card keyword-position-card"><h2>Posizioni keyword importate</h2><p class="muted">Dominio: ' + escapeHtml(provenance.target || '—') + ' · Località DataForSEO: ' + escapeHtml(provenance.locationCode || '—') + ' · Aggiornate ' + escapeHtml(dateLabel(dataset.importedAt) || '—') + coverage + cost + '.</p><div class="keyword-table-wrap"><table class="keyword-table"><thead><tr><th>Pos.</th><th>Keyword</th><th>Pagina</th><th>Volume</th><th>Traffico stimato</th></tr></thead><tbody>' + body + '</tbody></table></div></section>';
+    var coverage = provenance.total ? ' · Mostrate ' + rows.length + ' di ' + escapeHtml(provenance.total) + ' keyword disponibili' : ' · Mostrate ' + rows.length + ' keyword';
+    var filtered = allRows.length > rows.length ? ' · ' + (allRows.length - rows.length) + ' query a basso allineamento tematico nascoste' : '';
+    return '<section class="card keyword-position-card"><h2>Posizioni keyword importate</h2><p class="muted">Dominio: ' + escapeHtml(provenance.target || '—') + ' · Località DataForSEO: ' + escapeHtml(provenance.locationCode || '—') + ' · Aggiornate ' + escapeHtml(dateLabel(dataset.importedAt) || '—') + coverage + filtered + cost + '.</p><p><small>La pertinenza viene calcolata confrontando la keyword con URL, title e H1 importati del progetto; i dati originali restano conservati nel dataset.</small></p><div class="keyword-table-wrap"><table class="keyword-table"><thead><tr><th>Pos.</th><th>Keyword</th><th>Pagina</th><th>Volume</th><th>Traffico stimato</th></tr></thead><tbody>' + body + '</tbody></table></div></section>';
   }
 
   var previousAnalyze = SeoGrowPages.analyze;
@@ -2309,15 +2343,15 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 })();
 </script>
 <script>
-/* seoGrow 0.10.18 — consolidated regression and data-integrity layer. */
+/* seoGrow 0.10.19 — consolidated regression and data-integrity layer. */
 (function () {
   'use strict';
 
   if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1017) return;
   window.SeoGrowRelease1017 = true;
   window.SeoGrowFeatures = window.SeoGrowFeatures || new Map();
-  SeoGrow.VERSION = '0.10.18';
-  document.title = 'seoGrow 0.10.18';
+  SeoGrow.VERSION = '0.10.19';
+  document.title = 'seoGrow 0.10.19';
 
   var WORDPRESS_SESSION_KEY = 'seogrow:wordpress-session:v1';
 
@@ -2675,11 +2709,25 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     });
   }
 
+  function reconcileInternalTemplates(app) {
+    var state = app.store.getState();
+    state.findings.filter(function (finding) {
+      return finding.projectId === state.activeProjectId && (finding.affectedItems || []).some(function (item) {
+        return /[?&]elementor_library=|\/elementor_library\//i.test(String(item || ''));
+      });
+    }).forEach(function (finding) {
+      closeFinding(app, finding, 'Escluso automaticamente: l’URL appartiene alla libreria template di Elementor e non è una pagina pubblica del progetto.', 'internal-template-filter');
+    });
+  }
+
   var previousStart = SeoGrowApp.prototype.start;
   SeoGrowApp.prototype.start = async function () {
     var restored = readWordPressSession();
     if (restored) this.wordpress = restored;
     var result = await previousStart.call(this);
+    reconcileInternalTemplates(this);
+    reconcilePages(this);
+    reconcileLinks(this);
     if (restored && typeof this.refreshWordPressCapabilities === 'function') {
       try {
         await this.refreshWordPressCapabilities();
@@ -2792,7 +2840,15 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       var key = Object.keys(data).find(function (name) { return aliases.indexOf(normalizeHeader(name)) > -1; });
       return key ? data[key] : '';
     }
-    var visibleRows = rows.slice().sort(function (a, b) { return Number((a.metrics || {}).position || 999) - Number((b.metrics || {}).position || 999); }).slice(0, 500);
+    var operationalRows = rows.filter(function (row) {
+      var metrics = row.metrics || {};
+      return Number(metrics.clicks || 0) > 0 || Number(metrics.impressions || 0) >= 5;
+    });
+    if (!operationalRows.length) operationalRows = rows.slice();
+    var visibleRows = operationalRows.sort(function (a, b) {
+      var left = a.metrics || {}, right = b.metrics || {};
+      return Number(right.clicks || 0) - Number(left.clicks || 0) || Number(right.impressions || 0) - Number(left.impressions || 0) || Number(left.position || 999) - Number(right.position || 999);
+    }).slice(0, 500);
     var body = visibleRows.map(function (row) {
       var metrics = row.metrics || {};
       var query = value(row, ['query', 'query principale', 'query principali', 'top queries', 'queries', 'keyword', 'parola chiave']);
@@ -2808,7 +2864,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       function number(v, decimals) { if (v === null || v === undefined || v === '') return '—'; var n = Number(String(v).replace(',', '.')); return Number.isFinite(n) ? n.toLocaleString('it-IT', {maximumFractionDigits: decimals || 0}) : '—'; }
       return '<tr><td>' + SeoGrowUtils.escapeHTML(query || '—') + '</td><td>' + number(metrics.clicks) + '</td><td>' + number(metrics.impressions) + '</td><td>' + number(metrics.position, 1) + '</td></tr>';
     }).join('');
-    return '<p class="muted">Ultimo export Query: ' + rows.length + ' righe · ' + new Date(dataset.importedAt).toLocaleString('it-IT') + '. ' + (rows.length > visibleRows.length ? 'Sono mostrate le prime ' + visibleRows.length + ' per posizione.' : '') + '</p><div class="keyword-table-wrap"><table class="keyword-table"><thead><tr><th>Keyword</th><th>Clic</th><th>Impressioni</th><th>Posizione media</th></tr></thead><tbody>' + (body || '<tr><td colspan="4">Nessuna query disponibile.</td></tr>') + '</tbody></table></div>';
+    var hidden = rows.length - operationalRows.length;
+    return '<p class="muted">Ultimo export Query: ' + rows.length + ' righe · ' + new Date(dataset.importedAt).toLocaleString('it-IT') + '. Ordine: clic, impressioni, posizione. ' + (hidden > 0 ? hidden + ' query con 0 clic e meno di 5 impressioni sono nascoste come rumore a basso segnale.' : '') + '</p><div class="keyword-table-wrap"><table class="keyword-table"><thead><tr><th>Keyword</th><th>Clic</th><th>Impressioni</th><th>Posizione media</th></tr></thead><tbody>' + (body || '<tr><td colspan="4">Nessuna query disponibile.</td></tr>') + '</tbody></table></div>';
   }
 
   function providerVerified(app) {
@@ -2818,7 +2875,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
   ui.keywordPositions = function () {
     var output = previousKeywordPositions.call(this);
-    output = output.replace(/<section class="card"><h2>Posizione media Search Console<\/h2>[\s\S]*?<\/section>$/, '<section class="card"><h2>Posizione media Search Console</h2><p class="muted">Dati medi del periodo selezionato nell’export, distinti dalle posizioni settimanali DataForSEO.</p>' + gscKeywordTable(this.state(), this.state().activeProjectId) + '<div class="actions"><button data-view="gsc">Importa o aggiorna Search Console</button></div></section>');
+    output = output.replace(/<section class="card"><h2>Posizione media Search Console<\/h2>[\s\S]*?<\/section>$/, '<section class="card"><h2>Keyword principali da Search Console</h2><p class="muted">Le query reali sono ordinate per valore operativo: prima clic, poi impressioni e infine posizione media.</p>' + gscKeywordTable(this.state(), this.state().activeProjectId) + '<div class="actions"><button data-view="gsc">Importa o aggiorna Search Console</button></div></section>');
     if (this.app.wordpress && !providerVerified(this.app)) output = output.replace(/<button class="primary" data-action="dataforseo-import-keyword-positions">[^<]*<\/button>/, '<button class="primary" data-view="dataforseo">Verifica DataForSEO</button>');
     return output;
   };
@@ -2868,7 +2925,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return previousClick.call(this, event);
   };
 
-  window.SeoGrowFeatures.set('release-0.10.18', {version: '0.10.18', features: ['strict-urls', 'shared-csv', 'finding-reconciliation', 'verified-tasks', 'recoverable-snapshots', 'clickable-metrics', 'gsc-keyword-table', 'verified-dataforseo']});
+  window.SeoGrowFeatures.set('release-0.10.19', {version: '0.10.19', features: ['strict-urls', 'shared-csv', 'finding-reconciliation', 'verified-tasks', 'recoverable-snapshots', 'clickable-metrics', 'gsc-keyword-table', 'verified-dataforseo']});
 })();
 </script>
 </body></html>
