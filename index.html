@@ -1435,8 +1435,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
   if (!window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowActionPlan) return;
   window.SeoGrowActionPlan = true;
-  SeoGrow.VERSION = '0.10.14';
-  document.title = 'seoGrow 0.10.14';
+  SeoGrow.VERSION = '0.10.15';
+  document.title = 'seoGrow 0.10.15';
 
   function escapeHtml(value) {
     return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
@@ -1727,21 +1727,74 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
   }
 
   var proto = SeoGrowUI.App.prototype;
-  var previousDashboard = proto.dashboard;
-  var previousCompetitors = proto.competitors;
   var previousClick = proto.click;
+  var previousLayout = proto.layout;
 
   proto.dashboard = function () {
     installStyle();
     var state = this.state();
     var projectId = state.activeProjectId;
-    return '<section class="hero"><h1>Dati SEO verificabili, decisioni controllate</h1><p>Controlla la connessione, consulta i competitor già importati e lavora sulle priorità basate su evidenze reali.</p><div class="actions"><button class="primary" data-view="pages">Importa pagine</button><button data-view="technical">Verifica link interni</button><button data-view="competitors">Competitor e DataForSEO</button></div></section>' + dashboardProviderCard(this.app, state) + dashboardCompetitorCard(state, projectId) + actionPlan(state, projectId) + dashboardMetrics(state, projectId);
+    return '<section class="hero"><h1>Dati SEO verificabili, decisioni controllate</h1><p>Usa la barra laterale per collegamenti, competitor e piano d’azione. Qui trovi il riepilogo del progetto selezionato.</p><div class="actions"><button class="primary" data-view="pages">Importa pagine</button><button data-view="technical">Verifica link interni</button><button data-view="action-plan">Apri piano d’azione</button></div></section><section class="card"><h2>Da dove iniziare</h2><p>1. Importa pagine o collega WordPress. 2. Verifica DataForSEO se ti serve l’analisi competitor. 3. Lavora sulle priorità e completa le verifiche.</p><div class="actions"><button data-view="dataforseo">Apri DataForSEO</button><button data-view="competitors">Apri competitor</button><button data-view="findings">Apri riscontri</button></div></section>' + dashboardMetrics(state, projectId);
   };
 
   proto.competitors = function () {
     installStyle();
-    var output = previousCompetitors.call(this);
-    return output.replace('<section class="card"><h2>Keyword gap da CSV</h2>', competitorList(this.state(), this.state().activeProjectId) + '<section class="card"><h2>Keyword gap da CSV</h2>');
+    var state = this.state();
+    var info = dashboardProviderInfo(this.app, state);
+    var automatic = info.live && info.configured === true ? '<button class="primary" data-action="dataforseo-import-competitors">Aggiorna competitor con DataForSEO</button>' : '<button class="primary" data-view="dataforseo">Apri DataForSEO e verifica</button>';
+    var guidance = info.live && info.configured === true ? 'La chiamata può consumare credito API e chiederà conferma prima di partire.' : 'Prima collega WordPress e verifica DataForSEO nella relativa voce della barra laterale.';
+    return '<h1>Competitor e keyword gap</h1><p class="muted">Consulta i competitor organici già importati oppure confronta un CSV di posizionamenti.</p><section class="card"><h2>Aggiornamento competitor</h2><p class="muted">' + escapeHtml(guidance) + '</p><div class="actions">' + automatic + '</div></section>' + competitorList(state, state.activeProjectId) + '<section class="card"><h2>Keyword gap da CSV</h2><label for="competitorFile">CSV posizionamenti</label><input id="competitorFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Keyword, Domain, Position. Opzionale: URL.</small></p><button data-action="import-competitors">Importa e confronta</button></section>';
+  };
+
+  proto.dataforseo = function () {
+    installStyle();
+    return '<h1>DataForSEO</h1><p class="muted">Controlla qui il collegamento al plugin WordPress prima di avviare un aggiornamento dei competitor.</p>' + dashboardProviderCard(this.app, this.state());
+  };
+
+  proto.actionPlan = function () {
+    installStyle();
+    var state = this.state();
+    return '<h1>Piano d’azione</h1><p class="muted">Le priorità derivano dai riscontri importati: nessuna attività viene proposta senza evidenza.</p>' + actionPlan(state, state.activeProjectId);
+  };
+
+  proto.layout = function (content) {
+    var state = this.state();
+    var navigation = [
+      ['dashboard', 'Dashboard'],
+      ['tasks', 'Attività'],
+      ['competitors', 'Competitor'],
+      ['wizard', 'Configurazione guidata'],
+      ['dataforseo', 'DataForSEO'],
+      ['settings', 'Integrità e backup'],
+      ['technical', 'Link interni'],
+      ['pages', 'Pagine e on-page'],
+      ['action-plan', 'Piano d’azione'],
+      ['findings', 'Riscontri'],
+      ['gsc', 'Search Console']
+    ];
+    var aside = '<aside><div class="brand"><b>seoGrow</b><span>SEO data → decisioni</span></div>' + navigation.map(function (item) {
+      return '<button class="nav ' + (this.view === item[0] ? 'active' : '') + '" data-view="' + item[0] + '">' + escapeHtml(item[1]) + '</button>';
+    }, this).join('') + '</aside>';
+    return previousLayout.call(this, content).replace(/<aside>[\s\S]*?<\/aside>/, aside);
+  };
+
+  proto.render = function () {
+    if (!this.root) return;
+    var views = {
+      dashboard: function () { return this.dashboard(); }.bind(this),
+      wizard: function () { return this.wizard(); }.bind(this),
+      pages: function () { return this.pages(); }.bind(this),
+      competitors: function () { return this.competitors(); }.bind(this),
+      dataforseo: function () { return this.dataforseo(); }.bind(this),
+      'action-plan': function () { return this.actionPlan(); }.bind(this),
+      gsc: function () { return this.gsc(); }.bind(this),
+      technical: function () { return this.technical(); }.bind(this),
+      findings: function () { return this.findings(); }.bind(this),
+      tasks: function () { return this.tasks(); }.bind(this),
+      settings: function () { return this.settings(); }.bind(this)
+    };
+    var renderView = views[this.view] || views.dashboard;
+    this.root.innerHTML = this.layout(renderView());
   };
 
   proto.findings = function () {
