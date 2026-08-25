@@ -1107,7 +1107,9 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
   function safeHttpUrl(value) {
     try {
-      var url = new URL(String(value || ''), window.location.href);
+      var raw = String(value || '').trim();
+      if (!/^https?:\/\//i.test(raw)) return '';
+      var url = new URL(raw);
       if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
       return url.href;
     } catch (error) {
@@ -1264,7 +1266,9 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
   function safeHttpUrl(value) {
     try {
-      var url = new URL(String(value || ''), window.location.href);
+      var raw = String(value || '').trim();
+      if (!/^https?:\/\//i.test(raw)) return '';
+      var url = new URL(raw);
       if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
       return url.href;
     } catch (error) {
@@ -1419,6 +1423,280 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
           element.textContent = originalText;
         }
       }
+      return;
+    }
+    return previousClick.call(this, event);
+  };
+})();
+
+/* seoGrow 0.10.13 — piano d'azione, elenco competitor ed evidenze navigabili. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowActionPlan) return;
+  window.SeoGrowActionPlan = true;
+  SeoGrow.VERSION = '0.10.13';
+  document.title = 'seoGrow 0.10.13';
+
+  function escapeHtml(value) {
+    return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
+  }
+
+  function safeHttpUrl(value) {
+    try {
+      var raw = String(value || '').trim();
+      if (!/^https?:\/\//i.test(raw)) return '';
+      var url = new URL(raw);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+      return url.href;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function shortUrl(value) {
+    var url = safeHttpUrl(value);
+    if (!url) return String(value || 'URL non disponibile');
+    try {
+      var parsed = new URL(url);
+      return parsed.hostname + (parsed.pathname === '/' ? '' : parsed.pathname) + parsed.search;
+    } catch (error) {
+      return url;
+    }
+  }
+
+  function humanStatus(value) {
+    return String(value || 'non definito').replace(/_/g, ' ');
+  }
+
+  function severityLabel(finding) {
+    var severity = String(finding && finding.severity || 'medium');
+    if (severity === 'high') return 'Priorità alta';
+    if (severity === 'low') return 'Priorità bassa';
+    return 'Priorità media';
+  }
+
+  function priorityScore(finding) {
+    var severity = {high: 300, medium: 200, low: 100}[finding.severity] || 200;
+    var impact = {high: 30, medium: 20, low: 10}[finding.impact] || 20;
+    var confidence = Math.max(0, Math.min(100, Number(finding.confidence || 0)));
+    var state = finding.status === 'candidate' ? 8 : finding.status === 'validated' ? 6 : 0;
+    return severity + impact + confidence + state;
+  }
+
+  function findingUrls(finding) {
+    var items = Array.isArray(finding && finding.affectedItems) ? finding.affectedItems : [];
+    return items.map(function (item) { return safeHttpUrl(item); }).filter(Boolean);
+  }
+
+  function linksForFinding(finding) {
+    var urls = findingUrls(finding);
+    if (!urls.length) return '<span class="muted">URL non disponibile nel dataset importato.</span>';
+
+    if (finding.type === 'broken_internal_link') {
+      var source = urls[0] || '';
+      var target = urls[1] || '';
+      var result = '';
+      if (source) result += '<a class="finding-link" href="' + escapeHtml(source) + '" target="_blank" rel="noopener noreferrer">Apri pagina origine: ' + escapeHtml(shortUrl(source)) + '</a>';
+      if (target) result += '<a class="finding-link finding-link-target" href="' + escapeHtml(target) + '" target="_blank" rel="noopener noreferrer">Apri URL destinazione: ' + escapeHtml(shortUrl(target)) + '</a>';
+      return result || '<span class="muted">Origine o destinazione non disponibili nel crawl.</span>';
+    }
+
+    return urls.map(function (url, index) {
+      var label = urls.length === 1 ? 'Apri pagina interessata' : 'Apri pagina ' + (index + 1);
+      return '<a class="finding-link" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">' + label + ': ' + escapeHtml(shortUrl(url)) + '</a>';
+    }).join('');
+  }
+
+  function evidenceText(evidence) {
+    evidence = evidence || {};
+    var reliability = evidence.reliability ? ' · ' + humanStatus(evidence.reliability) : '';
+    if (evidence.type === 'http_status') {
+      return 'HTTP ' + escapeHtml(evidence.value || '—') + ' rilevato nel crawl' + reliability + (evidence.note ? ' · ' + escapeHtml(evidence.note) : '');
+    }
+    if (evidence.type === 'page_field') {
+      return 'Campo on-page importato' + reliability + (evidence.value && evidence.value.url ? ' · ' + escapeHtml(shortUrl(evidence.value.url)) : '');
+    }
+    if (evidence.type === 'title') return 'Titolo importato' + reliability;
+    if (evidence.type === 'canonical') return 'Canonical importato' + reliability;
+    return escapeHtml(humanStatus(evidence.type || 'Evidenza importata')) + reliability;
+  }
+
+  function evidenceBlock(finding) {
+    var evidence = Array.isArray(finding.evidence) ? finding.evidence : [];
+    var lines = evidence.length ? evidence.map(function (item) {
+      return '<li>' + evidenceText(item) + '</li>';
+    }).join('') : '<li>Nessuna evidenza strutturata è stata salvata per questo riscontro.</li>';
+    return '<details class="finding-evidence"><summary>Verifiche ed evidenze (' + evidence.length + ')</summary><ul>' + lines + '</ul></details>';
+  }
+
+  function nextStep(finding, task) {
+    if (task) {
+      if (task.status === 'verified') return 'Attività già verificata. Conserva il nuovo crawl/import come evidenza finale.';
+      if (task.status === 'verification_pending' || task.status === 'completed') return 'Dopo la correzione aggiorna il crawl o l’import on-page, quindi completa la verifica dell’attività.';
+      return 'Attività collegata: porta avanti lo stato operativo nella sezione Attività.';
+    }
+    if (finding.status === 'candidate') return 'Controlla l’evidenza e conferma il riscontro prima di creare un’attività.';
+    if (finding.status === 'validated') return 'Riscontro confermato: crea un’attività assegnabile per applicare la correzione.';
+    if (finding.type === 'broken_internal_link') return 'Dopo la modifica riesporta il crawl dei link interni: solo un nuovo HTTP 200/3xx conferma la correzione.';
+    return 'Dopo la modifica reimporta le pagine/on-page per aggiornare questa evidenza senza creare duplicati.';
+  }
+
+  function recommendedAction(finding) {
+    var actions = {
+      missing_h1: 'Inserisci un solo H1 descrittivo e coerente con l’intento della pagina.',
+      missing_title: 'Scrivi un title unico, pertinente e leggibile nei risultati di ricerca.',
+      missing_meta_description: 'Aggiungi una meta description utile e specifica per la pagina.',
+      canonical_other_url: 'Verifica che il canonical punti alla versione che vuoi indicizzare.',
+      noindex_page: 'Verifica se il noindex è intenzionale prima di rimuoverlo.',
+      duplicate_title: 'Differenzia i title delle pagine elencate, mantenendo distinto l’intento.',
+      broken_internal_link: 'Correggi il link nella pagina origine oppure sostituiscilo con una destinazione valida.'
+    };
+    return actions[finding.type] || 'Esamina l’evidenza e definisci una correzione prima di procedere.';
+  }
+
+  function taskForFinding(tasks, findingId) {
+    return tasks.find(function (task) { return task.findingId === findingId && ['archived', 'obsolete'].indexOf(task.status) === -1; }) || null;
+  }
+
+  function formatNumber(value, decimals) {
+    var number = Number(value);
+    if (!Number.isFinite(number)) return '—';
+    return number.toLocaleString('it-IT', {maximumFractionDigits: decimals === undefined ? 0 : decimals});
+  }
+
+  function latestCompetitorDataset(state, projectId) {
+    var rows = state.datasets.filter(function (dataset) {
+      return dataset.projectId === projectId && dataset.type === 'dataforseo-competitors' && Array.isArray(dataset.data);
+    });
+    return rows.length ? rows[rows.length - 1] : null;
+  }
+
+  function competitorList(state, projectId) {
+    var dataset = latestCompetitorDataset(state, projectId);
+    if (!dataset) {
+      return '<section class="card competitor-list-card"><h2>Competitor importati</h2><p class="muted">Non ci sono ancora competitor DataForSEO salvati per questo progetto. Dopo “Aggiorna competitor con DataForSEO”, l’elenco apparirà qui.</p></section>';
+    }
+
+    var competitors = dataset.data.slice().sort(function (left, right) {
+      return Number(right.intersections || right.intersection || 0) - Number(left.intersections || left.intersection || 0);
+    });
+    var provenance = dataset.provenance || {};
+    var when = dataset.importedAt ? new Date(dataset.importedAt).toLocaleString('it-IT') : 'data non disponibile';
+    var body = competitors.length ? competitors.map(function (item) {
+      var domain = String(item.domain || item.target || item.url || 'Dominio non disponibile');
+      var domainUrl = safeHttpUrl(domain) || safeHttpUrl('https://' + domain.replace(/^https?:\/\//i, ''));
+      var label = escapeHtml(domain.replace(/^https?:\/\//i, '').replace(/\/$/, ''));
+      var domainCell = domainUrl ? '<a href="' + escapeHtml(domainUrl) + '" target="_blank" rel="noopener noreferrer">' + label + '</a>' : label;
+      return '<tr><td>' + domainCell + '</td><td>' + formatNumber(item.intersections || item.intersection) + '</td><td>' + formatNumber(item.avgPosition || item.avg_position || item.average_position || item.position, 1) + '</td><td>' + formatNumber(item.organicKeywords || item.organic_keywords || item.keywords) + '</td><td>' + formatNumber(item.estimatedOrganicTraffic || item.organic_traffic || item.organicTraffic || item.traffic) + '</td></tr>';
+    }).join('') : '<tr><td colspan="5">L’aggiornamento non ha restituito domini competitor.</td></tr>';
+    var sourceTarget = provenance.target ? ' · Analisi: ' + escapeHtml(provenance.target) : '';
+    var cost = provenance.cost !== undefined && provenance.cost !== null ? ' · Costo API: $' + escapeHtml(provenance.cost) : '';
+
+    return '<section class="card competitor-list-card"><h2>Competitor importati</h2><p class="muted">Ultimo aggiornamento: ' + when + sourceTarget + cost + '. Mostrati ' + competitors.length + ' domini.</p><div class="competitor-table-wrap"><table class="competitor-table"><thead><tr><th>Dominio</th><th>Keyword condivise</th><th>Posizione media</th><th>Keyword organiche</th><th>Traffico stimato</th></tr></thead><tbody>' + body + '</tbody></table></div></section>';
+  }
+
+  function actionPlan(state, projectId) {
+    var tasks = state.tasks.filter(function (task) { return task.projectId === projectId; });
+    var findings = state.findings.filter(function (finding) {
+      return finding.projectId === projectId && ['excluded', 'resolved', 'obsolete'].indexOf(finding.status) === -1;
+    }).sort(function (left, right) { return priorityScore(right) - priorityScore(left); });
+
+    if (!findings.length) {
+      return '<section class="card action-plan-card"><h2>Piano d’azione prioritario</h2><p class="muted">Non ci sono riscontri aperti. Importa pagine, Search Console o un crawl dei link per generare un piano basato su evidenze reali.</p><div class="actions"><button class="primary" data-view="pages">Importa pagine</button><button data-view="technical">Verifica link interni</button></div></section>';
+    }
+
+    var shown = findings.slice(0, 5).map(function (finding, index) {
+      var task = taskForFinding(tasks, finding.id);
+      var urls = findingUrls(finding);
+      var page = urls.length ? shortUrl(urls[0]) : 'Pagina non indicata';
+      var taskStatus = task ? 'Attività: ' + humanStatus(task.status) : finding.status === 'candidate' ? 'Da confermare' : finding.status === 'validated' ? 'Pronto per attività' : humanStatus(finding.status);
+      return '<article class="action-plan-item ' + escapeHtml(finding.severity || 'medium') + '"><div class="action-plan-rank">' + (index + 1) + '</div><div class="action-plan-content"><p><span class="status ' + escapeHtml(finding.severity || 'medium') + '">' + severityLabel(finding) + '</span> <span class="muted">' + escapeHtml(taskStatus) + '</span></p><b>' + escapeHtml(finding.title) + '</b><p>' + escapeHtml(recommendedAction(finding)) + '</p><small>Pagina: ' + escapeHtml(page) + '</small></div><div class="actions"><button data-action="open-finding" data-id="' + escapeHtml(finding.id) + '">Apri riscontro</button></div></article>';
+    }).join('');
+
+    return '<section class="card action-plan-card"><h2>Piano d’azione prioritario</h2><p class="muted">Ordine calcolato da gravità, impatto, confidenza e stato operativo. Il piano non sostituisce la verifica: ogni voce mantiene la sua evidenza.</p><div class="action-plan-list">' + shown + '</div><div class="actions"><button class="primary" data-view="findings">Apri tutti i riscontri</button><button data-view="tasks">Apri attività</button></div></section>';
+  }
+
+  function installStyle() {
+    if (document.getElementById('seogrow-action-plan-style')) return;
+    var style = document.createElement('style');
+    style.id = 'seogrow-action-plan-style';
+    style.textContent = [
+      '.action-plan-card{margin-top:1rem}',
+      '.action-plan-list{display:grid;gap:.75rem;margin:1rem 0}',
+      '.action-plan-item{display:grid;grid-template-columns:2.4rem minmax(0,1fr) auto;gap:.85rem;align-items:center;padding:.9rem;border:1px solid var(--line,#e5e7eb);border-radius:.7rem;background:var(--surface,#fff)}',
+      '.action-plan-item.high{border-left:4px solid #c2410c}.action-plan-item.medium{border-left:4px solid #b7791f}.action-plan-item.low{border-left:4px solid #287a54}',
+      '.action-plan-rank{font-weight:800;font-size:1.15rem;text-align:center}.action-plan-content p{margin:.2rem 0}.action-plan-content small{color:var(--muted,#637267)}',
+      '.finding-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--line,#e5e7eb)}',
+      '.finding-row:last-child{border-bottom:0}.finding-row h2{font-size:1.05rem;margin:0 0 .35rem}.finding-row p{margin:.35rem 0}.finding-actions{align-self:start;text-align:right}',
+      '.finding-links{display:flex;flex-wrap:wrap;gap:.5rem;margin:.7rem 0}.finding-link{display:inline-block;padding:.35rem .55rem;border:1px solid var(--line,#dfe7e1);border-radius:.45rem;background:#f7fbf8;text-decoration:none;overflow-wrap:anywhere}.finding-link-target{background:#fff9f6}',
+      '.finding-evidence{margin-top:.75rem;padding:.65rem .8rem;border-radius:.55rem;background:#f7f9f7}.finding-evidence summary{cursor:pointer;font-weight:650}.finding-evidence ul{margin:.5rem 0 0;padding-left:1.15rem}',
+      '.finding-next{margin-top:.7rem;padding:.6rem .75rem;border-left:3px solid #287a54;background:#f3faf5}.finding-task{margin-top:.6rem}',
+      '.competitor-list-card{margin:1rem 0}.competitor-table-wrap{overflow:auto}.competitor-table{width:100%;border-collapse:collapse;min-width:700px}.competitor-table th,.competitor-table td{padding:.7rem;text-align:left;border-bottom:1px solid var(--line,#e5e7eb);vertical-align:top}.competitor-table th{white-space:nowrap;color:var(--muted,#637267);font-size:.88rem}.competitor-table a{overflow-wrap:anywhere}',
+      '@media (max-width:720px){.action-plan-item{grid-template-columns:2rem minmax(0,1fr)}.action-plan-item .actions{grid-column:2}.finding-row{grid-template-columns:1fr}.finding-actions{text-align:left}}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  var proto = SeoGrowUI.App.prototype;
+  var previousDashboard = proto.dashboard;
+  var previousCompetitors = proto.competitors;
+  var previousClick = proto.click;
+
+  proto.dashboard = function () {
+    installStyle();
+    var output = previousDashboard.call(this);
+    return output.replace('<section class="metrics">', actionPlan(this.state(), this.state().activeProjectId) + '<section class="metrics">');
+  };
+
+  proto.competitors = function () {
+    installStyle();
+    var output = previousCompetitors.call(this);
+    return output.replace('<section class="card"><h2>Keyword gap da CSV</h2>', competitorList(this.state(), this.state().activeProjectId) + '<section class="card"><h2>Keyword gap da CSV</h2>');
+  };
+
+  proto.findings = function () {
+    installStyle();
+    var state = this.state();
+    var projectId = state.activeProjectId;
+    var tasks = state.tasks.filter(function (task) { return task.projectId === projectId; });
+    var rows = state.findings.filter(function (finding) { return finding.projectId === projectId; }).sort(function (left, right) {
+      return priorityScore(right) - priorityScore(left);
+    });
+    var latestAudit = state.datasets.filter(function (dataset) { return dataset.projectId === projectId && dataset.type === 'internal-links'; }).slice(-1)[0];
+
+    if (!rows.length) {
+      if (latestAudit && latestAudit.provenance && latestAudit.provenance.auditStatus === 'no_broken_links') {
+        var links = Number(latestAudit.provenance.checkedLinks || 0);
+        var date = latestAudit.importedAt ? new Date(latestAudit.importedAt).toLocaleString('it-IT') : 'data non disponibile';
+        return '<h1>Riscontri</h1><p class="muted">Ogni riscontro mostrerà la pagina, l’evidenza importata e il passo successivo.</p><section class="card"><div class="empty"><b>Nessun link rotto trovato.</b><p>Il crawl del ' + escapeHtml(date) + (links ? ' ha controllato ' + links + ' link importati' : ' non contiene link con HTTP 404/410') + '.</p><button class="primary" data-view="technical">Nuova analisi link interni</button></div></section>';
+      }
+      return '<h1>Riscontri</h1><p class="muted">Qui vedrai pagina interessata, evidenze e passo operativo per ogni riscontro.</p><section class="card"><div class="empty">Nessun riscontro: importa un dataset reale per iniziare.</div></section>';
+    }
+
+    var cards = rows.map(function (finding) {
+      var task = taskForFinding(tasks, finding.id);
+      var actions = '';
+      if (finding.status === 'candidate') actions += '<button class="primary" data-action="validate" data-id="' + escapeHtml(finding.id) + '">Conferma riscontro</button><button data-action="exclude" data-id="' + escapeHtml(finding.id) + '">Escludi</button>';
+      if (finding.status === 'validated') actions += '<button class="primary" data-action="create-task" data-id="' + escapeHtml(finding.id) + '">Crea attività</button>';
+      if (task) actions += '<button data-view="tasks">Apri attività</button>';
+      var taskLine = task ? '<p class="finding-task"><strong>Attività collegata:</strong> ' + escapeHtml(task.title) + ' · ' + this.badge(task.status) + '</p>' : '';
+      return '<article id="finding-' + escapeHtml(finding.id) + '" class="finding-row"><div><h2>' + escapeHtml(finding.title) + '</h2><p>' + escapeHtml(finding.description) + '</p><p><span class="status ' + escapeHtml(finding.severity || 'medium') + '">' + severityLabel(finding) + '</span> <span class="muted">Confidenza ' + escapeHtml(finding.confidence) + '% · evidenze ' + (Array.isArray(finding.evidence) ? finding.evidence.length : 0) + '</span></p><div class="finding-links"><strong>Pagina coinvolta:</strong> ' + linksForFinding(finding) + '</div>' + evidenceBlock(finding) + taskLine + '<p class="finding-next"><strong>Passo successivo:</strong> ' + escapeHtml(nextStep(finding, task)) + '</p></div><div class="finding-actions">' + this.badge(finding.status) + '<div class="actions">' + actions + '</div></div></article>';
+    }, this).join('');
+
+    return '<h1>Riscontri</h1><p class="muted">Apri la pagina per controllare il problema; le verifiche si basano solo sull’ultimo crawl o import salvato.</p><section class="card">' + cards + '</section>';
+  };
+
+  proto.click = async function (event) {
+    var element = event.target.closest('[data-action],[data-view]');
+    if (element && element.dataset.action === 'open-finding') {
+      var id = element.dataset.id;
+      this.view = 'findings';
+      this.render();
+      setTimeout(function () {
+        var target = document.getElementById('finding-' + id);
+        if (target && target.scrollIntoView) target.scrollIntoView({behavior: 'smooth', block: 'center'});
+      }, 0);
       return;
     }
     return previousClick.call(this, event);
