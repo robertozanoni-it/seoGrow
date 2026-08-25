@@ -1086,4 +1086,165 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return legacyClick.call(this, event);
   };
 })();
+</script>
+<script>
+/* seoGrow 0.10.11 — collegamenti Dashboard e configurazione DataForSEO. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowDashboardLinks) return;
+  window.SeoGrowDashboardLinks = true;
+  SeoGrow.VERSION = '0.10.11';
+  document.title = 'seoGrow 0.10.11';
+
+  function escapeHtml(value) {
+    return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
+  }
+
+  function count(value) {
+    return Number(value || 0).toLocaleString('it-IT');
+  }
+
+  function safeHttpUrl(value) {
+    try {
+      var url = new URL(String(value || ''), window.location.href);
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return '';
+      return url.href;
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function externalLink(url, label, primary) {
+    var href = safeHttpUrl(url);
+    if (!href) return '';
+    return '<a class="dashboard-action-link' + (primary ? ' primary' : '') + '" href="' + escapeHtml(href) + '" target="_blank" rel="noopener noreferrer">' + escapeHtml(label) + '</a>';
+  }
+
+  function wordpressInfo(app, state) {
+    var saved = state.settings && state.settings.connections && state.settings.connections.wordpress;
+    var live = app.wordpress || null;
+    var capabilities = live && live.capabilities && typeof live.capabilities === 'object' ? live.capabilities : {};
+    var base = live && live.base ? live.base : (saved && saved.base ? saved.base : '');
+    var fallbackSettingsUrl = base ? String(base).replace(/\/+$/, '') + '/wp-admin/options-general.php?page=seogrow-connector' : '';
+    return {
+      base: base,
+      live: Boolean(live),
+      configured: typeof capabilities.dataforseoConfigured === 'boolean' ? capabilities.dataforseoConfigured : null,
+      settingsUrl: capabilities.connectorSettingsUrl || fallbackSettingsUrl,
+      apiAccessUrl: capabilities.dataforseoApiAccessUrl || 'https://app.dataforseo.com/api-access'
+    };
+  }
+
+  function metric(value, label, view) {
+    return '<button type="button" class="metric-link" data-view="' + view + '" aria-label="Apri ' + escapeHtml(label) + '"><b>' + count(value) + '</b><span>' + escapeHtml(label) + '</span><small>Apri sezione →</small></button>';
+  }
+
+  function installStyle() {
+    if (document.getElementById('seogrow-dashboard-links-style')) return;
+    var style = document.createElement('style');
+    style.id = 'seogrow-dashboard-links-style';
+    style.textContent = [
+      '.metrics .metric-link{display:block;width:100%;min-height:126px;padding:16px;text-align:left;border:1px solid var(--line);border-radius:var(--radius);background:#fff;color:var(--text);transition:border-color .15s,box-shadow .15s,transform .15s}',
+      '.metrics .metric-link:hover,.metrics .metric-link:focus-visible{border-color:var(--green);box-shadow:0 5px 15px rgba(20,108,67,.12);transform:translateY(-1px);outline:0}',
+      '.metrics .metric-link b{display:block;font-size:28px;line-height:1.15}',
+      '.metrics .metric-link span{display:block;margin-top:8px;color:var(--muted)}',
+      '.metrics .metric-link small{display:block;margin-top:8px;color:var(--green);font-weight:700}',
+      '.dashboard-links-card{border-left:4px solid #5bd28e}',
+      '.dashboard-links-card h2{display:flex;align-items:center;gap:8px}',
+      '.dashboard-action-link{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--text);text-decoration:none;font:inherit;cursor:pointer}',
+      '.dashboard-action-link:hover,.dashboard-action-link:focus-visible{border-color:#91a99b;outline:0}',
+      '.dashboard-action-link.primary{background:var(--green);border-color:var(--green);color:#fff}',
+      '.dashboard-links-card .status{margin:0 0 10px}',
+      '.dashboard-links-card .status.unknown{background:#eef0ef;color:var(--muted)}'
+    ].join('');
+    document.head.appendChild(style);
+  }
+
+  function dataForSeoCard(app, state) {
+    var info = wordpressInfo(app, state);
+    var settings = externalLink(info.settingsUrl, 'Apri impostazioni RZ seoGrow Connector', true);
+    var access = externalLink(info.apiAccessUrl, 'Apri DataForSEO → API Access', false);
+    var actions = '';
+    var status = '';
+    var text = '';
+
+    if (!info.base) {
+      status = '<p class="status candidate">WordPress non collegato</p>';
+      text = '<p>Le credenziali DataForSEO vanno salvate nel plugin WordPress, non in seoGrow. Collega prima il sito.</p>';
+      actions = '<button class="primary" data-view="pages">Collega WordPress</button>' + access;
+    } else if (!info.live) {
+      status = '<p class="status candidate">Sessione WordPress non attiva</p>';
+      text = '<p>Il sito collegato è ' + escapeHtml(info.base) + '. Puoi aprire le impostazioni del plugin, ma ricollega WordPress per vedere qui lo stato aggiornato di DataForSEO.</p>';
+      actions = '<button class="primary" data-view="pages">Ricollega WordPress</button>' + settings + access;
+    } else if (info.configured === true) {
+      status = '<p class="status candidate">Credenziali DataForSEO salvate nel plugin WordPress</p>';
+      text = '<p>Per controllare Login API e Password API usa il pulsante gratuito “Salva e verifica credenziali” nelle impostazioni del plugin. La ricerca competitor resta separata perché può consumare credito.</p>';
+      actions = '<button class="primary" data-view="competitors">Apri Competitor</button>' + settings + access;
+    } else if (info.configured === false) {
+      status = '<p class="status candidate">DataForSEO non configurato</p>';
+      text = '<p>Apri le impostazioni del plugin, recupera Login API e Password API dalla pagina API Access di DataForSEO e usa “Salva e verifica credenziali (gratis)”.</p>';
+      actions = settings + access;
+    } else {
+      status = '<p class="status unknown">Stato DataForSEO da verificare</p>';
+      text = '<p>Il connettore collegato non comunica ancora lo stato di DataForSEO. Aggiorna il plugin RZ seoGrow Connector e verifica le credenziali nelle sue impostazioni.</p>';
+      actions = settings + access;
+    }
+
+    return '<section class="card dashboard-links-card"><h2>DataForSEO</h2>' + status + text + '<div class="actions">' + actions + '</div><p><small>Login e Password API non vengono mai salvati nel browser o nei backup seoGrow.</small></p></section>';
+  }
+
+  var proto = SeoGrowUI.App.prototype;
+
+  proto.dashboard = function () {
+    installStyle();
+    var state = this.state();
+    var projectId = state.activeProjectId;
+    var datasets = state.datasets.filter(function (item) { return item.projectId === projectId; });
+    var findings = state.findings.filter(function (item) { return item.projectId === projectId; });
+    var tasks = state.tasks.filter(function (item) { return item.projectId === projectId; });
+    var openTasks = tasks.filter(function (item) { return ['verified', 'archived'].indexOf(item.status) === -1; });
+    var verifiedTasks = tasks.filter(function (item) { return item.status === 'verified'; });
+    var dataForSeoImports = datasets.filter(function (item) { return item.type === 'dataforseo-competitors'; });
+    var lastImport = dataForSeoImports.length ? dataForSeoImports[dataForSeoImports.length - 1] : null;
+    var importNote = lastImport ? '<p><small>Ultimo import competitor: ' + count(lastImport.records) + ' domini · ' + new Date(lastImport.importedAt).toLocaleString('it-IT') + '.</small></p>' : '';
+
+    return '<section class="hero"><h1>Dati SEO verificabili, decisioni controllate</h1><p>Importa dati reali; seoGrow esplicita le evidenze e non confonde una stima con un problema confermato.</p><div class="actions"><button class="primary" data-view="wizard">Configura progetto</button><button class="primary" data-view="pages">Importa pagine</button><button data-view="technical">Verifica link interni</button><button data-view="competitors">Competitor e DataForSEO</button></div></section>' +
+      '<section class="card"><h2>Da dove iniziare</h2><p>1. Crea o seleziona il dominio. 2. Importa le pagine da WordPress o CSV. 3. Verifica i riscontri. 4. Approva le attività necessarie.</p><button data-view="pages">Apri Pagine / On-page</button></section>' +
+      dataForSeoCard(this.app, state) + importNote +
+      '<section class="metrics">' +
+        metric(datasets.length, 'Dataset', 'settings') +
+        metric(findings.length, 'Riscontri', 'findings') +
+        metric(openTasks.length, 'Attività aperte', 'tasks') +
+        metric(verifiedTasks.length, 'Verificate', 'tasks') +
+      '</section>';
+  };
+
+  proto.competitors = function () {
+    var state = this.state();
+    var info = wordpressInfo(this.app, state);
+    var settings = externalLink(info.settingsUrl, 'Apri impostazioni RZ seoGrow Connector', true);
+    var access = externalLink(info.apiAccessUrl, 'Apri DataForSEO → API Access', false);
+    var status = '';
+    var automatic = '';
+
+    if (!info.live) {
+      status = '<p class="status candidate">Nessuna sessione WordPress attiva</p><p>Ricollega WordPress nella sezione Pagine e on-page. seoGrow non chiede né conserva credenziali in popup.</p>';
+      automatic = '<button class="primary" data-view="pages">Ricollega WordPress</button>' + settings;
+    } else if (info.configured === true) {
+      status = '<p class="status candidate">Credenziali DataForSEO salvate: ' + escapeHtml(info.base) + '</p><p>Prima dell’aggiornamento usa “Salva e verifica credenziali (gratis)” nel plugin. La chiamata Live può consumare credito.</p>';
+      automatic = '<button class="primary" data-action="dataforseo-import-competitors">Aggiorna competitor con DataForSEO</button>' + settings;
+    } else if (info.configured === false) {
+      status = '<p class="status candidate">DataForSEO non configurato nel plugin WordPress</p><p>Recupera Login API e Password API dalla pagina API Access, salvale nel plugin e usa “Salva e verifica credenziali (gratis)”.</p>';
+      automatic = settings + access;
+    } else {
+      status = '<p class="status unknown">Aggiorna RZ seoGrow Connector per leggere lo stato di DataForSEO</p>';
+      automatic = settings + access;
+    }
+
+    return '<h1>Competitor e keyword gap</h1><p class="muted">Scegli l’aggiornamento automatico per avere competitor organici reali, oppure importa un CSV per il keyword gap.</p>' +
+      '<section class="card dashboard-links-card"><h2>Competitor automatici con DataForSEO</h2>' + status + '<div class="actions">' + automatic + '</div><p><small>Le credenziali DataForSEO non vengono mai inviate o salvate dalla web app.</small></p></section>' +
+      '<section class="card"><h2>Keyword gap da CSV</h2><label for="competitorFile">CSV posizionamenti</label><input id="competitorFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Keyword, Domain, Position. Opzionale: URL.</small></p><button data-action="import-competitors">Importa e confronta</button></section>';
+  };
+})();
 </script></body></html>
