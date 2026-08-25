@@ -11,7 +11,7 @@ window.SeoGrowModules.contracts = {
   }
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
-SeoGrow.VERSION = '0.10.9'; SeoGrow.SCHEMA_VERSION = 4;
+SeoGrow.VERSION = '0.10.10'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -194,7 +194,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
   'use strict';
   if (SeoGrow.__hardening109) return;
   SeoGrow.__hardening109 = true;
-  SeoGrow.VERSION = '0.10.9';
+  SeoGrow.VERSION = '0.10.10';
   SeoGrow.SCHEMA_VERSION = 4;
 
   function appError(message, code) {
@@ -314,9 +314,15 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     }
   }
 
-  function apiError(response, payload, base) {
+  function apiError(response, payload, base, path) {
     var message = payload && (payload.message || payload.code || payload.error);
     if (response.status === 404) {
+      if (path === '/wp-json/seogrow/v1/pages') {
+        return appError('La chiave è stata accettata, ma il plugin WordPress installato non espone l’importazione pagine richiesta (GET ' + base + path + '). Aggiorna o reinstalla seoGrow Connector compatibile; nel frattempo usa “Importazione CSV” qui sotto. Non è un errore del file dei link interni.', 'WP_PAGES_ROUTE_MISSING');
+      }
+      if (path === '/wp-json/seogrow/v1/dataforseo/competitors') {
+        return appError('Il plugin WordPress non espone il percorso DataForSEO richiesto (POST ' + base + path + '). Aggiorna o reinstalla seoGrow Connector compatibile.', 'WP_DATAFORSEO_ROUTE_MISSING');
+      }
       return appError('Il sito non espone seoGrow Connector su ' + base + '/wp-json/seogrow/v1/. Attiva il connettore corretto: RZ Organic Growth OS usa un protocollo distinto e non è compatibile con questa chiave seoGrow.', 'WP_CONNECTOR_NOT_FOUND');
     }
     if (response.status === 401 || response.status === 403) {
@@ -463,7 +469,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       }
 
       if (attempt.superseded || app.wordpressConnectionAttempt !== attempt) throw supersededError();
-      if (!result.response.ok) throw apiError(result.response, result.payload, normalized.base);
+      if (!result.response.ok) throw apiError(result.response, result.payload, normalized.base, '/wp-json/seogrow/v1/capabilities');
       if (!result.payload || typeof result.payload !== 'object') {
         throw appError('Il connettore WordPress non ha restituito JSON valido.', 'WP_INVALID_RESPONSE');
       }
@@ -537,7 +543,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
           throw error;
         }
         if (attempt.superseded || app.wordpress !== connection || app.wordpressImportAttempt !== attempt) throw supersededError();
-        if (!result.response.ok) throw apiError(result.response, result.payload, connection.base);
+        if (!result.response.ok) throw apiError(result.response, result.payload, connection.base, '/wp-json/seogrow/v1/pages');
 
         var rows = Array.isArray(result.payload && result.payload.rows) ? result.payload.rows.map(function (row) {
           return {
@@ -603,7 +609,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       headers: Object.assign({}, connection.headers, {'Content-Type': 'application/json'}),
       body: JSON.stringify({target: project.domain})
     });
-    if (!result.response.ok) throw apiError(result.response, result.payload, connection.base);
+    if (!result.response.ok) throw apiError(result.response, result.payload, connection.base, '/wp-json/seogrow/v1/dataforseo/competitors');
     var rows = Array.isArray(result.payload && result.payload.rows) ? result.payload.rows : [];
     if (!rows.length) throw appError('DataForSEO non ha restituito competitor per questo dominio.', 'DATAFORSEO_EMPTY');
     this.store.dispatch({
@@ -981,6 +987,15 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       '<label for="pagesFile">CSV pagine</label><input id="pagesFile" type="file" accept=".csv,text/csv"><p><small>Crawl on-page: URL, Title, Meta Description, H1, Canonical, Indexability. Search Console: Pagine principali, Clic, Impressioni, CTR, Posizione.</small></p><button data-action="import-pages">Importa e verifica</button></section>';
   };
 
+  proto.technical = function () {
+    return '<h1>Verifica link interni</h1><p class="muted">Importa un crawl con <code>source,target,status</code>. Vengono creati riscontri solo per HTTP 404/410 confermati.</p>' +
+      '<section class="card"><h2>Nuova analisi</h2><p>Avvia un nuovo controllo scegliendo un export aggiornato del crawler. Lo storico resta conservato: i riscontri già lavorati non vengono cancellati né duplicati.</p>' +
+      '<div class="actions"><button class="primary" data-action="new-link-analysis">Nuova analisi</button><button data-action="download-link-template">Scarica modello CSV</button></div>' +
+      '<p><small>Il file deve avere le colonne <code>source,target,status</code>. Se non trovi errori, importa il solo header oppure un JSON <code>[]</code>.</small></p></section>' +
+      '<section class="card"><h2>Importa il crawl</h2><label for="linkFile">File CSV o JSON</label><input id="linkFile" type="file" accept=".csv,.json,application/json,text/csv">' +
+      '<p><small>Da Screaming Frog o altro crawler: una riga per ogni link interno, con URL origine, URL destinazione e codice HTTP effettivo.</small></p><button class="primary" data-action="import-links">Importa e analizza</button></section>';
+  };
+
   proto.competitors = function () {
     var connected = Boolean(this.app.wordpress);
     var connection = connected ? '<p class="status verified">WordPress attivo: ' + SeoGrowUtils.escapeHTML(this.app.wordpress.base) + '</p>' : '<p class="muted">Collega prima WordPress nella sezione Pagine e on-page; non verranno richieste credenziali nei popup del browser.</p>';
@@ -994,6 +1009,30 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     var element = event.target.closest('[data-action],[data-view]');
     if (!element) return;
     var action = element.dataset.action;
+    if (element.dataset.view) {
+      this.message = '';
+      this.view = element.dataset.view;
+      this.render();
+      return;
+    }
+    if (action === 'new-link-analysis') {
+      this.message = '';
+      this.view = 'technical';
+      this.render();
+      var linkInput = document.getElementById('linkFile');
+      if (linkInput && !linkInput.disabled) linkInput.click();
+      return;
+    }
+    if (action === 'download-link-template') {
+      var template = 'source,target,status\nhttps://www.sito.it/pagina-origine/,https://www.sito.it/pagina-rimossa/,404\n';
+      var anchor = document.createElement('a');
+      anchor.href = URL.createObjectURL(new Blob([template], {type: 'text/csv;charset=utf-8'}));
+      anchor.download = 'seogrow-link-interni-modello.csv';
+      anchor.click();
+      URL.revokeObjectURL(anchor.href);
+      this.notify('Modello CSV scaricato. Sostituisci la riga di esempio con l’export reale del crawl.');
+      return;
+    }
     if (action === 'wp-open-connection' || action === 'wp-import-pages') {
       this.view = 'pages';
       this.notify('Inserisci l’URL e una chiave seoGrow o una Password applicazione per collegare WordPress.');
