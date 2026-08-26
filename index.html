@@ -1,4 +1,4 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.23</title>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.25</title>
 <style>:root{--bg:#f5f7f6;--surface:#fff;--text:#162019;--muted:#617066;--line:#dce4de;--green:#146c43;--dark:#102017;--danger:#a13232;--warning:#8a5a00;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,select,input{font:inherit}button{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 12px;cursor:pointer}button:hover{border-color:#91a99b}.primary{background:var(--green);border-color:var(--green);color:#fff}header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:3}header small{color:var(--muted);font-weight:500}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 64px)}aside{background:var(--dark);padding:20px 12px}.brand{color:#fff;padding:0 10px 20px}.brand span{display:block;color:#aebbb2;font-size:12px}.nav{width:100%;text-align:left;border:0;background:transparent;color:#b7c4ba;margin:2px 0}.nav.active,.nav:hover{background:#1f3728;color:#fff;box-shadow:inset 3px 0 #5bd28e}main{padding:28px;max-width:1300px}.hero,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px}.hero{background:linear-gradient(135deg,#fff,#eef8f1)}h1{font-size:30px;line-height:1.15;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted,small{color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metrics div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px}.metrics b{display:block;font-size:28px}.metrics span{color:var(--muted)}.row{display:grid;grid-template-columns:minmax(0,1fr) 150px 180px;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:15px 0}.row:last-child{border-bottom:0}.row p{margin:4px 0}.status{font-size:12px;font-weight:700;text-transform:capitalize;padding:5px 8px;border-radius:99px;background:#eef0ef;display:inline-block}.status.candidate,.status.todo,.status.pending_approval,.status.verification_pending{background:#fff2d8;color:var(--warning)}.status.validated,.status.approved,.status.executing,.status.completed,.status.verified,.status.resolved,.status.task_created{background:#e6f5eb;color:var(--green)}.status.excluded,.status.obsolete,.status.archived{background:#f2eded;color:#795252}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:22px;background:#f7faf8;border-radius:10px;color:var(--muted)}.notice{margin-bottom:16px;border-radius:10px;padding:11px 14px;background:#e6f5eb;color:var(--green);border:1px solid #c5e4d0}.notice.error{background:#fbeeee;color:var(--danger);border-color:#efcccc}label{font-weight:700;display:block;margin-bottom:8px}input[type=file],input[type=url],input[type=password],input:not([type]){display:block;width:min(560px,100%);max-width:100%;margin-bottom:14px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}@media(max-width:850px){header{padding:0 12px}.shell{grid-template-columns:1fr}aside{display:flex;overflow:auto;padding:10px;gap:4px}.brand{display:none}.nav{width:auto;white-space:nowrap}.metrics{grid-template-columns:1fr 1fr}main{padding:16px}.row{grid-template-columns:1fr;gap:8px}}@media(max-width:420px){.metrics{grid-template-columns:1fr}h1{font-size:26px}}
 .progress{height:9px;border-radius:99px;background:#dfe8e2;margin:18px 0 6px;overflow:hidden}.progress span{display:block;height:100%;background:var(--green);border-radius:99px}.wizard-list{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px}.wizard-step{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;border-bottom:1px solid var(--line)}.wizard-step:last-child{border-bottom:0}.wizard-step p{margin:4px 0 0;color:var(--muted)}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eef1ef;font-weight:800;color:var(--muted)}.wizard-step.complete .step-number{background:#e6f5eb;color:var(--green)}@media(max-width:560px){.wizard-step{grid-template-columns:34px 1fr}.wizard-step>div:last-child{grid-column:2}.wizard-step button{width:100%}}
 .dataset-summary{margin:0;padding-left:20px}.dataset-summary li{margin:7px 0;color:var(--muted)}.dataset-summary b{color:var(--text)}.dataset-list{display:grid;gap:10px}.dataset-row{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.dataset-row p{margin:3px 0}.dataset-row details{min-width:180px}.dataset-row summary{cursor:pointer;font-weight:700}.dataset-row pre{max-width:420px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f7faf8;padding:10px;border-radius:8px;font-size:12px}@media(max-width:700px){.dataset-row{display:block}.dataset-row details{margin-top:10px}}
@@ -13,7 +13,7 @@ window.SeoGrowModules.contracts = {
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
 /* Versione unica dell'applicazione: nessun blocco successivo la riscrive. */
-SeoGrow.VERSION = '0.10.23'; SeoGrow.SCHEMA_VERSION = 4;
+SeoGrow.VERSION = '0.10.25'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -4833,6 +4833,771 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       'search-highlights-instead-of-hiding',
       'relevance-filter-opt-in',
       'full-check-history'
+    ]
+  });
+})();
+</script>
+<script>
+/* seoGrow 0.10.24 — rianalisi dei riscontri, azzeramento degli stati e vista per gruppi. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1024) return;
+  window.SeoGrowRelease1024 = true;
+  window.SeoGrowFeatures = window.SeoGrowFeatures || new Map();
+
+  var ui = SeoGrowUI.App.prototype;
+  var appProto = SeoGrowApp.prototype;
+
+  var OPEN_TASK_STATES = ['verified', 'archived', 'obsolete'];
+
+  /* Tipi di riscontro che la rianalisi sa ricostruire, con il dataset che li genera. */
+  var MANAGED = {
+    missing_title: 'pages-onpage',
+    missing_meta_description: 'pages-onpage',
+    missing_h1: 'pages-onpage',
+    noindex_page: 'pages-onpage',
+    canonical_other_url: 'pages-onpage',
+    duplicate_title: 'pages-onpage',
+    broken_internal_link: 'internal-links',
+    competitor_keyword_gap: 'competitor-positions'
+  };
+
+  function esc(value) {
+    return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
+  }
+
+  function projectOf(state) {
+    return state.projects.find(function (item) { return item.id === state.activeProjectId; }) || null;
+  }
+
+  function newest(state, projectId, type) {
+    var list = state.datasets.filter(function (item) {
+      return item.projectId === projectId && item.type === type && Array.isArray(item.data);
+    });
+    return list.length ? list[list.length - 1] : null;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Rianalisi: ricostruisce i riscontri dagli ultimi dati importati,
+   * senza dover reimportare nulla.
+   * ------------------------------------------------------------------ */
+  function freshCandidates(state, projectId) {
+    var project = projectOf(state);
+    var out = [];
+    var used = [];
+
+    var pages = newest(state, projectId, 'pages-onpage');
+    if (pages) {
+      out = out.concat(SeoGrowPages.analyze(projectId, pages.data || []));
+      used.push('pages-onpage');
+    }
+
+    var links = newest(state, projectId, 'internal-links');
+    if (links) {
+      out = out.concat(SeoGrowTechnical.analyzeBrokenLinks(projectId, links.data || []));
+      used.push('internal-links');
+    }
+
+    var competitors = newest(state, projectId, 'competitor-positions');
+    if (competitors && project && window.SeoGrowCompetitors && SeoGrowCompetitors.gaps) {
+      out = out.concat(SeoGrowCompetitors.gaps(projectId, project.domain, competitors.data || []));
+      used.push('competitor-positions');
+    }
+
+    return { candidates: out, datasets: used, pages: pages, links: links, competitors: competitors };
+  }
+
+  function conclusiveIndex(row) {
+    if (!row) return false;
+    if ('index' !== String(row.indexability || '').toLowerCase()) return false;
+    var source = String(row.indexabilitySource || '');
+    return !source || 'public_html_no_noindex' === source;
+  }
+
+  function obsoleteTask(next, finding) {
+    var task = next.tasks.find(function (item) {
+      return item.findingId === finding.id && OPEN_TASK_STATES.indexOf(item.status) < 0;
+    });
+    if (task) {
+      task.status = 'obsolete';
+      task.updatedAt = SeoGrowUtils.now();
+    }
+  }
+
+  appProto.reanalyzeFindings = async function () {
+    var state = this.store.getState();
+    var projectId = state.activeProjectId;
+    var fresh = freshCandidates(state, projectId);
+
+    if (!fresh.datasets.length) {
+      throw new Error('Non ci sono dati su cui rianalizzare. Importa prima le pagine, un crawl di link interni o un CSV competitor.');
+    }
+
+    await this.storage.saveSnapshot(state);
+
+    /* 1. Riscontri ancora presenti: aggiornati, e quelli chiusi tornano da confermare. */
+    var created = this.findings.createMany(fresh.candidates);
+    var active = {};
+    fresh.candidates.forEach(function (item) { active[item.signature] = true; });
+
+    /* 2. Riscontri non piu' riprodotti: chiusi, ma solo dove ci sono le prove. */
+    var after = this.store.getState();
+    var rowByUrl = {};
+    (fresh.pages && fresh.pages.data || []).forEach(function (row) { if (row && row.url) rowByUrl[row.url] = row; });
+
+    var toClose = after.findings.filter(function (finding) {
+      if (finding.projectId !== projectId) return false;
+      if (['excluded', 'resolved', 'obsolete'].indexOf(finding.status) > -1) return false;
+      var dataset = MANAGED[finding.type];
+      if (!dataset || fresh.datasets.indexOf(dataset) < 0) return false;
+      if (active[finding.signature]) return false;
+
+      if ('pages-onpage' === dataset) {
+        var urls = Array.isArray(finding.affectedItems) ? finding.affectedItems : [];
+        /* Senza la pagina nell'ultimo import non si puo' dire nulla: si lascia stare. */
+        if (!urls.length || !urls.every(function (url) { return !!rowByUrl[url]; })) return false;
+        if ('noindex_page' === finding.type && !urls.every(function (url) { return conclusiveIndex(rowByUrl[url]); })) return false;
+      }
+      return true;
+    });
+
+    if (toClose.length) {
+      var next = SeoGrowUtils.clone(after);
+      var now = SeoGrowUtils.now();
+      toClose.forEach(function (finding) {
+        var target = next.findings.find(function (item) { return item.id === finding.id; });
+        if (!target) return;
+        target.status = ['candidate', 'reopened'].indexOf(target.status) > -1 ? 'excluded' : 'resolved';
+        target.updatedAt = now;
+        target.description = 'Non riprodotto nella rianalisi degli ultimi dati importati.';
+        target.evidence = (target.evidence || []).concat([{
+          type: 'recheck',
+          source: 'LATEST_IMPORT',
+          value: { result: 'not_reproduced', at: now },
+          reliability: 'CONFIRMED',
+          timestamp: now
+        }]);
+        obsoleteTask(next, target);
+      });
+      next.history.push({
+        id: SeoGrowUtils.id('history'),
+        projectId: projectId,
+        entityType: 'finding',
+        entityId: '',
+        action: 'FINDINGS_REANALYZED',
+        timestamp: now,
+        metadata: { updated: created.length, closed: toClose.length }
+      });
+      this.store.replace(next, { source: 'findings:reanalyze' });
+    }
+
+    await this.flushSave();
+    return { updated: created.length, closed: toClose.length, datasets: fresh.datasets };
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Azzeramento: tutti i riscontri tornano "da confermare".
+   * ------------------------------------------------------------------ */
+  appProto.resetFindingStates = async function () {
+    var state = this.store.getState();
+    var projectId = state.activeProjectId;
+    var mine = state.findings.filter(function (item) { return item.projectId === projectId; });
+    if (!mine.length) throw new Error('Non ci sono riscontri da azzerare in questo progetto.');
+
+    await this.storage.saveSnapshot(state);
+
+    var next = SeoGrowUtils.clone(state);
+    var now = SeoGrowUtils.now();
+    var reset = 0;
+    var closedTasks = 0;
+
+    next.findings.forEach(function (finding) {
+      if (finding.projectId !== projectId || 'candidate' === finding.status) return;
+      finding.status = 'candidate';
+      finding.updatedAt = now;
+      reset++;
+      var task = next.tasks.find(function (item) {
+        return item.findingId === finding.id && OPEN_TASK_STATES.indexOf(item.status) < 0;
+      });
+      if (task) {
+        task.status = 'obsolete';
+        task.updatedAt = now;
+        closedTasks++;
+      }
+    });
+
+    next.history.push({
+      id: SeoGrowUtils.id('history'),
+      projectId: projectId,
+      entityType: 'finding',
+      entityId: '',
+      action: 'FINDING_STATES_RESET',
+      timestamp: now,
+      metadata: { reset: reset, obsoleteTasks: closedTasks }
+    });
+
+    this.store.replace(next, { source: 'findings:reset' });
+    await this.flushSave();
+    return { reset: reset, obsoleteTasks: closedTasks };
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Vista Riscontri divisa in gruppi.
+   *
+   * Le schede vengono generate dal livello precedente e qui solo
+   * ridistribuite: evidenze, link e passo successivo restano identici.
+   * ------------------------------------------------------------------ */
+  var GROUPS = [
+    { key: 'review', title: 'Da confermare', states: ['candidate', 'reopened'],
+      hint: 'Controlla l’evidenza e decidi: confermare apre la strada a un’attività, escludere lo toglie dai conteggi.' },
+    { key: 'working', title: 'Confermati e in lavorazione', states: ['validated', 'task_created'],
+      hint: 'Riscontri presi in carico. Quando l’attività collegata viene verificata, il riscontro si chiude da solo.' },
+    { key: 'closed', title: 'Chiusi', states: ['resolved', 'obsolete', 'insufficient_data'],
+      hint: 'Risolti o non più riproducibili nell’ultimo import.' },
+    { key: 'excluded', title: 'Esclusi', states: ['excluded'],
+      hint: 'Scartati manualmente. Non entrano nei conteggi, ma restano qui: puoi rimetterli fra quelli da confermare quando vuoi.' }
+  ];
+
+  function toolbar(state, projectId) {
+    var counts = { total: 0, review: 0, excluded: 0 };
+    state.findings.forEach(function (finding) {
+      if (finding.projectId !== projectId) return;
+      counts.total++;
+      if (['candidate', 'reopened'].indexOf(finding.status) > -1) counts.review++;
+      if ('excluded' === finding.status) counts.excluded++;
+    });
+
+    return '<section class="card findings-toolbar"><h2>Gestione dei riscontri</h2>' +
+      '<p class="muted">' + counts.total + ' riscontri nel progetto · ' + counts.review + ' da confermare · ' + counts.excluded + ' esclusi.</p>' +
+      '<div class="actions">' +
+      '<button data-action="reanalyze-findings">Rianalizza dai dati importati</button>' +
+      '<button data-action="reset-findings">Azzera tutti gli stati</button>' +
+      (counts.excluded ? '<button data-action="unexclude-all">Rimetti gli esclusi fra i da confermare</button>' : '') +
+      '</div>' +
+      '<p><small><strong>Rianalizza</strong> ricostruisce i riscontri dagli ultimi dati già importati, senza chiamate al sito né a DataForSEO: ' +
+      'chiude quelli non più riprodotti e riporta fra i da confermare quelli esclusi che invece sono ancora presenti. ' +
+      '<strong>Azzera</strong> riporta ogni riscontro a “da confermare” e rende obsolete le attività collegate. ' +
+      'Prima di entrambe viene salvato uno snapshot: puoi tornare indietro da Integrità e backup.</small></p></section>';
+  }
+
+  function installStyle() {
+    if (typeof document === 'undefined' || document.getElementById('seogrow-v1024-style')) return;
+    var style = document.createElement('style');
+    style.id = 'seogrow-v1024-style';
+    style.textContent =
+      '.findings-toolbar{border-left:4px solid #5bd28e}' +
+      '.findings-group{margin-bottom:18px}' +
+      '.findings-group>h2{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}' +
+      '.findings-group .count{font-size:13px;font-weight:600;color:var(--muted,#617066);border:1px solid var(--line,#dce4de);border-radius:20px;padding:1px 10px}' +
+      '.findings-group.is-empty>p.muted{margin-bottom:0}' +
+      '.findings-group .finding-row{border-top:1px solid var(--line,#dce4de);padding-top:14px;margin-top:14px}' +
+      '.findings-group .finding-row:first-of-type{border-top:0;padding-top:0;margin-top:8px}';
+    document.head.appendChild(style);
+  }
+
+  var previousFindings = ui.findings;
+  ui.findings = function () {
+    installStyle();
+    var state = this.state();
+    var projectId = state.activeProjectId;
+    var bar = toolbar(state, projectId);
+    var html = previousFindings.call(this);
+
+    if (typeof document === 'undefined') return bar + html;
+
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    var cards = box.querySelectorAll('article.finding-row');
+    if (!cards.length) return bar + html;
+
+    var statusById = {};
+    state.findings.forEach(function (finding) {
+      if (finding.projectId === projectId) statusById[finding.id] = finding.status;
+    });
+
+    var buckets = {};
+    GROUPS.forEach(function (group) { buckets[group.key] = []; });
+
+    Array.prototype.forEach.call(cards, function (card) {
+      var id = String(card.id || '').replace(/^finding-/, '');
+      var status = statusById[id] || 'candidate';
+      var group = GROUPS.find(function (item) { return item.states.indexOf(status) > -1; }) || GROUPS[0];
+
+      if ('excluded' === group.key) {
+        var actions = card.querySelector('.finding-actions .actions') || card.querySelector('.actions');
+        if (actions && !actions.querySelector('[data-action="unexclude"]')) {
+          var button = document.createElement('button');
+          button.className = 'primary';
+          button.setAttribute('data-action', 'unexclude');
+          button.setAttribute('data-id', id);
+          button.textContent = 'Rimetti fra i da confermare';
+          actions.appendChild(button);
+        }
+      }
+
+      buckets[group.key].push(card.outerHTML);
+    });
+
+    var heading = box.querySelector('h1');
+    var intro = heading && heading.nextElementSibling && 'P' === heading.nextElementSibling.tagName ? heading.nextElementSibling.outerHTML : '';
+
+    var sections = GROUPS.map(function (group) {
+      var items = buckets[group.key];
+      if (!items.length && 'excluded' !== group.key && 'review' !== group.key) return '';
+      return '<section class="card findings-group' + (items.length ? '' : ' is-empty') + '" data-group="' + esc(group.key) + '">' +
+        '<h2>' + esc(group.title) + ' <span class="count">' + items.length + '</span></h2>' +
+        '<p class="muted">' + group.hint + '</p>' +
+        (items.length ? items.join('') : '<div class="empty">Nessun riscontro in questo gruppo.</div>') +
+        '</section>';
+    }).join('');
+
+    return (heading ? heading.outerHTML : '<h1>Riscontri</h1>') + intro + bar + sections;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Azioni.
+   * ------------------------------------------------------------------ */
+  var previousClick = ui.click;
+  ui.click = async function (event) {
+    var element = event.target.closest('[data-action],[data-view]');
+    var action = element && element.dataset.action;
+
+    if ('unexclude' === action) {
+      try {
+        /* "reopened" e' lo stato di rientro previsto dalla macchina a stati. */
+        this.app.findings.status(element.dataset.id, 'reopened');
+        await this.app.flushSave();
+        this.notify('Riscontro rimesso fra quelli da confermare.');
+      } catch (error) {
+        this.notify(error.message, 'error');
+      }
+      return;
+    }
+
+    if ('unexclude-all' === action) {
+      var state = this.state();
+      var excluded = state.findings.filter(function (item) {
+        return item.projectId === state.activeProjectId && 'excluded' === item.status;
+      });
+      if (!excluded.length) return;
+      if (!confirm('Rimettere ' + excluded.length + ' riscontri esclusi fra quelli da confermare?')) return;
+      var moved = 0;
+      var self = this;
+      excluded.forEach(function (finding) {
+        try { self.app.findings.status(finding.id, 'reopened'); moved++; } catch (error) { /* stato non compatibile */ }
+      });
+      await this.app.flushSave();
+      this.notify(moved + ' riscontri rimessi fra quelli da confermare.');
+      return;
+    }
+
+    if ('reanalyze-findings' === action) {
+      if (element.disabled) return;
+      if (!confirm('Rianalizzare i riscontri dagli ultimi dati importati? Viene prima salvato uno snapshot locale.')) return;
+      element.disabled = true;
+      var reanalyzeLabel = element.textContent;
+      element.textContent = 'Rianalisi in corso…';
+      try {
+        var result = await this.app.reanalyzeFindings();
+        this.notify('Rianalisi completata su ' + result.datasets.join(', ') + ': ' + result.updated +
+          ' riscontri aggiornati, ' + result.closed + ' chiusi perché non più riprodotti.');
+      } catch (error) {
+        this.notify(error.message, 'error');
+      } finally {
+        if (element.isConnected) {
+          element.disabled = false;
+          element.textContent = reanalyzeLabel;
+        }
+      }
+      return;
+    }
+
+    if ('reset-findings' === action) {
+      if (element.disabled) return;
+      if (!confirm('Riportare tutti i riscontri a “da confermare”? Le attività collegate ancora aperte diventeranno obsolete. Viene prima salvato uno snapshot locale.')) return;
+      element.disabled = true;
+      try {
+        var reset = await this.app.resetFindingStates();
+        this.notify(reset.reset + ' riscontri riportati a “da confermare”' +
+          (reset.obsoleteTasks ? ' · ' + reset.obsoleteTasks + ' attività rese obsolete' : '') + '.');
+      } catch (error) {
+        this.notify(error.message, 'error');
+      } finally {
+        if (element.isConnected) element.disabled = false;
+      }
+      return;
+    }
+
+    return previousClick.call(this, event);
+  };
+
+  window.SeoGrowFeatures.set('release-0.10.24', {
+    version: '0.10.24',
+    features: [
+      'reanalyze-from-imported-data',
+      'reset-finding-states',
+      'grouped-findings-view',
+      'excluded-list-with-restore'
+    ]
+  });
+})();
+</script>
+<script>
+/* seoGrow 0.10.25 — collegamento WordPress: campi che non si svuotano, URL tollerante e diagnostica. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1025) return;
+  window.SeoGrowRelease1025 = true;
+  window.SeoGrowFeatures = window.SeoGrowFeatures || new Map();
+
+  var ui = SeoGrowUI.App.prototype;
+  var appProto = SeoGrowApp.prototype;
+
+  /* Solo in memoria: mai nello stato, mai nel backup, mai in sessionStorage. */
+  var secrets = { wpToken: '', wpPassword: '' };
+
+  function esc(value) {
+    return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
+  }
+
+  /* ------------------------------------------------------------------ *
+   * 1. La chiave non deve piu' sparire dal campo.
+   *
+   * render() riscrive tutto l'HTML e chiave e password applicazione, che
+   * per sicurezza non entrano nella bozza salvata, tornavano vuote: si
+   * premeva "Collega" con i campi ormai azzerati e il messaggio d'errore
+   * parlava d'altro.
+   * ------------------------------------------------------------------ */
+  function captureSecrets() {
+    if (typeof document === 'undefined') return;
+    Object.keys(secrets).forEach(function (id) {
+      var field = document.getElementById(id);
+      if (field) secrets[id] = field.value;
+    });
+  }
+
+  function restoreSecrets() {
+    if (typeof document === 'undefined') return;
+    Object.keys(secrets).forEach(function (id) {
+      if (!secrets[id]) return;
+      var field = document.getElementById(id);
+      if (field && !field.value) field.value = secrets[id];
+    });
+  }
+
+  function clearSecrets() {
+    secrets.wpToken = '';
+    secrets.wpPassword = '';
+    if (typeof document === 'undefined') return;
+    Object.keys(secrets).forEach(function (id) {
+      var field = document.getElementById(id);
+      if (field) field.value = '';
+    });
+  }
+
+  var previousRender = ui.render;
+  ui.render = function () {
+    captureSecrets();
+    var result = previousRender.call(this);
+    restoreSecrets();
+    return result;
+  };
+
+  var previousMount = ui.mount;
+  ui.mount = function (root) {
+    var result = previousMount.call(this, root);
+    root.addEventListener('input', function (event) {
+      var field = event.target;
+      if (field && Object.prototype.hasOwnProperty.call(secrets, field.id)) secrets[field.id] = field.value;
+    });
+    return result;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * 2. URL del sito tollerante.
+   *
+   * "miosito.it" e "https://miosito.it/wp-admin/" sono quello che la gente
+   * incolla davvero; il secondo mandava le richieste su /wp-admin/wp-json/
+   * e rispondeva 404.
+   * ------------------------------------------------------------------ */
+  function cleanSiteUrl(value) {
+    var raw = String(value || '').trim();
+    if (!raw) return raw;
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw = 'https://' + raw.replace(/^\/+/, '');
+
+    var url;
+    try {
+      url = new URL(raw);
+    } catch (error) {
+      return String(value).trim();
+    }
+
+    url.search = '';
+    url.hash = '';
+    url.pathname = String(url.pathname || '/')
+      .replace(/\/wp-admin(\/.*)?$/i, '/')
+      .replace(/\/wp-login\.php.*$/i, '/')
+      .replace(/\/wp-json(\/.*)?$/i, '/')
+      .replace(/\/index\.php.*$/i, '/');
+
+    return url.href.replace(/\/+$/, '');
+  }
+
+  SeoGrowUtils.cleanSiteUrl = cleanSiteUrl;
+
+  function withCleanSite(credentials) {
+    if (!credentials || !credentials.site) return credentials;
+    return Object.assign({}, credentials, { site: cleanSiteUrl(credentials.site) });
+  }
+
+  var previousConnect = appProto.connectWordPress;
+  appProto.connectWordPress = async function (credentials) {
+    return previousConnect.call(this, withCleanSite(credentials));
+  };
+
+  var previousImport = appProto.importWordPressPages;
+  appProto.importWordPressPages = async function (credentials) {
+    var result = await previousImport.call(this, withCleanSite(credentials));
+    clearSecrets();
+    return result;
+  };
+
+  var previousDisconnect = appProto.disconnectWordPress;
+  appProto.disconnectWordPress = function () {
+    clearSecrets();
+    return previousDisconnect.call(this);
+  };
+
+  /* ------------------------------------------------------------------ *
+   * 3. Diagnostica: dire esattamente dove si rompe.
+   * ------------------------------------------------------------------ */
+  async function probe(url, headers) {
+    var started = Date.now();
+    try {
+      var response = await fetch(url, {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+        headers: Object.assign({ Accept: 'application/json' }, headers || {})
+      });
+      var body = '';
+      try { body = (await response.text()).slice(0, 400); } catch (error) { body = ''; }
+      return { reached: true, status: response.status, ok: response.ok, body: body, ms: Date.now() - started };
+    } catch (error) {
+      return { reached: false, status: 0, ok: false, error: String(error && error.message || error), ms: Date.now() - started };
+    }
+  }
+
+  appProto.diagnoseWordPress = async function (credentials) {
+    var steps = [];
+    var input = credentials || {};
+    var site = cleanSiteUrl(input.site);
+    var token = String(input.token || '').trim();
+    var username = String(input.username || '').trim();
+    var password = String(input.password || '').replace(/\s/g, '');
+
+    /* Passo 1: da dove e' aperta l'app. */
+    var origin = typeof location === 'undefined' ? '' : location.origin;
+    var isFile = typeof location !== 'undefined' && 'file:' === location.protocol;
+    var localhost = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:|$)/i.test(origin);
+    steps.push({
+      label: 'Origine della web app',
+      ok: !isFile && (localhost || /^https:/i.test(origin)),
+      detail: isFile ? 'file:// — origine "null"' : origin,
+      hint: isFile
+        ? 'Apri seoGrow da un indirizzo HTTPS o da localhost: con file:// il browser invia un’origine null che WordPress rifiuta sempre.'
+        : 'Questa esatta stringa deve comparire in WordPress → Impostazioni → RZ seoGrow Connector → Origini autorizzate.'
+    });
+
+    /* Passo 2: URL del sito. */
+    var validSite = /^https:\/\//i.test(site);
+    steps.push({
+      label: 'URL del sito WordPress',
+      ok: validSite,
+      detail: site || '(vuoto)',
+      hint: validSite
+        ? (site === String(input.site || '').trim() ? 'Formato corretto.' : 'Corretto automaticamente da “' + String(input.site || '').trim() + '”.')
+        : 'Serve l’indirizzo pubblico del sito in HTTPS, senza /wp-admin.'
+    });
+    if (!validSite) return { site: site, steps: steps };
+
+    /* Passo 3: il REST di WordPress risponde? */
+    var rest = await probe(site + '/wp-json/');
+    var restRoute = null;
+    if (!rest.reached || 404 === rest.status) restRoute = await probe(site + '/?rest_route=/');
+    steps.push({
+      label: 'API REST di WordPress',
+      ok: rest.reached && rest.ok,
+      detail: rest.reached ? 'HTTP ' + rest.status + ' su /wp-json/' : 'nessuna risposta leggibile dal browser',
+      hint: rest.reached && rest.ok
+        ? 'Raggiungibile.'
+        : (restRoute && restRoute.ok
+          ? 'Il sito risponde su ?rest_route= ma non su /wp-json/: i permalink sono impostati su “Semplice”. Cambiali in Impostazioni → Permalink e riprova.'
+          : (rest.reached
+            ? 'WordPress risponde ' + rest.status + ' sul suo stesso REST: un plugin di sicurezza o il server sta bloccando /wp-json/.'
+            : 'Il browser non riesce a leggere la risposta. È quasi sempre CORS: l’origine qui sopra non è fra quelle autorizzate nel plugin. Verifica anche che l’URL sia giusto e il sito online.'))
+    });
+
+    /* Passo 4: la rotta del connettore esiste e il CORS lascia leggere la risposta? */
+    var anonymous = await probe(site + '/wp-json/seogrow/v1/capabilities');
+    steps.push({
+      label: 'Rotta del connettore (senza credenziali)',
+      ok: anonymous.reached && (401 === anonymous.status || 403 === anonymous.status || anonymous.ok),
+      detail: anonymous.reached ? 'HTTP ' + anonymous.status : 'nessuna risposta leggibile',
+      hint: !anonymous.reached
+        ? 'Il browser non legge la risposta: preflight CORS bloccato. Aggiungi ' + (origin || 'l’origine di questa pagina') + ' alle Origini autorizzate del plugin e salva.'
+        : 404 === anonymous.status
+          ? 'Il plugin RZ seoGrow Connector non è attivo su questo sito, oppure è una versione senza questa rotta.'
+          : (401 === anonymous.status || 403 === anonymous.status)
+            ? 'Corretto: la rotta esiste, risponde e il CORS funziona. Manca solo l’autenticazione.'
+            : 'Risposta inattesa: ' + anonymous.status + '.'
+    });
+
+    /* Passo 5: le credenziali. */
+    if (!token && (!username || !password)) {
+      steps.push({
+        label: 'Credenziali',
+        ok: false,
+        detail: 'nessuna credenziale inserita',
+        hint: 'Incolla la chiave seoGrow dal plugin, oppure utente WordPress e Password applicazione.'
+      });
+      return { site: site, steps: steps };
+    }
+
+    var headers = token
+      ? { 'X-SeoGrow-Token': token }
+      : { Authorization: 'Basic ' + SeoGrowUtils.base64Utf8(username + ':' + password) };
+    var authed = await probe(site + '/wp-json/seogrow/v1/capabilities', headers);
+    var payload = null;
+    try { payload = authed.body ? JSON.parse(authed.body) : null; } catch (error) { payload = null; }
+
+    steps.push({
+      label: token ? 'Chiave seoGrow' : 'Utente e Password applicazione',
+      ok: authed.reached && authed.ok,
+      detail: authed.reached ? 'HTTP ' + authed.status + (payload && payload.version ? ' · connettore ' + payload.version : '') : 'nessuna risposta leggibile',
+      hint: authed.reached && authed.ok
+        ? 'Collegamento riuscito: puoi premere “Collega e importa”.'
+        : 401 === authed.status || 403 === authed.status
+          ? (token
+            ? 'La chiave non corrisponde. Riaprila da WordPress → Impostazioni → RZ seoGrow Connector e ricopiala per intero, senza spazi.'
+            : 'Utente o Password applicazione rifiutati. La Password applicazione si genera dal profilo utente di WordPress e non è la password di accesso.')
+          : 'Risposta inattesa: ' + (authed.reached ? 'HTTP ' + authed.status : authed.error)
+    });
+
+    return { site: site, steps: steps, capabilities: payload };
+  };
+
+  /* ------------------------------------------------------------------ *
+   * 4. Interfaccia della diagnostica.
+   * ------------------------------------------------------------------ */
+  function installStyle() {
+    if (typeof document === 'undefined' || document.getElementById('seogrow-v1025-style')) return;
+    var style = document.createElement('style');
+    style.id = 'seogrow-v1025-style';
+    style.textContent =
+      '.wp-diagnostics{border-left:4px solid #5bd28e}' +
+      '.wp-diagnostics ol{margin:12px 0 0;padding-left:0;list-style:none}' +
+      '.wp-diagnostics li{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;padding:10px 0;border-top:1px solid var(--line,#dce4de)}' +
+      '.wp-diagnostics li:first-child{border-top:0}' +
+      '.wp-diagnostics .mark{font-weight:700;line-height:1.4}' +
+      '.wp-diagnostics .mark.yes{color:#146c43}.wp-diagnostics .mark.no{color:#a13232}' +
+      '.wp-diagnostics b{display:block}' +
+      '.wp-diagnostics code{overflow-wrap:anywhere}' +
+      '.wp-diagnostics p{margin:2px 0 0}';
+    document.head.appendChild(style);
+  }
+
+  function diagnosticsCard(report) {
+    if (!report) {
+      return '<section class="card wp-diagnostics"><h2>Il collegamento non riesce?</h2>' +
+        '<p class="muted">La verifica prova il sito passo per passo — origine, API REST, rotta del connettore, credenziali — e dice esattamente quale passaggio si rompe. Non importa nulla e non consuma credito.</p>' +
+        '<div class="actions"><button data-action="wp-diagnose">Verifica connessione</button></div></section>';
+    }
+
+    var items = report.steps.map(function (step) {
+      return '<li><span class="mark ' + (step.ok ? 'yes' : 'no') + '">' + (step.ok ? '✓' : '✕') + '</span><div>' +
+        '<b>' + esc(step.label) + '</b>' +
+        '<p><code>' + esc(step.detail) + '</code></p>' +
+        '<p class="muted">' + esc(step.hint) + '</p></div></li>';
+    }).join('');
+
+    var failed = report.steps.filter(function (step) { return !step.ok; });
+    var verdict = failed.length
+      ? '<p class="status candidate">Si ferma qui: ' + esc(failed[0].label) + '</p>'
+      : '<p class="status verified">Tutti i controlli superati</p>';
+
+    return '<section class="card wp-diagnostics"><h2>Verifica della connessione</h2>' + verdict +
+      '<ol>' + items + '</ol>' +
+      '<div class="actions"><button data-action="wp-diagnose">Ripeti la verifica</button>' +
+      '<button data-action="wp-diagnose-clear">Chiudi</button></div></section>';
+  }
+
+  var previousPages = ui.pages;
+  ui.pages = function () {
+    installStyle();
+    return previousPages.call(this) + diagnosticsCard(this.__wpDiagnostics);
+  };
+
+  function readForm() {
+    function value(id) {
+      var field = typeof document === 'undefined' ? null : document.getElementById(id);
+      return field ? field.value : '';
+    }
+    return {
+      site: value('wpSite'),
+      token: value('wpToken') || secrets.wpToken,
+      username: value('wpUsername'),
+      password: value('wpPassword') || secrets.wpPassword
+    };
+  }
+
+  var previousClick = ui.click;
+  ui.click = async function (event) {
+    var element = event.target.closest('[data-action],[data-view]');
+    var action = element && element.dataset.action;
+
+    if ('wp-diagnose' === action) {
+      if (element.disabled) return;
+      captureSecrets();
+      var credentials = readForm();
+      if (!credentials.site) {
+        this.notify('Inserisci prima l’URL del sito WordPress, poi premi “Verifica connessione”.', 'error');
+        return;
+      }
+      element.disabled = true;
+      var label = element.textContent;
+      element.textContent = 'Verifica in corso…';
+      try {
+        this.__wpDiagnostics = await this.app.diagnoseWordPress(credentials);
+        this.render();
+      } catch (error) {
+        this.notify('La verifica non è riuscita: ' + error.message, 'error');
+      } finally {
+        if (element.isConnected) {
+          element.disabled = false;
+          element.textContent = label;
+        }
+      }
+      return;
+    }
+
+    if ('wp-diagnose-clear' === action) {
+      this.__wpDiagnostics = null;
+      this.render();
+      return;
+    }
+
+    return previousClick.call(this, event);
+  };
+
+  window.SeoGrowFeatures.set('release-0.10.25', {
+    version: '0.10.25',
+    features: [
+      'secret-fields-survive-render',
+      'tolerant-site-url',
+      'connection-diagnostics'
     ]
   });
 })();
