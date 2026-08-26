@@ -1,4 +1,4 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.22</title>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.23</title>
 <style>:root{--bg:#f5f7f6;--surface:#fff;--text:#162019;--muted:#617066;--line:#dce4de;--green:#146c43;--dark:#102017;--danger:#a13232;--warning:#8a5a00;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,select,input{font:inherit}button{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 12px;cursor:pointer}button:hover{border-color:#91a99b}.primary{background:var(--green);border-color:var(--green);color:#fff}header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:3}header small{color:var(--muted);font-weight:500}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 64px)}aside{background:var(--dark);padding:20px 12px}.brand{color:#fff;padding:0 10px 20px}.brand span{display:block;color:#aebbb2;font-size:12px}.nav{width:100%;text-align:left;border:0;background:transparent;color:#b7c4ba;margin:2px 0}.nav.active,.nav:hover{background:#1f3728;color:#fff;box-shadow:inset 3px 0 #5bd28e}main{padding:28px;max-width:1300px}.hero,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px}.hero{background:linear-gradient(135deg,#fff,#eef8f1)}h1{font-size:30px;line-height:1.15;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted,small{color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metrics div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px}.metrics b{display:block;font-size:28px}.metrics span{color:var(--muted)}.row{display:grid;grid-template-columns:minmax(0,1fr) 150px 180px;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:15px 0}.row:last-child{border-bottom:0}.row p{margin:4px 0}.status{font-size:12px;font-weight:700;text-transform:capitalize;padding:5px 8px;border-radius:99px;background:#eef0ef;display:inline-block}.status.candidate,.status.todo,.status.pending_approval,.status.verification_pending{background:#fff2d8;color:var(--warning)}.status.validated,.status.approved,.status.executing,.status.completed,.status.verified,.status.resolved,.status.task_created{background:#e6f5eb;color:var(--green)}.status.excluded,.status.obsolete,.status.archived{background:#f2eded;color:#795252}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:22px;background:#f7faf8;border-radius:10px;color:var(--muted)}.notice{margin-bottom:16px;border-radius:10px;padding:11px 14px;background:#e6f5eb;color:var(--green);border:1px solid #c5e4d0}.notice.error{background:#fbeeee;color:var(--danger);border-color:#efcccc}label{font-weight:700;display:block;margin-bottom:8px}input[type=file],input[type=url],input[type=password],input:not([type]){display:block;width:min(560px,100%);max-width:100%;margin-bottom:14px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}@media(max-width:850px){header{padding:0 12px}.shell{grid-template-columns:1fr}aside{display:flex;overflow:auto;padding:10px;gap:4px}.brand{display:none}.nav{width:auto;white-space:nowrap}.metrics{grid-template-columns:1fr 1fr}main{padding:16px}.row{grid-template-columns:1fr;gap:8px}}@media(max-width:420px){.metrics{grid-template-columns:1fr}h1{font-size:26px}}
 .progress{height:9px;border-radius:99px;background:#dfe8e2;margin:18px 0 6px;overflow:hidden}.progress span{display:block;height:100%;background:var(--green);border-radius:99px}.wizard-list{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px}.wizard-step{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;border-bottom:1px solid var(--line)}.wizard-step:last-child{border-bottom:0}.wizard-step p{margin:4px 0 0;color:var(--muted)}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eef1ef;font-weight:800;color:var(--muted)}.wizard-step.complete .step-number{background:#e6f5eb;color:var(--green)}@media(max-width:560px){.wizard-step{grid-template-columns:34px 1fr}.wizard-step>div:last-child{grid-column:2}.wizard-step button{width:100%}}
 .dataset-summary{margin:0;padding-left:20px}.dataset-summary li{margin:7px 0;color:var(--muted)}.dataset-summary b{color:var(--text)}.dataset-list{display:grid;gap:10px}.dataset-row{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.dataset-row p{margin:3px 0}.dataset-row details{min-width:180px}.dataset-row summary{cursor:pointer;font-weight:700}.dataset-row pre{max-width:420px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f7faf8;padding:10px;border-radius:8px;font-size:12px}@media(max-width:700px){.dataset-row{display:block}.dataset-row details{margin-top:10px}}
@@ -13,7 +13,7 @@ window.SeoGrowModules.contracts = {
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
 /* Versione unica dell'applicazione: nessun blocco successivo la riscrive. */
-SeoGrow.VERSION = '0.10.22'; SeoGrow.SCHEMA_VERSION = 4;
+SeoGrow.VERSION = '0.10.23'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -4439,6 +4439,400 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       'auditable-noindex',
       'fresh-indexability-recheck',
       'downloadable-report'
+    ]
+  });
+})();
+</script>
+<script>
+/* seoGrow 0.10.23 — un solo elenco keyword: Labs, verifiche live e ricerca insieme. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1023) return;
+  window.SeoGrowRelease1023 = true;
+  window.SeoGrowFeatures = window.SeoGrowFeatures || new Map();
+
+  var ui = SeoGrowUI.App.prototype;
+  var appProto = SeoGrowApp.prototype;
+
+  function esc(value) {
+    return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
+  }
+
+  function norm(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  }
+
+  function num(value) {
+    if (value === null || value === undefined || '' === value) return null;
+    var parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  function fmt(value, decimals) {
+    var parsed = num(value);
+    return null === parsed ? '—' : parsed.toLocaleString('it-IT', { maximumFractionDigits: decimals || 0 });
+  }
+
+  function when(value) {
+    if (!value) return '—';
+    var date = new Date(value);
+    return isNaN(date.getTime()) ? String(value) : date.toLocaleDateString('it-IT');
+  }
+
+  function shortUrl(value) {
+    var url = SeoGrowUtils.safeUrl(value);
+    if (!url) return '';
+    return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  }
+
+  function setsOf(state, projectId, type) {
+    return state.datasets.filter(function (item) {
+      return item.projectId === projectId && item.type === type && Array.isArray(item.data);
+    });
+  }
+
+  function newest(state, projectId, type) {
+    var list = setsOf(state, projectId, type);
+    return list.length ? list[list.length - 1] : null;
+  }
+
+  function projectOf(state) {
+    return state.projects.find(function (item) { return item.id === state.activeProjectId; }) || null;
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Un solo elenco: posizioni Labs e verifiche live nella stessa tabella.
+   *
+   * Prima le keyword verificate a mano finivano solo in una tabella a
+   * parte, limitata alle ultime 20, e non rientravano mai nell'elenco
+   * principale: sembravano perse.
+   * ------------------------------------------------------------------ */
+  function unifiedKeywords(state, projectId) {
+    var index = new Map();
+
+    var labs = newest(state, projectId, 'dataforseo-keyword-positions');
+    (labs && labs.data || []).forEach(function (row) {
+      var key = norm(row.keyword);
+      if (!key) return;
+      index.set(key, {
+        keyword: row.keyword,
+        labsPosition: num(row.position),
+        livePosition: null,
+        liveAt: null,
+        liveDepth: null,
+        url: SeoGrowUtils.safeUrl(row.url) || '',
+        volume: num(row.searchVolume),
+        updatedAt: labs.importedAt
+      });
+    });
+
+    setsOf(state, projectId, 'dataforseo-keyword-checks').forEach(function (set) {
+      var row = set.data[0] || {};
+      var key = norm(row.keyword);
+      if (!key) return;
+
+      var found = false !== row.found;
+      var entry = index.get(key);
+      if (!entry) {
+        entry = {
+          keyword: row.keyword,
+          labsPosition: null,
+          livePosition: null,
+          liveAt: null,
+          liveDepth: null,
+          url: '',
+          volume: null,
+          updatedAt: set.importedAt
+        };
+        index.set(key, entry);
+      }
+
+      /* Vince la verifica piu' recente. */
+      if (entry.liveAt && new Date(set.importedAt) < new Date(entry.liveAt)) return;
+      entry.livePosition = found ? num(row.position) : null;
+      entry.liveAt = set.importedAt;
+      entry.liveDepth = num(row.depth) || 100;
+      entry.liveFound = found;
+      if (SeoGrowUtils.safeUrl(row.url)) entry.url = SeoGrowUtils.safeUrl(row.url);
+      entry.updatedAt = set.importedAt;
+    });
+
+    /* Map.values() e' un iteratore: Array.prototype.slice ne ricava sempre un array vuoto. */
+    return Array.from(index.values()).map(function (entry) {
+      entry.position = null !== entry.livePosition ? entry.livePosition : entry.labsPosition;
+      entry.source = null !== entry.liveAt && null !== entry.labsPosition ? 'Labs + live'
+        : null !== entry.liveAt ? 'Verifica live' : 'Labs';
+      return entry;
+    }).sort(function (left, right) {
+      var a = null === left.position ? 9999 : left.position;
+      var b = null === right.position ? 9999 : right.position;
+      return a - b || String(left.keyword).localeCompare(String(right.keyword));
+    });
+  }
+
+  /* Pertinenza tematica: resta disponibile, ma come scelta esplicita. */
+  function topicalTokens(value) {
+    var stop = ['della', 'delle', 'degli', 'dello', 'nella', 'nelle', 'allo', 'alla', 'come', 'cosa', 'sono', 'anche', 'home', 'page', 'https', 'www'];
+    return norm(value).split(/[^a-z0-9]+/).filter(function (token) {
+      return token.length >= 4 && stop.indexOf(token) < 0 && !/^\d+$/.test(token);
+    });
+  }
+
+  function vocabularyOf(state, projectId) {
+    var words = {};
+    var project = projectOf(state);
+    topicalTokens(project && project.domain).forEach(function (token) { words[token] = true; });
+    var pages = newest(state, projectId, 'pages-onpage');
+    (pages && pages.data || []).forEach(function (row) {
+      topicalTokens([row.url, row.title, row.h1].join(' ')).forEach(function (token) { words[token] = true; });
+    });
+    return words;
+  }
+
+  function isRelevant(keyword, words) {
+    var tokens = topicalTokens(keyword);
+    if (!tokens.length) return true;
+    return tokens.some(function (token) { return !!words[token]; });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Preferenze di vista, per progetto.
+   * ------------------------------------------------------------------ */
+  function viewPrefs(state, projectId) {
+    var saved = state.settings && state.settings.connections && state.settings.connections.keywordView || {};
+    var mine = saved[projectId] || {};
+    return { onlyRelevant: true === mine.onlyRelevant };
+  }
+
+  function setViewPrefs(app, projectId, values) {
+    var state = app.store.getState();
+    var saved = state.settings.connections.keywordView || {};
+    var next = Object.assign({}, saved);
+    next[projectId] = Object.assign({}, next[projectId] || {}, values);
+    app.store.dispatch({ type: 'CONNECTION_UPDATED', connection: 'keywordView', value: next });
+  }
+
+  function searchTerm(state, projectId) {
+    var saved = state.settings && state.settings.connections && state.settings.connections.keywordSearch || {};
+    return String(saved[projectId] || '').trim();
+  }
+
+  function setSearchTerm(app, projectId, value) {
+    var state = app.store.getState();
+    var saved = state.settings.connections.keywordSearch || {};
+    var next = Object.assign({}, saved);
+    next[projectId] = String(value || '').trim();
+    app.store.dispatch({ type: 'CONNECTION_UPDATED', connection: 'keywordSearch', value: next });
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Tabella unica. La ricerca evidenzia e porta in cima: non nasconde.
+   * ------------------------------------------------------------------ */
+  function keywordTable(state, projectId, term) {
+    var rows = unifiedKeywords(state, projectId);
+    if (!rows.length) {
+      return '<p class="muted">Nessuna posizione salvata. Aggiorna le posizioni dal connettore oppure verifica una keyword specifica: comparirà in questo stesso elenco.</p>';
+    }
+
+    var prefs = viewPrefs(state, projectId);
+    var words = vocabularyOf(state, projectId);
+    var needle = norm(term);
+    var matches = 0;
+    var hiddenByRelevance = 0;
+
+    var visible = rows.filter(function (row) {
+      row.relevant = isRelevant(row.keyword, words);
+      row.match = needle ? norm(row.keyword).indexOf(needle) > -1 : false;
+      if (row.match) matches++;
+      if (prefs.onlyRelevant && !row.relevant && !row.match) {
+        hiddenByRelevance++;
+        return false;
+      }
+      return true;
+    });
+
+    /* Le corrispondenze salgono in cima, ma nessuna riga sparisce. */
+    if (needle) {
+      visible.sort(function (left, right) {
+        if (left.match !== right.match) return left.match ? -1 : 1;
+        var a = null === left.position ? 9999 : left.position;
+        var b = null === right.position ? 9999 : right.position;
+        return a - b;
+      });
+    }
+
+    var body = visible.map(function (row) {
+      var page = row.url
+        ? '<a href="' + esc(row.url) + '" target="_blank" rel="noopener noreferrer">' + esc(shortUrl(row.url)) + '</a>'
+        : '<span class="muted">—</span>';
+      var position = null !== row.position
+        ? '<span class="position-rank">' + fmt(row.position) + '</span>'
+        : '<span class="muted" title="Non trovata nei primi ' + esc(row.liveDepth || 100) + ' risultati">oltre ' + esc(row.liveDepth || 100) + '</span>';
+      var badge = 'Verifica live' === row.source ? 'live' : 'Labs + live' === row.source ? 'both' : 'labs';
+      var note = row.relevant ? '' : ' <span class="kw-off" title="Non collegata al vocabolario di dominio, title e H1 del progetto">fuori tema</span>';
+
+      return '<tr class="' + (row.match ? 'kw-match' : '') + '"><td>' + position + '</td><td>' + esc(row.keyword) + note +
+        '</td><td>' + page + '</td><td>' + fmt(row.volume) + '</td><td><span class="kw-src kw-src-' + badge + '">' + esc(row.source) +
+        '</span></td><td>' + esc(when(row.updatedAt)) + '</td></tr>';
+    }).join('');
+
+    var summary = '<p class="muted">' + visible.length + ' keyword su ' + rows.length + ' salvate' +
+      (needle ? ' · <strong>' + matches + '</strong> corrispondono a &ldquo;' + esc(term) + '&rdquo; e sono in cima, evidenziate' : '') +
+      (hiddenByRelevance ? ' · ' + hiddenByRelevance + ' fuori tema nascoste dal filtro facoltativo' : '') + '.</p>';
+
+    var toggle = '<p><label><input type="checkbox" data-action="toggle-relevance"' + (prefs.onlyRelevant ? ' checked' : '') +
+      '> Nascondi le keyword fuori tema</label> <span class="muted"><small>Spento per impostazione predefinita: l’elenco mostra tutto ciò che è stato importato.</small></span></p>';
+
+    return summary + toggle +
+      '<div class="keyword-table-wrap"><table class="keyword-table"><thead><tr><th>Pos.</th><th>Keyword</th><th>Pagina</th><th>Volume</th><th>Fonte</th><th>Aggiornata</th></tr></thead><tbody>' +
+      body + '</tbody></table></div>';
+  }
+
+  function gscTable(state, projectId) {
+    var set = newest(state, projectId, 'search-console-queries');
+    if (!set) return '<p class="muted">Nessun export Query di Search Console importato in questo progetto.</p>';
+
+    var rows = (set.data || []).map(function (row) {
+      var data = row && row.data && 'object' === typeof row.data ? row.data : {};
+      var key = Object.keys(data).find(function (name) { return /quer|keyword|parola/i.test(name); });
+      var metrics = row.metrics || {};
+      return { query: key ? data[key] : '', clicks: num(metrics.clicks), impressions: num(metrics.impressions), position: num(metrics.position) };
+    }).filter(function (row) { return row.query; })
+      .sort(function (a, b) { return (b.clicks || 0) - (a.clicks || 0) || (b.impressions || 0) - (a.impressions || 0); })
+      .slice(0, 500);
+
+    if (!rows.length) return '<p class="muted">L’export importato non contiene query leggibili.</p>';
+
+    var body = rows.map(function (row) {
+      return '<tr><td>' + esc(row.query) + '</td><td>' + fmt(row.clicks) + '</td><td>' + fmt(row.impressions) + '</td><td>' + fmt(row.position, 1) + '</td></tr>';
+    }).join('');
+
+    return '<p class="muted">' + rows.length + ' query · import del ' + esc(when(set.importedAt)) +
+      '. La posizione qui è una <strong>media di periodo</strong>, non una posizione singola: per questo resta in una tabella separata.</p>' +
+      '<div class="keyword-table-wrap"><table class="keyword-table seogrow-no-filter"><thead><tr><th>Query</th><th>Clic</th><th>Impressioni</th><th>Posizione media</th></tr></thead><tbody>' +
+      body + '</tbody></table></div>';
+  }
+
+  function checkHistory(state, projectId) {
+    var sets = setsOf(state, projectId, 'dataforseo-keyword-checks').slice().reverse();
+    if (!sets.length) return '';
+
+    var body = sets.slice(0, 200).map(function (set) {
+      var row = set.data[0] || {};
+      var found = false !== row.found;
+      var href = SeoGrowUtils.safeUrl(row.url);
+      return '<tr><td>' + esc(row.keyword || '—') + '</td><td>' +
+        (found ? esc(row.position) : 'oltre ' + esc(row.depth || 100)) + '</td><td>' +
+        (href ? '<a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(shortUrl(href)) + '</a>' : '—') +
+        '</td><td>' + esc(when(set.importedAt)) + '</td></tr>';
+    }).join('');
+
+    var note = sets.length > 200 ? ' Vengono elencate le 200 più recenti di ' + sets.length + '.' : '';
+    return '<section class="card"><h2>Storico verifiche live</h2>' +
+      '<p class="muted">Ogni verifica resta registrata con la sua data.' + note +
+      ' Le stesse keyword compaiono già nell’elenco principale qui sopra.</p>' +
+      '<div class="keyword-table-wrap"><table class="keyword-table seogrow-no-filter"><thead><tr><th>Keyword</th><th>Posizione</th><th>Pagina</th><th>Verificata</th></tr></thead><tbody>' +
+      body + '</tbody></table></div></section>';
+  }
+
+  function providerReady(app) {
+    var capabilities = app.wordpress && app.wordpress.capabilities || {};
+    return true === capabilities.dataforseoConfigured && true === capabilities.dataforseoVerified;
+  }
+
+  function installStyle() {
+    if (typeof document === 'undefined' || document.getElementById('seogrow-v1023-style')) return;
+    var style = document.createElement('style');
+    style.id = 'seogrow-v1023-style';
+    style.textContent =
+      '.keyword-table tr.kw-match{background:#eaf6ef;box-shadow:inset 3px 0 var(--green,#146c43)}' +
+      '.keyword-table tr.kw-match td{font-weight:600}' +
+      '.kw-src{display:inline-block;padding:1px 7px;border-radius:3px;font-size:11px;letter-spacing:.02em;white-space:nowrap;border:1px solid var(--line,#dce4de)}' +
+      '.kw-src-live{background:#e6f4ec;border-color:#9ed3b6;color:#0d5c40}' +
+      '.kw-src-both{background:#eef4fb;border-color:#a9c6e4;color:#284c72}' +
+      '.kw-off{font-size:11px;color:var(--muted,#617066);border:1px dashed var(--line,#dce4de);border-radius:3px;padding:0 5px;white-space:nowrap}';
+    document.head.appendChild(style);
+  }
+
+  ui.keywordPositions = function () {
+    installStyle();
+    var state = this.state();
+    var projectId = state.activeProjectId;
+    var project = projectOf(state);
+    var term = searchTerm(state, projectId);
+    var ready = providerReady(this.app);
+    var connected = !!this.app.wordpress;
+
+    var update = ready
+      ? '<button data-action="dataforseo-import-keyword-positions">Aggiorna posizioni da DataForSEO</button>'
+      : '<button data-view="dataforseo">' + (connected ? 'Verifica DataForSEO' : 'Collega WordPress') + '</button>';
+
+    var search = '<section class="card keyword-search-card"><h2>Cerca o verifica una keyword</h2>' +
+      '<p class="muted">La ricerca <strong>non nasconde niente</strong>: evidenzia le corrispondenze e le porta in cima all’elenco. ' +
+      '&ldquo;Verifica posizione live&rdquo; interroga Google tramite DataForSEO, può consumare credito, e la keyword verificata entra nell’elenco qui sotto.</p>' +
+      '<label for="keywordExactSearch">Keyword</label>' +
+      '<input id="keywordExactSearch" type="search" value="' + esc(term) + '" placeholder="es. yoga cinisello balsamo">' +
+      '<div class="actions"><button class="primary" data-action="keyword-search">Evidenzia nell’elenco</button>' +
+      '<button data-action="keyword-check-live">Verifica posizione live</button>' +
+      (term ? '<button data-action="keyword-search-clear">Azzera evidenziazione</button>' : '') + '</div></section>';
+
+    return '<h1>Posizioni keyword</h1>' +
+      '<p class="muted">Un solo elenco per ' + esc(project ? project.domain : 'nessun progetto') +
+      ': posizioni dal database DataForSEO Labs e verifiche live, insieme. Nessuna keyword viene rimossa.</p>' +
+      search +
+      '<section class="card keyword-position-card"><h2>Elenco keyword posizionate</h2>' +
+      keywordTable(state, projectId, term) +
+      '<p><small>Labs è un database aggiornato periodicamente, non una SERP live; una verifica live è una lettura puntuale del momento. Quando entrambe esistono, l’elenco mostra la verifica live perché è la più recente.</small></p>' +
+      '<div class="actions">' + update + '</div></section>' +
+      checkHistory(state, projectId) +
+      '<section class="card"><h2>Query reali da Search Console</h2>' + gscTable(state, projectId) +
+      '<div class="actions"><button data-view="gsc">Importa o aggiorna Search Console</button></div></section>';
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Azioni della vista.
+   * ------------------------------------------------------------------ */
+  var previousClick = ui.click;
+  ui.click = async function (event) {
+    var element = event.target.closest('[data-action],[data-view]');
+    var action = element && element.dataset.action;
+
+    if ('toggle-relevance' === action) {
+      setViewPrefs(this.app, this.state().activeProjectId, { onlyRelevant: !!element.checked });
+      return;
+    }
+
+    if ('keyword-search' === action) {
+      var field = document.getElementById('keywordExactSearch');
+      setSearchTerm(this.app, this.state().activeProjectId, field ? field.value : '');
+      return;
+    }
+
+    if ('keyword-search-clear' === action) {
+      setSearchTerm(this.app, this.state().activeProjectId, '');
+      return;
+    }
+
+    return previousClick.call(this, event);
+  };
+
+  /* Dopo una verifica live la keyword deve essere subito nell'elenco. */
+  var previousCheck = appProto.checkDataForSeoKeyword;
+  appProto.checkDataForSeoKeyword = async function (keyword) {
+    var result = await previousCheck.call(this, keyword);
+    if (result && !result.cancelled) await this.flushSave();
+    return result;
+  };
+
+  window.SeoGrowFeatures.set('release-0.10.23', {
+    version: '0.10.23',
+    features: [
+      'unified-keyword-list',
+      'live-checks-in-main-list',
+      'search-highlights-instead-of-hiding',
+      'relevance-filter-opt-in',
+      'full-check-history'
     ]
   });
 })();
