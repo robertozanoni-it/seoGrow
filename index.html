@@ -13,7 +13,7 @@ window.SeoGrowModules.contracts = {
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
 /* Versione unica dell'applicazione: nessun blocco successivo la riscrive. */
-SeoGrow.VERSION = '0.10.27'; SeoGrow.SCHEMA_VERSION = 4;
+SeoGrow.VERSION = '0.10.28'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -5692,6 +5692,233 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
   async function probe(base,route,headers){var options={method:'GET',mode:'cors',credentials:'omit',headers:Object.assign({Accept:'application/json'},headers||{})};try{var response=await fetch(base+'/wp-json'+route,options);if(response.status===404)response=await fetch(base+'/?rest_route='+encodeURIComponent(route),options);var raw='';try{raw=await response.text();}catch(e){}var payload=null;try{payload=raw?JSON.parse(raw):null;}catch(e){}return{reached:true,ok:response.ok,status:response.status,payload:payload,cors:response.headers.get('X-SeoGrow-CORS')||'',version:response.headers.get('X-SeoGrow-Connector-Version')||''};}catch(e){return{reached:false,ok:false,status:0,error:String(e&&e.message||e)};}}
   appProto.diagnoseWordPress=async function(credentials){credentials=credentials||{};var base=cleanSite(credentials.site);var origin=typeof location==='undefined'?'':location.origin;var file=typeof location!=='undefined'&&location.protocol==='file:';var steps=[];steps.push({label:'Origine della web app',ok:!file&&(/^https:/i.test(origin)||/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(origin)),detail:file?'file:// — origine null':origin,hint:file?'Apri seoGrow da HTTPS o localhost.':'Questa è l’origine da inserire nelle Origini autorizzate del plugin; non inserire il percorso del repository.'});var valid=/^https:\/\//i.test(base);steps.push({label:'URL WordPress',ok:valid,detail:base||'(vuoto)',hint:valid?'URL normalizzato correttamente.':'Inserisci il sito pubblico in HTTPS.'});if(!valid)return{site:base,steps:steps};var anonymous=await probe(base,'/seogrow/v1/capabilities',{});steps.push({label:'REST + CORS del connettore',ok:anonymous.reached&&(anonymous.ok||anonymous.status===401||anonymous.status===403),detail:anonymous.reached?'HTTP '+anonymous.status+(anonymous.cors?' · CORS '+anonymous.cors:''):'nessuna risposta leggibile',hint:!anonymous.reached?'Il browser non può leggere la richiesta: controlla origine autorizzata, OPTIONS, firewall/security plugin, TLS e DNS.':anonymous.status===404?'Il connettore non espone la rotta richiesta.':(anonymous.status===401||anonymous.status===403?'Corretto: rotta raggiungibile e protetta.':'Rotta raggiungibile.')});var token=String(credentials.token||'').trim(),username=String(credentials.username||'').trim(),password=String(credentials.password||'').replace(/\s/g,'');if(token){var tokenTest=await probe(base,'/seogrow/v1/capabilities',{'X-SeoGrow-Token':token});steps.push({label:'Chiave seoGrow',ok:tokenTest.ok,detail:tokenTest.reached?'HTTP '+tokenTest.status+(tokenTest.version?' · Connector '+tokenTest.version:''):'nessuna risposta leggibile',hint:tokenTest.ok?'Chiave valida. Può leggere pagine e usare le rotte DataForSEO abilitate dal plugin.':(tokenTest.status===401||tokenTest.status===403?'Chiave rifiutata: ricopiala dal plugin.':'La richiesta con X-SeoGrow-Token non arriva correttamente; il browser esegue qui il preflight CORS.')});}if(username||password){if(!username||!password){steps.push({label:'Password applicazione WordPress',ok:false,detail:'credenziali incomplete',hint:'Servono sia nome utente sia Password applicazione.'});}else{var basicTest=await probe(base,'/seogrow/v1/capabilities',{Authorization:basic(username,password)}),caps=basicTest.payload||{};steps.push({label:'Password applicazione WordPress',ok:basicTest.ok,detail:basicTest.reached?'HTTP '+basicTest.status+(caps.wordpressUser?' · utente '+caps.wordpressUser:''):'nessuna risposta leggibile',hint:basicTest.ok?('Autenticazione valida. Lettura pagine: '+(caps.canReadPages===false?'NO':'sì')+'; DataForSEO: '+(caps.canUseDataForSeo===true?'sì':'solo con amministratore/manage_options')+'.'):(basicTest.status===401||basicTest.status===403?'WordPress ha rifiutato Authorization: verifica Password applicazione e che hosting/security plugin non rimuovano l’header Authorization.':'La richiesta Basic Auth non è leggibile dal browser/server.')});}}if(!token&&!username&&!password)steps.push({label:'Credenziali',ok:false,detail:'nessuna credenziale inserita',hint:'Inserisci la chiave seoGrow oppure utente + Password applicazione. Puoi compilare entrambi: verranno testati separatamente.'});return{site:base,steps:steps};};
   window.SeoGrowFeatures=window.SeoGrowFeatures||new Map();window.SeoGrowFeatures.set('release-0.10.27',{version:'0.10.27',features:['dual-wordpress-auth-diagnostics','simple-permalink-runtime-fallback','strict-wordpress-project-binding','application-password-permission-reporting']});
+})();
+</script>
+<script>
+/* seoGrow 0.10.28 — Elementor templates excluded at source; duplicate-title pairs. */
+(function(){
+  'use strict';
+  if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1028) return;
+  window.SeoGrowRelease1028 = true;
+
+  var appProto = SeoGrowApp.prototype;
+  var ui = SeoGrowUI.App.prototype;
+  var storeProto = SeoGrowCore.Store.prototype;
+  var PAGE_FINDING_TYPES = ['missing_title','missing_meta_description','missing_h1','noindex_page','canonical_other_url','duplicate_title'];
+
+  function esc(value){ return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value)); }
+
+  function isElementorTemplateUrl(value){
+    var raw = String(value || '').trim();
+    if (!raw) return false;
+    try {
+      var url = new URL(raw);
+      if (/\/elementor_library(?:\/|$)/i.test(url.pathname)) return true;
+      if (url.searchParams.has('elementor_library')) return true;
+      if (String(url.searchParams.get('post_type') || '').toLowerCase() === 'elementor_library') return true;
+      return false;
+    } catch (error) {
+      return /[?&]elementor_library=|\/elementor_library\//i.test(raw);
+    }
+  }
+
+  function isInternalTemplateRow(row){
+    if (!row) return false;
+    if (String(row.postType || row.post_type || '').toLowerCase() === 'elementor_library') return true;
+    return isElementorTemplateUrl(row.url);
+  }
+
+  function filterPageRows(rows){
+    return (Array.isArray(rows) ? rows : []).filter(function(row){ return !isInternalTemplateRow(row); });
+  }
+
+  function evidenceUrl(evidence){
+    if (!evidence) return '';
+    if (evidence.value && typeof evidence.value === 'object') return String(evidence.value.url || '');
+    return '';
+  }
+
+  /* Filter before a pages-onpage dataset ever reaches storage or analysis. */
+  var previousDispatch = storeProto.dispatch;
+  storeProto.dispatch = function(action){
+    if (action && action.type === 'DATASET_IMPORTED' && action.dataset && action.dataset.type === 'pages-onpage' && Array.isArray(action.dataset.data)) {
+      var original = action.dataset.data;
+      var clean = filterPageRows(original);
+      if (clean.length !== original.length) {
+        action = Object.assign({}, action, {dataset: Object.assign({}, action.dataset, {
+          data: clean,
+          records: clean.length,
+          provenance: Object.assign({}, action.dataset.provenance || {}, {
+            filteredInternalTemplates: Number((action.dataset.provenance || {}).filteredInternalTemplates || 0) + (original.length - clean.length)
+          })
+        })});
+      }
+    }
+    return previousDispatch.call(this, action);
+  };
+
+  /* Rianalysis must never recreate Elementor-template findings from legacy datasets. */
+  var previousAnalyze = SeoGrowPages.analyze;
+  SeoGrowPages.analyze = function(projectId, rows){
+    return previousAnalyze(projectId, filterPageRows(rows));
+  };
+
+  function cleanLegacyTemplateArtifacts(app){
+    if (!app || !app.store) return {changed:false, removedFindings:0, removedRows:0};
+    var state = app.store.getState();
+    var next = SeoGrowUtils.clone(state);
+    var changed = false;
+    var removedRows = 0;
+    var removedFindingIds = new Set();
+
+    next.datasets.forEach(function(dataset){
+      if (!dataset || dataset.type !== 'pages-onpage' || !Array.isArray(dataset.data)) return;
+      var before = dataset.data.length;
+      dataset.data = filterPageRows(dataset.data);
+      var removed = before - dataset.data.length;
+      if (!removed) return;
+      changed = true;
+      removedRows += removed;
+      dataset.records = dataset.data.length;
+      dataset.provenance = Object.assign({}, dataset.provenance || {}, {
+        filteredInternalTemplates: Number((dataset.provenance || {}).filteredInternalTemplates || 0) + removed,
+        internalTemplateCleanupAt: SeoGrowUtils.now()
+      });
+    });
+
+    next.findings = next.findings.filter(function(finding){
+      if (!finding || PAGE_FINDING_TYPES.indexOf(finding.type) < 0) return true;
+      var items = Array.isArray(finding.affectedItems) ? finding.affectedItems : [];
+
+      if (finding.type === 'duplicate_title') {
+        var kept = items.filter(function(url){ return !isElementorTemplateUrl(url); });
+        if (kept.length < 2) {
+          removedFindingIds.add(finding.id);
+          changed = true;
+          return false;
+        }
+        if (kept.length !== items.length) {
+          changed = true;
+          finding.affectedItems = kept;
+          finding.evidence = (finding.evidence || []).filter(function(ev){
+            var url = evidenceUrl(ev);
+            return !url || kept.indexOf(url) > -1;
+          });
+          finding.description = 'Lo stesso title è presente su ' + kept.length + ' pagine pubbliche reali. Confronta le URL a coppie prima di intervenire.';
+          finding.updatedAt = SeoGrowUtils.now();
+        }
+        return true;
+      }
+
+      if (items.length && items.every(isElementorTemplateUrl)) {
+        removedFindingIds.add(finding.id);
+        changed = true;
+        return false;
+      }
+      return true;
+    });
+
+    if (removedFindingIds.size) {
+      next.tasks = next.tasks.filter(function(task){ return !removedFindingIds.has(task.findingId); });
+    }
+
+    if (!changed) return {changed:false, removedFindings:0, removedRows:0};
+
+    next.history.push({
+      id: SeoGrowUtils.id('history'),
+      projectId: next.activeProjectId,
+      entityType: 'maintenance',
+      entityId: '',
+      action: 'INTERNAL_TEMPLATE_ARTIFACTS_CLEANED',
+      timestamp: SeoGrowUtils.now(),
+      metadata: {removedFindings: removedFindingIds.size, removedRows: removedRows}
+    });
+    app.store.replace(next, {source:'maintenance:elementor-template-cleanup'});
+    return {changed:true, removedFindings:removedFindingIds.size, removedRows:removedRows};
+  }
+
+  /* Clean legacy IndexedDB data once the application state has been loaded. */
+  var previousStart = appProto.start;
+  appProto.start = async function(){
+    var result = await previousStart.call(this);
+    var cleaned = cleanLegacyTemplateArtifacts(this);
+    if (cleaned.changed) {
+      if (typeof this.flushSave === 'function') await this.flushSave();
+      else await this.storage.save(this.store.getState());
+      if (this.ui) this.ui.render();
+    }
+    return result;
+  };
+
+  function shortUrl(value){
+    try {
+      var url = new URL(value);
+      return url.hostname + (url.pathname === '/' ? '' : url.pathname) + url.search;
+    } catch (error) { return String(value || ''); }
+  }
+
+  function pairedDuplicateLinks(finding){
+    var urls = (Array.isArray(finding.affectedItems) ? finding.affectedItems : [])
+      .filter(function(url){ return SeoGrowUtils.safeUrl(url) && !isElementorTemplateUrl(url); });
+    var rows = [];
+    for (var i=0; i<urls.length; i+=2) {
+      var pair = urls.slice(i, i+2);
+      rows.push('<div class="duplicate-title-pair">' + pair.map(function(url, offset){
+        var number = i + offset + 1;
+        return '<a class="finding-link duplicate-title-page" href="' + esc(url) + '" target="_blank" rel="noopener noreferrer"><span>Pagina ' + number + '</span><strong>' + esc(shortUrl(url)) + '</strong></a>';
+      }).join('') + '</div>');
+    }
+    return '<strong>Pagine con lo stesso Title SEO:</strong><div class="duplicate-title-pairs">' + rows.join('') + '</div>';
+  }
+
+  function installStyle(){
+    if (typeof document === 'undefined' || document.getElementById('seogrow-v1028-style')) return;
+    var style = document.createElement('style');
+    style.id = 'seogrow-v1028-style';
+    style.textContent =
+      '.duplicate-title-pairs{display:grid;gap:10px;width:100%;margin-top:8px}' +
+      '.duplicate-title-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;width:100%}' +
+      '.duplicate-title-page{display:flex;flex-direction:column;gap:2px;min-width:0;padding:10px 12px}' +
+      '.duplicate-title-page span{font-size:12px;color:var(--muted,#617066);font-weight:700}' +
+      '.duplicate-title-page strong{font-size:14px;overflow-wrap:anywhere}' +
+      '@media(max-width:700px){.duplicate-title-pair{grid-template-columns:1fr}}';
+    document.head.appendChild(style);
+  }
+
+  /* Keep the existing finding card, replacing only duplicate-title URL layout. */
+  var previousFindings = ui.findings;
+  ui.findings = function(){
+    installStyle();
+    var html = previousFindings.call(this);
+    if (typeof document === 'undefined') return html;
+    var state = this.state();
+    var projectId = state.activeProjectId;
+    var duplicates = state.findings.filter(function(finding){
+      return finding.projectId === projectId && finding.type === 'duplicate_title';
+    });
+    if (!duplicates.length) return html;
+
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    duplicates.forEach(function(finding){
+      var card = box.querySelector('#finding-' + CSS.escape(String(finding.id)));
+      if (!card) return;
+      var links = card.querySelector('.finding-links');
+      if (!links) return;
+      links.innerHTML = pairedDuplicateLinks(finding);
+    });
+    return box.innerHTML;
+  };
+
+  window.SeoGrowFeatures = window.SeoGrowFeatures || new Map();
+  window.SeoGrowFeatures.set('release-0.10.28', {
+    version:'0.10.28',
+    features:[
+      'elementor-template-preanalysis-filter',
+      'legacy-template-artifact-cleanup',
+      'duplicate-title-two-column-pairs'
+    ]
+  });
 })();
 </script>
 </body></html>
