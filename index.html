@@ -1,4 +1,4 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.30</title>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.31</title>
 <style>:root{--bg:#f5f7f6;--surface:#fff;--text:#162019;--muted:#617066;--line:#dce4de;--green:#146c43;--dark:#102017;--danger:#a13232;--warning:#8a5a00;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,select,input{font:inherit}button{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 12px;cursor:pointer}button:hover{border-color:#91a99b}.primary{background:var(--green);border-color:var(--green);color:#fff}header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:3}header small{color:var(--muted);font-weight:500}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 64px)}aside{background:var(--dark);padding:20px 12px}.brand{color:#fff;padding:0 10px 20px}.brand span{display:block;color:#aebbb2;font-size:12px}.nav{width:100%;text-align:left;border:0;background:transparent;color:#b7c4ba;margin:2px 0}.nav.active,.nav:hover{background:#1f3728;color:#fff;box-shadow:inset 3px 0 #5bd28e}main{padding:28px;max-width:1300px}.hero,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px}.hero{background:linear-gradient(135deg,#fff,#eef8f1)}h1{font-size:30px;line-height:1.15;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted,small{color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metrics div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px}.metrics b{display:block;font-size:28px}.metrics span{color:var(--muted)}.row{display:grid;grid-template-columns:minmax(0,1fr) 150px 180px;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:15px 0}.row:last-child{border-bottom:0}.row p{margin:4px 0}.status{font-size:12px;font-weight:700;text-transform:capitalize;padding:5px 8px;border-radius:99px;background:#eef0ef;display:inline-block}.status.candidate,.status.todo,.status.pending_approval,.status.verification_pending{background:#fff2d8;color:var(--warning)}.status.validated,.status.approved,.status.executing,.status.completed,.status.verified,.status.resolved,.status.task_created{background:#e6f5eb;color:var(--green)}.status.excluded,.status.obsolete,.status.archived{background:#f2eded;color:#795252}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:22px;background:#f7faf8;border-radius:10px;color:var(--muted)}.notice{margin-bottom:16px;border-radius:10px;padding:11px 14px;background:#e6f5eb;color:var(--green);border:1px solid #c5e4d0}.notice.error{background:#fbeeee;color:var(--danger);border-color:#efcccc}label{font-weight:700;display:block;margin-bottom:8px}input[type=file],input[type=url],input[type=password],input:not([type]){display:block;width:min(560px,100%);max-width:100%;margin-bottom:14px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}@media(max-width:850px){header{padding:0 12px}.shell{grid-template-columns:1fr}aside{display:flex;overflow:auto;padding:10px;gap:4px}.brand{display:none}.nav{width:auto;white-space:nowrap}.metrics{grid-template-columns:1fr 1fr}main{padding:16px}.row{grid-template-columns:1fr;gap:8px}}@media(max-width:420px){.metrics{grid-template-columns:1fr}h1{font-size:26px}}
 .progress{height:9px;border-radius:99px;background:#dfe8e2;margin:18px 0 6px;overflow:hidden}.progress span{display:block;height:100%;background:var(--green);border-radius:99px}.wizard-list{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px}.wizard-step{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;border-bottom:1px solid var(--line)}.wizard-step:last-child{border-bottom:0}.wizard-step p{margin:4px 0 0;color:var(--muted)}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eef1ef;font-weight:800;color:var(--muted)}.wizard-step.complete .step-number{background:#e6f5eb;color:var(--green)}@media(max-width:560px){.wizard-step{grid-template-columns:34px 1fr}.wizard-step>div:last-child{grid-column:2}.wizard-step button{width:100%}}
 .dataset-summary{margin:0;padding-left:20px}.dataset-summary li{margin:7px 0;color:var(--muted)}.dataset-summary b{color:var(--text)}.dataset-list{display:grid;gap:10px}.dataset-row{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.dataset-row p{margin:3px 0}.dataset-row details{min-width:180px}.dataset-row summary{cursor:pointer;font-weight:700}.dataset-row pre{max-width:420px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f7faf8;padding:10px;border-radius:8px;font-size:12px}@media(max-width:700px){.dataset-row{display:block}.dataset-row details{margin-top:10px}}
@@ -13,7 +13,7 @@ window.SeoGrowModules.contracts = {
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
 /* Versione unica dell'applicazione: nessun blocco successivo la riscrive. */
-SeoGrow.VERSION = '0.10.30'; SeoGrow.SCHEMA_VERSION = 4;
+SeoGrow.VERSION = '0.10.31'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -4334,7 +4334,36 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       '<footer>Report autonomo: puoi aprirlo offline e stamparlo in PDF dal browser. ' +
       'Le posizioni DataForSEO Labs sono stime aggiornate periodicamente, non una SERP live; ' +
       'la posizione media di Search Console è una media di periodo.</footer>' +
-      '</div></body></html>';
+      '</div><script>
+/* seoGrow 0.10.31 — diagnostica DataForSEO server-side e protezione dai falsi errori CORS. */
+(function(){
+  'use strict';
+  if(!window.SeoGrowApp||window.SeoGrowRelease1031)return;
+  window.SeoGrowRelease1031=true;
+  var proto=SeoGrowApp.prototype;
+  function providerNetworkError(error){
+    var text=String(error&&error.message||'');
+    return /verifica live della keyword non è raggiungibile|server.?DataForSEO|api\.dataforseo\.com|cURL error 28|timed out|timeout/i.test(text);
+  }
+  var previousCheck=proto.checkDataForSeoKeyword;
+  if(typeof previousCheck==='function'){
+    proto.checkDataForSeoKeyword=async function(keyword){
+      try{return await previousCheck.call(this,keyword);}
+      catch(error){
+        if(providerNetworkError(error)&&!/WordPress → DataForSEO|server→DataForSEO/.test(String(error.message||''))){
+          var wrapped=new Error(String(error.message||'La verifica live non è disponibile.')+' Il collegamento browser → WordPress è già riuscito: il problema è nella chiamata server WordPress → DataForSEO. Aggiorna RZ seoGrow Connector 1.3.10 per vedere timeout/DNS/TLS/cURL reali e usare il timeout corretto per le SERP Live.');
+          wrapped.code='DATAFORSEO_SERVER_NETWORK';
+          throw wrapped;
+        }
+        throw error;
+      }
+    };
+  }
+  window.SeoGrowFeatures=window.SeoGrowFeatures||new Map();
+  window.SeoGrowFeatures.set('release-0.10.31',{version:'0.10.31',features:['dataforseo-server-network-diagnostics','live-serp-error-separation']});
+})();
+</script>
+</body></html>';
   }
 
   ui.report = function () {
@@ -6261,6 +6290,35 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
   window.SeoGrowFeatures=window.SeoGrowFeatures||new Map();
   window.SeoGrowFeatures.set('release-0.10.30',{version:'0.10.30',features:['canonical-wordpress-transport','single-auth-flow','stable-pretty-query-fallback','strict-project-binding','dual-auth-fallback','canonical-dataforseo-transport','non-destructive-diagnostics']});
+})();
+</script>
+<script>
+/* seoGrow 0.10.31 — diagnostica DataForSEO server-side e protezione dai falsi errori CORS. */
+(function(){
+  'use strict';
+  if(!window.SeoGrowApp||window.SeoGrowRelease1031)return;
+  window.SeoGrowRelease1031=true;
+  var proto=SeoGrowApp.prototype;
+  function providerNetworkError(error){
+    var text=String(error&&error.message||'');
+    return /verifica live della keyword non è raggiungibile|server.?DataForSEO|api\.dataforseo\.com|cURL error 28|timed out|timeout/i.test(text);
+  }
+  var previousCheck=proto.checkDataForSeoKeyword;
+  if(typeof previousCheck==='function'){
+    proto.checkDataForSeoKeyword=async function(keyword){
+      try{return await previousCheck.call(this,keyword);}
+      catch(error){
+        if(providerNetworkError(error)&&!/WordPress → DataForSEO|server→DataForSEO/.test(String(error.message||''))){
+          var wrapped=new Error(String(error.message||'La verifica live non è disponibile.')+' Il collegamento browser → WordPress è già riuscito: il problema è nella chiamata server WordPress → DataForSEO. Aggiorna RZ seoGrow Connector 1.3.10 per vedere timeout/DNS/TLS/cURL reali e usare il timeout corretto per le SERP Live.');
+          wrapped.code='DATAFORSEO_SERVER_NETWORK';
+          throw wrapped;
+        }
+        throw error;
+      }
+    };
+  }
+  window.SeoGrowFeatures=window.SeoGrowFeatures||new Map();
+  window.SeoGrowFeatures.set('release-0.10.31',{version:'0.10.31',features:['dataforseo-server-network-diagnostics','live-serp-error-separation']});
 })();
 </script>
 </body></html>
