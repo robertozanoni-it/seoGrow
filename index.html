@@ -1,4 +1,4 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.27</title>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.30</title>
 <style>:root{--bg:#f5f7f6;--surface:#fff;--text:#162019;--muted:#617066;--line:#dce4de;--green:#146c43;--dark:#102017;--danger:#a13232;--warning:#8a5a00;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,select,input{font:inherit}button{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 12px;cursor:pointer}button:hover{border-color:#91a99b}.primary{background:var(--green);border-color:var(--green);color:#fff}header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:3}header small{color:var(--muted);font-weight:500}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 64px)}aside{background:var(--dark);padding:20px 12px}.brand{color:#fff;padding:0 10px 20px}.brand span{display:block;color:#aebbb2;font-size:12px}.nav{width:100%;text-align:left;border:0;background:transparent;color:#b7c4ba;margin:2px 0}.nav.active,.nav:hover{background:#1f3728;color:#fff;box-shadow:inset 3px 0 #5bd28e}main{padding:28px;max-width:1300px}.hero,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px}.hero{background:linear-gradient(135deg,#fff,#eef8f1)}h1{font-size:30px;line-height:1.15;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted,small{color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metrics div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px}.metrics b{display:block;font-size:28px}.metrics span{color:var(--muted)}.row{display:grid;grid-template-columns:minmax(0,1fr) 150px 180px;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:15px 0}.row:last-child{border-bottom:0}.row p{margin:4px 0}.status{font-size:12px;font-weight:700;text-transform:capitalize;padding:5px 8px;border-radius:99px;background:#eef0ef;display:inline-block}.status.candidate,.status.todo,.status.pending_approval,.status.verification_pending{background:#fff2d8;color:var(--warning)}.status.validated,.status.approved,.status.executing,.status.completed,.status.verified,.status.resolved,.status.task_created{background:#e6f5eb;color:var(--green)}.status.excluded,.status.obsolete,.status.archived{background:#f2eded;color:#795252}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:22px;background:#f7faf8;border-radius:10px;color:var(--muted)}.notice{margin-bottom:16px;border-radius:10px;padding:11px 14px;background:#e6f5eb;color:var(--green);border:1px solid #c5e4d0}.notice.error{background:#fbeeee;color:var(--danger);border-color:#efcccc}label{font-weight:700;display:block;margin-bottom:8px}input[type=file],input[type=url],input[type=password],input:not([type]){display:block;width:min(560px,100%);max-width:100%;margin-bottom:14px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}@media(max-width:850px){header{padding:0 12px}.shell{grid-template-columns:1fr}aside{display:flex;overflow:auto;padding:10px;gap:4px}.brand{display:none}.nav{width:auto;white-space:nowrap}.metrics{grid-template-columns:1fr 1fr}main{padding:16px}.row{grid-template-columns:1fr;gap:8px}}@media(max-width:420px){.metrics{grid-template-columns:1fr}h1{font-size:26px}}
 .progress{height:9px;border-radius:99px;background:#dfe8e2;margin:18px 0 6px;overflow:hidden}.progress span{display:block;height:100%;background:var(--green);border-radius:99px}.wizard-list{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px}.wizard-step{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;border-bottom:1px solid var(--line)}.wizard-step:last-child{border-bottom:0}.wizard-step p{margin:4px 0 0;color:var(--muted)}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eef1ef;font-weight:800;color:var(--muted)}.wizard-step.complete .step-number{background:#e6f5eb;color:var(--green)}@media(max-width:560px){.wizard-step{grid-template-columns:34px 1fr}.wizard-step>div:last-child{grid-column:2}.wizard-step button{width:100%}}
 .dataset-summary{margin:0;padding-left:20px}.dataset-summary li{margin:7px 0;color:var(--muted)}.dataset-summary b{color:var(--text)}.dataset-list{display:grid;gap:10px}.dataset-row{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.dataset-row p{margin:3px 0}.dataset-row details{min-width:180px}.dataset-row summary{cursor:pointer;font-weight:700}.dataset-row pre{max-width:420px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f7faf8;padding:10px;border-radius:8px;font-size:12px}@media(max-width:700px){.dataset-row{display:block}.dataset-row details{margin-top:10px}}
@@ -13,7 +13,7 @@ window.SeoGrowModules.contracts = {
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
 /* Versione unica dell'applicazione: nessun blocco successivo la riscrive. */
-SeoGrow.VERSION = '0.10.28'; SeoGrow.SCHEMA_VERSION = 4;
+SeoGrow.VERSION = '0.10.30'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -379,7 +379,23 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       }
     } catch (error) {
       if (error && error.name === 'AbortError') throw error;
-      throw corsOrNetworkError(base);
+      /* /wp-json/ can fail without CORS before its 404 is readable. Try the query-form REST route too. */
+      if (path.indexOf('/wp-json/') === 0) {
+        try {
+          var retryRoute = path.replace(/^\/wp-json/, '');
+          var retryQ = retryRoute.indexOf('?');
+          var retryPath = retryQ > -1 ? retryRoute.slice(0, retryQ) : retryRoute;
+          var retryQuery = retryQ > -1 ? retryRoute.slice(retryQ + 1) : '';
+          var retryUrl = base + '/?rest_route=' + encodeURIComponent(retryPath);
+          if (retryQuery) retryUrl += '&' + retryQuery;
+          response = await fetch(retryUrl, requestOptions);
+        } catch (fallbackError) {
+          if (fallbackError && fallbackError.name === 'AbortError') throw fallbackError;
+          throw corsOrNetworkError(base);
+        }
+      } else {
+        throw corsOrNetworkError(base);
+      }
     }
     var decoded = await responseData(response);
     return {response: response, payload: decoded.json, raw: decoded.raw};
@@ -5919,6 +5935,332 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       'duplicate-title-two-column-pairs'
     ]
   });
+})();
+</script>
+<script>
+/* seoGrow 0.10.29 — real preflight diagnostics and automatic connection diagnosis. */
+(function(){
+  'use strict';
+  if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1029) return;
+  window.SeoGrowRelease1029 = true;
+  var appProto=SeoGrowApp.prototype, ui=SeoGrowUI.App.prototype;
+
+  function cleanSite(value){
+    var raw=String(value||'').trim(); if(!raw)return '';
+    if(!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw))raw='https://'+raw.replace(/^\/+/, '');
+    try{var u=new URL(raw);u.search='';u.hash='';u.pathname=String(u.pathname||'/').replace(/\/wp-admin(\/.*)?$/i,'/').replace(/\/wp-login\.php.*$/i,'/').replace(/\/wp-json(\/.*)?$/i,'/');return u.href.replace(/\/+$/,'');}catch(e){return raw;}
+  }
+  function basic(username,password){return 'Basic '+SeoGrowUtils.base64Utf8(String(username||'')+':'+String(password||'').replace(/\s/g,''));}
+  function restUrls(base,route){return [base+'/wp-json'+route,base+'/?rest_route='+encodeURIComponent(route)];}
+  async function fetchVariant(base,route,options){
+    var urls=restUrls(base,route), errors=[];
+    for(var i=0;i<urls.length;i++){
+      try{
+        var response=await fetch(urls[i],options), raw='';
+        try{raw=await response.text();}catch(e){}
+        var payload=null;try{payload=raw?JSON.parse(raw):null;}catch(e){}
+        if(response.status===404 && i===0)continue;
+        return {reached:true,ok:response.ok,status:response.status,payload:payload,url:urls[i],cors:response.headers.get('X-SeoGrow-CORS')||'',version:response.headers.get('X-SeoGrow-Connector-Version')||''};
+      }catch(e){errors.push(String(e&&e.message||e));}
+    }
+    return {reached:false,ok:false,status:0,error:errors.join(' | ')||'Failed to fetch'};
+  }
+  function simpleProbe(base,route,headers){return fetchVariant(base,route,{method:'GET',mode:'cors',credentials:'omit',cache:'no-store',headers:Object.assign({Accept:'application/json'},headers||{})});}
+  /* Content-Type application/json is not CORS-safelisted: the browser must send OPTIONS first. */
+  function preflightProbe(base,route){return fetchVariant(base,route,{method:'GET',mode:'cors',credentials:'omit',cache:'no-store',headers:{Accept:'application/json','Content-Type':'application/json'}});}
+
+  appProto.diagnoseWordPress=async function(credentials){
+    credentials=credentials||{};
+    var base=cleanSite(credentials.site), origin=typeof location==='undefined'?'':location.origin;
+    var isFile=typeof location!=='undefined'&&location.protocol==='file:', steps=[];
+    steps.push({label:'Origine della web app',ok:!isFile&&(/^https:/i.test(origin)||/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(origin)),detail:isFile?'file:// — origine null':origin,hint:isFile?'Apri seoGrow da HTTPS o localhost.':'Nel plugin deve comparire esattamente questa origine: '+origin+'.'});
+    var valid=/^https:\/\//i.test(base);
+    steps.push({label:'URL WordPress',ok:valid,detail:base||'(vuoto)',hint:valid?'URL WordPress valido.':'Inserisci il sito pubblico in HTTPS.'});
+    if(!valid)return{site:base,steps:steps};
+
+    var simple=await simpleProbe(base,'/seogrow/v1/capabilities',{});
+    steps.push({label:'REST raggiungibile senza preflight',ok:simple.reached&&(simple.ok||simple.status===401||simple.status===403),detail:simple.reached?'HTTP '+simple.status+' · '+simple.url:'nessuna risposta leggibile',hint:!simple.reached?'La risposta non è leggibile neppure senza header non standard: controlla DNS/TLS, redirect, firewall e Access-Control-Allow-Origin.':(simple.status===404?'Rotta seoGrow non trovata.':'Il browser riesce a leggere una risposta REST.')});
+
+    var pre=await preflightProbe(base,'/seogrow/v1/capabilities');
+    steps.push({label:'Preflight CORS OPTIONS',ok:pre.reached&&(pre.ok||pre.status===401||pre.status===403),detail:pre.reached?'HTTP '+pre.status+(pre.cors?' · X-SeoGrow-CORS: '+pre.cors:'')+' · '+pre.url:'OPTIONS/preflight non superato',hint:pre.reached?'Il browser ha superato OPTIONS con Content-Type non safelisted.':'Il GET semplice può funzionare, ma il preflight necessario per X-SeoGrow-Token/Authorization è bloccato. Installa Connector 1.3.8 e verifica l’origine autorizzata; se persiste, il blocco avviene prima di WordPress (server/CDN/security plugin).'});
+
+    var token=String(credentials.token||'').trim(), username=String(credentials.username||'').trim(), password=String(credentials.password||'').replace(/\s/g,'');
+    if(token){
+      var tok=await simpleProbe(base,'/seogrow/v1/capabilities',{'X-SeoGrow-Token':token});
+      steps.push({label:'Chiave seoGrow',ok:tok.ok,detail:tok.reached?'HTTP '+tok.status+(tok.version?' · Connector '+tok.version:''):'richiesta non leggibile',hint:tok.ok?'Chiave valida.':(tok.status===401||tok.status===403?'Chiave rifiutata dal plugin.':'La richiesta autenticata non supera il percorso CORS/server.')});
+    }
+    if(username||password){
+      if(!username||!password){steps.push({label:'Password applicazione WordPress',ok:false,detail:'credenziali incomplete',hint:'Servono nome utente e Password applicazione.'});}
+      else{
+        var bas=await simpleProbe(base,'/seogrow/v1/capabilities',{Authorization:basic(username,password)}), caps=bas.payload||{};
+        steps.push({label:'Password applicazione WordPress',ok:bas.ok,detail:bas.reached?'HTTP '+bas.status+(caps.wordpressUser?' · utente '+caps.wordpressUser:''):'richiesta non leggibile',hint:bas.ok?('Autenticazione valida · pagine: '+(caps.canReadPages===false?'NO':'sì')+' · DataForSEO: '+(caps.canUseDataForSeo===true?'sì':'richiede manage_options')+'.'):(bas.status===401||bas.status===403?'WordPress ha rifiutato Authorization o il server lo ha rimosso.':'Basic Auth non supera il percorso CORS/server.')});
+      }
+    }
+    if(!token&&!username&&!password)steps.push({label:'Credenziali',ok:false,detail:'nessuna credenziale inserita',hint:'Inserisci chiave seoGrow oppure utente + Password applicazione.'});
+    return{site:base,steps:steps};
+  };
+
+  var previousConnect=appProto.connectWordPress;
+  appProto.connectWordPress=async function(credentials){
+    try{return await previousConnect.call(this,credentials);}
+    catch(error){
+      if(error && (error.code==='WP_CORS_OR_NETWORK'||/browser non ha potuto|cors|failed to fetch/i.test(String(error.message||'')))){
+        try{this.lastWordPressDiagnostics=await this.diagnoseWordPress(credentials||{});}catch(diagError){}
+      }
+      throw error;
+    }
+  };
+
+  var previousPages=ui.pages;
+  ui.pages=function(){
+    if(this.app.lastWordPressDiagnostics && !this.__wpDiagnostics)this.__wpDiagnostics=this.app.lastWordPressDiagnostics;
+    return previousPages.call(this);
+  };
+
+  window.SeoGrowFeatures=window.SeoGrowFeatures||new Map();
+  window.SeoGrowFeatures.set('release-0.10.29',{version:'0.10.29',features:['preflight-probe','fallback-after-fetch-failure','automatic-wordpress-diagnostics','accurate-rest-transport-separation']});
+})();
+</script>
+<script>
+/* seoGrow 0.10.30 — canonical WordPress transport; removes dependency on legacy override chains. */
+(function(){
+  'use strict';
+  if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1030) return;
+  window.SeoGrowRelease1030 = true;
+  var appProto = SeoGrowApp.prototype;
+
+  function appError(message, code, meta){
+    var error = new Error(message); error.code = code || 'WP_ERROR';
+    if (meta) error.meta = meta;
+    return error;
+  }
+  function cleanSite(value){
+    var raw=String(value||'').trim();
+    if(!raw) throw appError('Inserisci l’URL del sito WordPress.','WP_SITE_REQUIRED');
+    if(!/^[a-z][a-z0-9+.-]*:\/\//i.test(raw)) raw='https://'+raw.replace(/^\/+/, '');
+    var u; try{u=new URL(raw);}catch(e){throw appError('L’URL WordPress non è valido.','WP_SITE_INVALID');}
+    if(u.protocol!=='https:') throw appError('Il collegamento WordPress richiede HTTPS.','WP_HTTPS_REQUIRED');
+    u.search='';u.hash='';
+    u.pathname=String(u.pathname||'/').replace(/\/wp-admin(?:\/.*)?$/i,'/').replace(/\/wp-login\.php.*$/i,'/').replace(/\/wp-json(?:\/.*)?$/i,'/').replace(/\/index\.php.*$/i,'/');
+    return u.href.replace(/\/+$/,'');
+  }
+  function projectDomain(app){
+    var state=app.store&&app.store.getState();
+    var p=state&&state.projects.find(function(x){return x.id===state.activeProjectId;});
+    return p?String(p.domain||'').replace(/^www\./i,'').toLowerCase():'';
+  }
+  function host(value){try{return new URL(value).hostname.replace(/^www\./i,'').toLowerCase();}catch(e){return '';}}
+  function assertProject(app,base){
+    var expected=projectDomain(app), actual=host(base);
+    if(expected&&actual&&expected!==actual) throw appError('Collegamento bloccato: WordPress è '+actual+', ma il progetto attivo è '+expected+'.','WP_PROJECT_MISMATCH');
+  }
+  function b64Basic(user,password){return 'Basic '+SeoGrowUtils.base64Utf8(String(user||'')+':'+String(password||'').replace(/\s/g,''));}
+  function normalizeCreds(input){
+    input=input||{}; var base=cleanSite(input.site), token=String(input.token||'').trim(), username=String(input.username||'').trim(), password=String(input.password||'').replace(/\s/g,'');
+    if(!token&&(!username||!password)) throw appError('Incolla la chiave seoGrow oppure inserisci utente WordPress e Password applicazione.','WP_CREDENTIALS_REQUIRED');
+    return {base:base, token:token, username:username, password:password};
+  }
+  function routeUrl(base,route,transport){
+    if(transport==='query'){
+      var q=route.indexOf('?'), routePath=q>-1?route.slice(0,q):route, routeQuery=q>-1?route.slice(q+1):'';
+      var u=new URL(base+'/'); u.searchParams.set('rest_route',routePath);
+      if(routeQuery){var extra=new URLSearchParams(routeQuery);extra.forEach(function(value,key){u.searchParams.append(key,value);});}
+      return u.href;
+    }
+    return base+'/wp-json'+route;
+  }
+  function secretFingerprint(value){
+    var h=2166136261, text=String(value||'');for(var i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}return (h>>>0).toString(36);
+  }
+  function rememberTokenSession(connection,token){
+    if(typeof sessionStorage==='undefined')return;
+    try{
+      var box=typeof document!=='undefined'&&document.getElementById('wpRememberSession');
+      if(!box||!box.checked||!token){sessionStorage.removeItem('seogrow:wordpress-session:v2');return;}
+      sessionStorage.setItem('seogrow:wordpress-session:v2',JSON.stringify({base:connection.base,token:token,fingerprint:connection.fingerprint||'',capabilities:connection.capabilities||{},connectedAt:connection.connectedAt,userOptIn:true}));
+    }catch(e){}
+  }
+  function clearSecretInputs(){
+    if(typeof document==='undefined')return;
+    ['wpToken','wpPassword'].forEach(function(id){
+      var field=document.getElementById(id);if(!field)return;field.value='';
+      try{field.dispatchEvent(new Event('input',{bubbles:true}));}catch(e){}
+    });
+  }
+  async function decode(response){
+    var raw=''; try{raw=await response.text();}catch(e){}
+    var json=null; try{json=raw?JSON.parse(raw):null;}catch(e){}
+    return {raw:raw,json:json};
+  }
+  async function request(base,route,options,preferred){
+    if(typeof location!=='undefined'&&location.protocol==='file:') throw appError('Apri seoGrow da HTTPS o localhost, non da file://.','WP_FILE_ORIGIN');
+    var order=preferred==='query'?['query','pretty']:['pretty','query'];
+    var lastNetwork=null, first404=null;
+    for(var i=0;i<order.length;i++){
+      var transport=order[i], url=routeUrl(base,route,transport), response;
+      try{
+        response=await fetch(url,Object.assign({mode:'cors',credentials:'omit'},options||{}));
+      }catch(e){ if(e&&e.name==='AbortError') throw e; lastNetwork=e; continue; }
+      var body=await decode(response);
+      if(response.status===404 && i===0){first404={response:response,body:body,url:url,transport:transport};continue;}
+      return {response:response,payload:body.json,raw:body.raw,url:url,transport:transport};
+    }
+    if(first404) return {response:first404.response,payload:first404.body.json,raw:first404.body.raw,url:first404.url,transport:first404.transport};
+    throw appError('Il browser non può leggere WordPress. Se il sito è online, controlla CORS/origine autorizzata, firewall/security plugin, TLS/DNS e redirect.','WP_CORS_OR_NETWORK',{cause:lastNetwork&&String(lastNetwork.message||lastNetwork)});
+  }
+  function messageFrom(result,fallback){var p=result&&result.payload;return p&&(p.message||p.error||p.code)||fallback;}
+  function authError(result){
+    var st=result.response.status;
+    if(st===401||st===403) return appError(messageFrom(result,'Autenticazione WordPress rifiutata.'),'WP_AUTH_REJECTED');
+    if(st===404) return appError('RZ seoGrow Connector non è raggiungibile su questo sito WordPress.','WP_CONNECTOR_NOT_FOUND');
+    return appError(messageFrom(result,'WordPress ha restituito HTTP '+st+'.'),'WP_API_ERROR');
+  }
+  async function tryCapabilities(app,creds,mode,preferred){
+    var headers={Accept:'application/json'};
+    if(mode==='token') headers['X-SeoGrow-Token']=creds.token;
+    else headers.Authorization=b64Basic(creds.username,creds.password);
+    var result=await request(creds.base,'/seogrow/v1/capabilities',{method:'GET',headers:headers},preferred);
+    if(!result.response.ok) throw authError(result);
+    if(!result.payload||typeof result.payload!=='object') throw appError('Il connettore WordPress non ha restituito JSON valido.','WP_INVALID_RESPONSE');
+    assertProject(app,creds.base);
+    return {result:result,headers:headers,mode:mode};
+  }
+
+  appProto.connectWordPress = async function(credentials){
+    var creds=normalizeCreds(credentials), fingerprint=creds.base+'|'+(creds.token?'token':'basic')+'|'+secretFingerprint(creds.token||(creds.username+':'+creds.password));
+    if(this.wordpress&&this.wordpress.fingerprint===fingerprint){assertProject(this,this.wordpress.base);return this.wordpress;}
+    if(this.wordpressPromise) return this.wordpressPromise;
+    var app=this;
+    this.wordpressPromise=(async function(){
+      var attempt, tokenError=null;
+      if(creds.token){
+        try{attempt=await tryCapabilities(app,creds,'token');}catch(e){tokenError=e;if(!(creds.username&&creds.password&&e.code==='WP_AUTH_REJECTED'))throw e;}
+      }
+      if(!attempt&&creds.username&&creds.password) attempt=await tryCapabilities(app,creds,'basic');
+      if(!attempt) throw tokenError||appError('Credenziali WordPress non valide.','WP_AUTH_REJECTED');
+      var caps=attempt.result.payload;
+      fingerprint=creds.base+'|'+attempt.mode+'|'+secretFingerprint(attempt.mode==='token'?creds.token:(creds.username+':'+creds.password));
+      var connection={id:SeoGrowUtils.id('wp_session'),base:creds.base,headers:attempt.headers,authMode:attempt.mode,transport:attempt.result.transport,fingerprint:fingerprint,capabilities:caps,connectedAt:SeoGrowUtils.now()};
+      app.wordpress=connection;
+      if(typeof app.rememberWordPress==='function') app.rememberWordPress({site:creds.base,username:attempt.mode==='basic'?creds.username:''});
+      app.store.dispatch({type:'CONNECTION_UPDATED',connection:'wordpress',value:{base:creds.base,status:'last_verified',lastVerifiedAt:connection.connectedAt,capabilities:caps,transport:connection.transport,authMode:connection.authMode}});
+      rememberTokenSession(connection,attempt.mode==='token'?creds.token:'');
+      return connection;
+    })();
+    try{return await this.wordpressPromise;}
+    catch(error){
+      if(error&&error.code==='WP_CORS_OR_NETWORK'&&typeof this.diagnoseWordPress==='function'){
+        try{this.lastWordPressDiagnostics=await this.diagnoseWordPress(credentials||{});}catch(diagError){}
+      }
+      throw error;
+    }finally{this.wordpressPromise=null;}
+  };
+
+  appProto.disconnectWordPress = (function(previous){return function(){
+    this.wordpress=null; this.wordpressPromise=null; this.wordpressImportPromise=null;
+    try{if(typeof sessionStorage!=='undefined'){sessionStorage.removeItem('seogrow:wordpress-session:v1');sessionStorage.removeItem('seogrow:wordpress-session:v2');}}catch(e){}
+    clearSecretInputs();
+    if(previous&&previous.__seogrowCanonicalSafe) previous.call(this);
+    var saved=this.store&&this.store.getState().settings.connections.wordpress;
+    if(saved&&saved.base)this.store.dispatch({type:'CONNECTION_UPDATED',connection:'wordpress',value:{base:saved.base,status:'disconnected',lastDisconnectedAt:SeoGrowUtils.now()}});
+  };})(null);
+
+  async function connectedRequest(app,route,options){
+    var c=app.wordpress;if(!c)throw appError('Collega prima WordPress nella sezione Pagine e on-page.','WP_CONNECTION_REQUIRED');
+    assertProject(app,c.base);
+    var headers=Object.assign({},c.headers||{},options&&options.headers||{});
+    var result=await request(c.base,route,Object.assign({},options||{},{headers:headers}),c.transport);
+    c.transport=result.transport;
+    if(!result.response.ok) throw authError(result);
+    if(result.payload===null||typeof result.payload!=='object') throw appError('WordPress non ha restituito JSON valido (HTTP '+result.response.status+').','WP_INVALID_RESPONSE');
+    return result;
+  }
+
+  appProto.importWordPressPages = async function(credentials){
+    if(credentials) await this.connectWordPress(credentials); else if(!this.wordpress) throw appError('Collega prima WordPress.','WP_CONNECTION_REQUIRED');
+    if(this.wordpressImportPromise)return this.wordpressImportPromise;
+    var app=this;
+    this.wordpressImportPromise=(async function(){
+      var c=app.wordpress,all=[],page=1,total=Infinity,guard=0,perPage=Math.max(1,Math.min(50,Number(c.capabilities&&c.capabilities.pagesPerPageRecommended)||25));
+      while(all.length<total){
+        var route='/seogrow/v1/pages?per_page='+perPage+'&page='+page+(app.wordpressForceFresh?'&fresh=1':'');
+        var r=await connectedRequest(app,route,{method:'GET',headers:{Accept:'application/json'}}),p=r.payload||{},rows=Array.isArray(p.rows)?p.rows:[];
+        rows.forEach(function(row){all.push({url:SeoGrowUtils.safeUrl(row.url)||String(row.url||''),title:row.title||'',meta:row.metaDescription||'',h1:row.h1||'',canonical:SeoGrowUtils.safeUrl(row.canonical)||'',indexability:row.indexability||'unknown',indexabilitySource:row.indexabilitySource||'',indexabilityDirective:row.indexabilityDirective||'',indexabilityDetail:row.indexabilityDetail||'',indexabilityCheckedAt:row.indexabilityCheckedAt||'',fieldAvailability:row.fieldAvailability&&typeof row.fieldAvailability==='object'?row.fieldAvailability:{},fieldSources:row.fieldSources&&typeof row.fieldSources==='object'?row.fieldSources:{}});});
+        total=Number(p.total||all.length);app.bus.emit('wordpress:import-progress',{loaded:all.length,total:total,page:page});guard++;if(!rows.length||all.length>=total||guard>400)break;page++;
+      }
+      if(!all.length)throw appError('Il connettore non ha restituito pagine pubblicate.','WP_EMPTY_PAGES');
+      if(window.SeoGrowElementorFilter&&typeof SeoGrowElementorFilter.cleanRows==='function')all=SeoGrowElementorFilter.cleanRows(all);
+      var pid=app.store.getState().activeProjectId;
+      app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:pid,type:'pages-onpage',source:'WORDPRESS_CONNECTOR',importedAt:SeoGrowUtils.now(),records:all.length,invalid:0,data:all,provenance:{pagesFetched:page,site:c.base,transport:c.transport}}});
+      var findings=SeoGrowPages.analyze(pid,all);if(app.findings.createMany)app.findings.createMany(findings);else findings.forEach(function(f){app.findings.create(f);});
+      if(typeof app.flushSave==='function')await app.flushSave();
+      clearSecretInputs();
+      return {records:all.length,pages:page};
+    })();
+    try{return await this.wordpressImportPromise;}finally{this.wordpressImportPromise=null;}
+  };
+
+  appProto.refreshWordPressCapabilities = async function(){
+    var r=await connectedRequest(this,'/seogrow/v1/capabilities?seogrow_status='+Date.now(),{method:'GET',headers:{Accept:'application/json'}}),caps=r.payload;
+    this.wordpress.capabilities=caps;this.wordpress.lastCapabilitiesAt=SeoGrowUtils.now();
+    this.store.dispatch({type:'CONNECTION_UPDATED',connection:'wordpress',value:{base:this.wordpress.base,status:'last_verified',lastVerifiedAt:this.wordpress.lastCapabilitiesAt,capabilities:caps,transport:this.wordpress.transport,authMode:this.wordpress.authMode}});
+    return caps;
+  };
+  appProto.importDataForSeoCompetitors = async function(){
+    var state=this.store.getState(),p=state.projects.find(function(x){return x.id===state.activeProjectId;});if(!p)throw appError('Seleziona un progetto.','PROJECT_REQUIRED');
+    if(!confirm('Verrà eseguita una chiamata DataForSEO Live per '+p.domain+'. Può consumare credito. Procedere?'))return{cancelled:true};
+    var r=await connectedRequest(this,'/seogrow/v1/dataforseo/competitors',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({target:p.domain})}),rows=Array.isArray(r.payload.rows)?r.payload.rows:[];
+    if(!rows.length)throw new Error('DataForSEO non ha restituito competitor per questo dominio.');
+    this.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:p.id,type:'dataforseo-competitors',source:'DATAFORSEO',importedAt:SeoGrowUtils.now(),records:rows.length,invalid:0,data:rows,provenance:{target:r.payload.target||p.domain,retrievedAt:r.payload.retrievedAt||SeoGrowUtils.now(),cost:r.payload.cost}}});
+    return{records:rows.length,cost:r.payload.cost,retrievedAt:r.payload.retrievedAt};
+  };
+  appProto.importDataForSeoLocalCompetitors = async function(params){
+    var keyword=String(params&&params.keyword||'').trim();if(!keyword)throw new Error('Inserisci la ricerca locale.');
+    if(!confirm('Verrà eseguita una ricerca Google Maps Live per “'+keyword+'”. Può consumare credito. Procedere?'))return{cancelled:true};
+    var r=await connectedRequest(this,'/seogrow/v1/dataforseo/local-competitors',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({keyword:keyword})}),rows=Array.isArray(r.payload.rows)?r.payload.rows:[],state=this.store.getState();
+    this.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:state.activeProjectId,type:'dataforseo-local-competitors',source:'DATAFORSEO_LOCAL',importedAt:SeoGrowUtils.now(),records:rows.length,invalid:0,data:rows,provenance:{keyword:r.payload.keyword||keyword,locationCode:r.payload.locationCode||'',retrievedAt:r.payload.retrievedAt||SeoGrowUtils.now(),cost:r.payload.cost,languageCode:r.payload.languageCode||''}}});return{records:rows.length,cost:r.payload.cost};
+  };
+  appProto.importDataForSeoKeywordPositions = async function(){
+    var state=this.store.getState(),p=state.projects.find(function(x){return x.id===state.activeProjectId;});if(!p)throw new Error('Seleziona un progetto.');if(!confirm('Aggiornare le posizioni organiche DataForSEO per '+p.domain+'? La richiesta può consumare credito.'))return{cancelled:true};
+    var r=await connectedRequest(this,'/seogrow/v1/dataforseo/keyword-positions',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({target:p.domain})}),rows=Array.isArray(r.payload.rows)?r.payload.rows:[];
+    this.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:p.id,type:'dataforseo-keyword-positions',source:'DATAFORSEO',importedAt:SeoGrowUtils.now(),records:rows.length,invalid:0,data:rows,provenance:{target:r.payload.target||p.domain,retrievedAt:r.payload.retrievedAt||SeoGrowUtils.now(),cost:r.payload.cost,locationCode:r.payload.locationCode||'',languageCode:r.payload.languageCode||'',limit:r.payload.limit||rows.length,total:r.payload.total||rows.length}}});return{records:rows.length,cost:r.payload.cost};
+  };
+  appProto.checkDataForSeoKeyword = async function(keyword){
+    keyword=String(keyword||'').trim();if(!keyword)throw new Error('Inserisci la keyword da verificare.');var state=this.store.getState(),p=state.projects.find(function(x){return x.id===state.activeProjectId;});if(!p)throw new Error('Seleziona un progetto.');if(!confirm('La verifica live di “'+keyword+'” può consumare credito DataForSEO. Procedere?'))return{cancelled:true};
+    var r=await connectedRequest(this,'/seogrow/v1/dataforseo/keyword-check',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify({target:p.domain,keyword:keyword})});
+    this.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:p.id,type:'dataforseo-keyword-checks',source:'DATAFORSEO',importedAt:r.payload.retrievedAt||SeoGrowUtils.now(),records:1,invalid:0,data:[r.payload],provenance:{target:p.domain,locationCode:r.payload.locationCode,languageCode:r.payload.languageCode,depth:r.payload.depth||100,cost:r.payload.cost}}});if(typeof this.flushSave==='function')await this.flushSave();return r.payload;
+  };
+
+  async function probe(base,route,headers,forcePreflight){
+    var opts={method:'GET',mode:'cors',credentials:'omit',headers:Object.assign({Accept:'application/json'},headers||{})};
+    if(forcePreflight) opts.headers['Content-Type']='application/json';
+    try{var r=await request(base,route,opts),p=r.payload||{};return{reached:true,ok:r.response.ok,status:r.response.status,payload:p,url:r.url,transport:r.transport,cors:r.response.headers.get('X-SeoGrow-CORS')||'',version:r.response.headers.get('X-SeoGrow-Connector-Version')||''};}
+    catch(e){return{reached:false,ok:false,status:0,error:String(e&&e.message||e),code:e&&e.code||''};}
+  }
+  appProto.diagnoseWordPress = async function(credentials){
+    credentials=credentials||{};var steps=[],base='';try{base=cleanSite(credentials.site);}catch(e){steps.push({label:'URL WordPress',ok:false,detail:String(credentials.site||''),hint:e.message});return{site:'',steps:steps};}
+    var origin=typeof location==='undefined'?'':location.origin,file=typeof location!=='undefined'&&location.protocol==='file:';
+    steps.push({label:'Origine web app',ok:!file&&(/^https:/i.test(origin)||/^http:\/\/(localhost|127\.0\.0\.1|\[::1\])/i.test(origin)),detail:file?'file:// — origine null':origin,hint:file?'Apri seoGrow da HTTPS o localhost.':'Nel plugin deve essere autorizzata esattamente questa origine.'});
+    steps.push({label:'URL WordPress',ok:true,detail:base,hint:'URL normalizzato.'});
+    var simple=await probe(base,'/seogrow/v1/capabilities',{},false);steps.push({label:'REST/CORS base',ok:simple.reached&&(simple.ok||simple.status===401||simple.status===403),detail:simple.reached?'HTTP '+simple.status+' · '+simple.transport+' · '+simple.url:'nessuna risposta leggibile',hint:simple.reached?'Il browser legge WordPress.':'Blocco prima dell’autenticazione: CORS/origine, firewall/security plugin, TLS/DNS o redirect.'});
+    var pre=await probe(base,'/seogrow/v1/capabilities',{},true);steps.push({label:'Preflight CORS',ok:pre.reached&&(pre.ok||pre.status===401||pre.status===403),detail:pre.reached?'HTTP '+pre.status+(pre.cors?' · '+pre.cors:''):'preflight non superato',hint:pre.reached?'OPTIONS è stato accettato; il GET protetto è leggibile.':'Il preflight è bloccato. Verifica Origini autorizzate e che server/CDN/security plugin lascino passare OPTIONS.'});
+    var token=String(credentials.token||'').trim(),user=String(credentials.username||'').trim(),pw=String(credentials.password||'').replace(/\s/g,'');
+    if(token){var t=await probe(base,'/seogrow/v1/capabilities',{'X-SeoGrow-Token':token},false);steps.push({label:'Chiave seoGrow',ok:t.ok,detail:t.reached?'HTTP '+t.status+(t.version?' · Connector '+t.version:''):'richiesta non leggibile',hint:t.ok?'Chiave valida.':(t.status===401||t.status===403?'Chiave rifiutata.':'Richiesta bloccata prima dell’autenticazione.')});}
+    if(user||pw){if(!user||!pw)steps.push({label:'Password applicazione',ok:false,detail:'credenziali incomplete',hint:'Inserisci utente e Password applicazione.'});else{var b=await probe(base,'/seogrow/v1/capabilities',{Authorization:b64Basic(user,pw)},false),caps=b.payload||{};steps.push({label:'Password applicazione',ok:b.ok,detail:b.reached?'HTTP '+b.status+(caps.wordpressUser?' · '+caps.wordpressUser:''):'richiesta non leggibile',hint:b.ok?'Autenticazione valida. Lettura pagine: '+(caps.canReadPages===false?'NO':'sì')+'.':(b.status===401||b.status===403?'Credenziali rifiutate o Authorization rimossa dal server.':'Richiesta bloccata prima dell’autenticazione.')});}}
+    return{site:base,steps:steps};
+  };
+
+  var canonicalPreviousStart=appProto.start;
+  appProto.start=async function(){
+    var result=await canonicalPreviousStart.call(this);
+    if(this.wordpress){
+      try{assertProject(this,this.wordpress.base);}catch(e){this.disconnectWordPress();if(this.ui)this.ui.notify(e.message,'error');}
+    }
+    return result;
+  };
+
+  window.SeoGrowFeatures=window.SeoGrowFeatures||new Map();
+  window.SeoGrowFeatures.set('release-0.10.30',{version:'0.10.30',features:['canonical-wordpress-transport','single-auth-flow','stable-pretty-query-fallback','strict-project-binding','dual-auth-fallback','canonical-dataforseo-transport','non-destructive-diagnostics']});
 })();
 </script>
 </body></html>
