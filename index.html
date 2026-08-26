@@ -1,4 +1,4 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.21</title>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.22</title>
 <style>:root{--bg:#f5f7f6;--surface:#fff;--text:#162019;--muted:#617066;--line:#dce4de;--green:#146c43;--dark:#102017;--danger:#a13232;--warning:#8a5a00;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,select,input{font:inherit}button{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 12px;cursor:pointer}button:hover{border-color:#91a99b}.primary{background:var(--green);border-color:var(--green);color:#fff}header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:3}header small{color:var(--muted);font-weight:500}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 64px)}aside{background:var(--dark);padding:20px 12px}.brand{color:#fff;padding:0 10px 20px}.brand span{display:block;color:#aebbb2;font-size:12px}.nav{width:100%;text-align:left;border:0;background:transparent;color:#b7c4ba;margin:2px 0}.nav.active,.nav:hover{background:#1f3728;color:#fff;box-shadow:inset 3px 0 #5bd28e}main{padding:28px;max-width:1300px}.hero,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px}.hero{background:linear-gradient(135deg,#fff,#eef8f1)}h1{font-size:30px;line-height:1.15;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted,small{color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metrics div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px}.metrics b{display:block;font-size:28px}.metrics span{color:var(--muted)}.row{display:grid;grid-template-columns:minmax(0,1fr) 150px 180px;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:15px 0}.row:last-child{border-bottom:0}.row p{margin:4px 0}.status{font-size:12px;font-weight:700;text-transform:capitalize;padding:5px 8px;border-radius:99px;background:#eef0ef;display:inline-block}.status.candidate,.status.todo,.status.pending_approval,.status.verification_pending{background:#fff2d8;color:var(--warning)}.status.validated,.status.approved,.status.executing,.status.completed,.status.verified,.status.resolved,.status.task_created{background:#e6f5eb;color:var(--green)}.status.excluded,.status.obsolete,.status.archived{background:#f2eded;color:#795252}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:22px;background:#f7faf8;border-radius:10px;color:var(--muted)}.notice{margin-bottom:16px;border-radius:10px;padding:11px 14px;background:#e6f5eb;color:var(--green);border:1px solid #c5e4d0}.notice.error{background:#fbeeee;color:var(--danger);border-color:#efcccc}label{font-weight:700;display:block;margin-bottom:8px}input[type=file],input[type=url],input[type=password],input:not([type]){display:block;width:min(560px,100%);max-width:100%;margin-bottom:14px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}@media(max-width:850px){header{padding:0 12px}.shell{grid-template-columns:1fr}aside{display:flex;overflow:auto;padding:10px;gap:4px}.brand{display:none}.nav{width:auto;white-space:nowrap}.metrics{grid-template-columns:1fr 1fr}main{padding:16px}.row{grid-template-columns:1fr;gap:8px}}@media(max-width:420px){.metrics{grid-template-columns:1fr}h1{font-size:26px}}
 .progress{height:9px;border-radius:99px;background:#dfe8e2;margin:18px 0 6px;overflow:hidden}.progress span{display:block;height:100%;background:var(--green);border-radius:99px}.wizard-list{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px}.wizard-step{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;border-bottom:1px solid var(--line)}.wizard-step:last-child{border-bottom:0}.wizard-step p{margin:4px 0 0;color:var(--muted)}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eef1ef;font-weight:800;color:var(--muted)}.wizard-step.complete .step-number{background:#e6f5eb;color:var(--green)}@media(max-width:560px){.wizard-step{grid-template-columns:34px 1fr}.wizard-step>div:last-child{grid-column:2}.wizard-step button{width:100%}}
 .dataset-summary{margin:0;padding-left:20px}.dataset-summary li{margin:7px 0;color:var(--muted)}.dataset-summary b{color:var(--text)}.dataset-list{display:grid;gap:10px}.dataset-row{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.dataset-row p{margin:3px 0}.dataset-row details{min-width:180px}.dataset-row summary{cursor:pointer;font-weight:700}.dataset-row pre{max-width:420px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f7faf8;padding:10px;border-radius:8px;font-size:12px}@media(max-width:700px){.dataset-row{display:block}.dataset-row details{margin-top:10px}}
@@ -13,7 +13,7 @@ window.SeoGrowModules.contracts = {
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
 /* Versione unica dell'applicazione: nessun blocco successivo la riscrive. */
-SeoGrow.VERSION = '0.10.21'; SeoGrow.SCHEMA_VERSION = 4;
+SeoGrow.VERSION = '0.10.22'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -567,7 +567,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       while (all.length < total) {
         var result;
         try {
-          result = await wpRequest(connection.base, '/wp-json/seogrow/v1/pages?per_page=' + perPage + '&page=' + page, {
+          result = await wpRequest(connection.base, '/wp-json/seogrow/v1/pages?per_page=' + perPage + '&page=' + page + (app.wordpressForceFresh ? '&fresh=1' : ''), {
             method: 'GET',
             headers: connection.headers,
             signal: controller ? controller.signal : undefined
@@ -592,6 +592,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
             canonical: SeoGrowUtils.safeUrl(row.canonical) || '',
             indexability: row.indexability || 'unknown',
             indexabilitySource: row.indexabilitySource || '',
+            indexabilityDirective: row.indexabilityDirective || '',
+            indexabilityDetail: row.indexabilityDetail || '',
             indexabilityCheckedAt: row.indexabilityCheckedAt || '',
             fieldAvailability: row.fieldAvailability && typeof row.fieldAvailability === 'object' ? row.fieldAvailability : {title: true, meta: true, h1: true, canonical: true, indexability: row.indexability && row.indexability !== 'unknown'}
           };
@@ -3691,6 +3693,752 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       'eocd-zip-reader',
       'project-connection-guard',
       'ui-self-check'
+    ]
+  });
+})();
+</script>
+<script>
+/* seoGrow 0.10.22 — visibilità dei dati Search Console, filtro keyword non distruttivo,
+   noindex verificabile e report scaricabile. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1022) return;
+  window.SeoGrowRelease1022 = true;
+  window.SeoGrowFeatures = window.SeoGrowFeatures || new Map();
+
+  var appProto = SeoGrowApp.prototype;
+  var ui = SeoGrowUI.App.prototype;
+  var CLOSED = ['excluded', 'resolved', 'obsolete'];
+
+  function esc(value) {
+    return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
+  }
+
+  function safeUrl(value) {
+    return SeoGrowUtils.safeUrl(value) || '';
+  }
+
+  function when(value) {
+    if (!value) return '';
+    var date = new Date(value);
+    return isNaN(date.getTime()) ? String(value) : date.toLocaleString('it-IT');
+  }
+
+  function projectOf(state) {
+    return state.projects.find(function (item) { return item.id === state.activeProjectId; }) || null;
+  }
+
+  function datasetsOf(state, projectId, matcher) {
+    return state.datasets.filter(function (item) {
+      return item.projectId === projectId && matcher(String(item.type || ''));
+    });
+  }
+
+  function latest(state, projectId, type) {
+    var list = datasetsOf(state, projectId, function (name) { return name === type; });
+    return list.length ? list[list.length - 1] : null;
+  }
+
+  function downloadFile(name, text, mime) {
+    var blob = new Blob([text], { type: mime || 'text/plain;charset=utf-8' });
+    var href = URL.createObjectURL(blob);
+    var anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = name;
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(function () { URL.revokeObjectURL(href); }, 1000);
+  }
+
+  function slug(value) {
+    return String(value || 'progetto').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'progetto';
+  }
+
+  /* =================================================================== *
+   * 1. Il salvataggio non deve mai perdere un import.
+   * =================================================================== */
+  appProto.flushSave = function () {
+    if (!this.store || !this.storage) return Promise.resolve();
+    return this.storage.save(this.store.getState()).catch(function () { /* gestito dal bus */ });
+  };
+
+  function installFlushGuards(app) {
+    if (app.__flushGuards || typeof window === 'undefined') return;
+    app.__flushGuards = true;
+    var flush = function () { app.flushSave(); };
+    window.addEventListener('pagehide', flush);
+    window.addEventListener('beforeunload', flush);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', function () {
+        if ('hidden' === document.visibilityState) flush();
+      });
+    }
+  }
+
+  /* =================================================================== *
+   * 2. Le notifiche non ricostruiscono piu' la pagina.
+   *
+   * notify() chiamava render(), che riscrive tutto l'HTML: un errore
+   * durante l'import azzerava la selezione dei file e sembrava che i dati
+   * fossero spariti. Ora l'avviso viene disegnato al suo posto.
+   * =================================================================== */
+  var renderBeforeNotice = ui.render;
+
+  function paintNotice(view) {
+    if (typeof document === 'undefined' || !view.root) return false;
+    var main = view.root.querySelector('main');
+    if (!main) return false;
+
+    var notice = null;
+    for (var index = 0; index < main.children.length; index++) {
+      if (main.children[index].classList && main.children[index].classList.contains('notice')) {
+        notice = main.children[index];
+        break;
+      }
+    }
+
+    if (!view.message) {
+      if (notice) notice.remove();
+      return true;
+    }
+
+    if (!notice) {
+      notice = document.createElement('div');
+      main.insertBefore(notice, main.firstChild);
+    }
+    notice.className = 'notice ' + (view.message.type || 'success');
+    notice.textContent = view.message.message;
+    return true;
+  }
+
+  ui.notify = function (message, type) {
+    var self = this;
+    if (this.__notifyTimer) {
+      clearTimeout(this.__notifyTimer);
+      this.__notifyTimer = null;
+    }
+
+    this.message = { message: message, type: type || 'success' };
+    if (!paintNotice(this)) renderBeforeNotice.call(this);
+
+    /* Un errore resta finche' l'utente non agisce: e' un'istruzione, non un lampo. */
+    if ('error' !== type) {
+      this.__notifyTimer = setTimeout(function () {
+        self.__notifyTimer = null;
+        if (!self.message) return;
+        self.message = '';
+        if (!paintNotice(self)) renderBeforeNotice.call(self);
+      }, 7000);
+    }
+
+    return this.message;
+  };
+
+  /* =================================================================== *
+   * 3. Search Console: rendere visibile cio' che e' stato importato.
+   * =================================================================== */
+  function gscPanel(state, projectId) {
+    var project = projectOf(state);
+    var domain = project ? project.domain : 'nessun progetto';
+    var sets = datasetsOf(state, projectId, function (name) { return 0 === name.indexOf('search-console'); });
+
+    if (!sets.length) {
+      return '<section class="card"><h2>Report Search Console salvati</h2><p class="muted">Nessun report presente nel progetto <strong>' + esc(domain) +
+        '</strong>. Dopo un import riuscito compariranno qui con tipo, righe e data: i dati restano salvati anche chiudendo la scheda.</p></section>';
+    }
+
+    var rows = sets.slice().reverse().map(function (item) {
+      var label = String(item.type || '').replace(/^search-console-/, '');
+      var files = item.provenance && Array.isArray(item.provenance.sourceFiles) ? item.provenance.sourceFiles : [];
+      return '<tr><td><strong>' + esc(label) + '</strong></td><td>' + esc(item.records) + '</td><td>' + esc(when(item.importedAt)) +
+        '</td><td>' + (files.length ? esc(files.join(', ')) : '<span class="muted">—</span>') + '</td></tr>';
+    }).join('');
+
+    return '<section class="card"><h2>Report Search Console salvati</h2><p class="muted">Progetto <strong>' + esc(domain) +
+      '</strong> · ' + sets.length + ' report. Se cambi progetto dalla tendina in alto questi dati non spariscono: restano associati a ' + esc(domain) + '.</p>' +
+      '<div class="keyword-table-wrap"><table class="keyword-table seogrow-no-filter"><thead><tr><th>Report</th><th>Righe</th><th>Importato</th><th>File di origine</th></tr></thead><tbody>' +
+      rows + '</tbody></table></div></section>';
+  }
+
+  var previousGsc = ui.gsc;
+  ui.gsc = function () {
+    var state = this.state();
+    return previousGsc.call(this) + gscPanel(state, state.activeProjectId);
+  };
+
+  function highlightConfirm() {
+    if (typeof document === 'undefined') return;
+    var box = document.getElementById('gscProjectConfirmed');
+    if (!box) return;
+    var label = box.closest('label') || box.parentNode;
+    if (label && label.style) {
+      label.style.outline = '2px solid #a13232';
+      label.style.outlineOffset = '4px';
+      label.style.borderRadius = '4px';
+    }
+    if (box.scrollIntoView) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  var previousImportGscBundle = ui.importGscBundle;
+  ui.importGscBundle = async function () {
+    try {
+      var result = await previousImportGscBundle.call(this);
+      await this.app.flushSave();
+      return result;
+    } catch (error) {
+      /* Nessun render: la selezione dei file resta, l'utente spunta e riprova. */
+      if (/solo query/i.test(String(error && error.message))) highlightConfirm();
+      throw error;
+    }
+  };
+
+  /* =================================================================== *
+   * 4. Filtro keyword non distruttivo.
+   *
+   * Cercare una keyword rimuoveva in silenzio tutte le altre righe, e una
+   * verifica live applicava il filtro da sola: sembrava che i dati fossero
+   * andati persi.
+   * =================================================================== */
+  var hideStoredTerm = false;
+
+  var previousStateFn = ui.state;
+  ui.state = function () {
+    var state = previousStateFn.call(this);
+    if (!hideStoredTerm || !state.settings || !state.settings.connections) return state;
+    return Object.assign({}, state, {
+      settings: Object.assign({}, state.settings, {
+        connections: Object.assign({}, state.settings.connections, { keywordSearch: {} })
+      })
+    });
+  };
+
+  function storedTerm(state, projectId) {
+    var saved = state.settings && state.settings.connections && state.settings.connections.keywordSearch || {};
+    return String(saved[projectId] || '').trim();
+  }
+
+  function plain(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  }
+
+  function skipTable(table) {
+    if (table.classList && table.classList.contains('seogrow-no-filter')) return true;
+    var section = table.closest ? table.closest('section') : null;
+    var heading = section ? section.querySelector('h2') : null;
+    return !!(heading && /verifiche puntuali/i.test(heading.textContent || ''));
+  }
+
+  function applyKeywordFilter(html, term) {
+    if (!term || typeof document === 'undefined') return html;
+
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    var hidden = 0;
+    var kept = 0;
+
+    Array.prototype.forEach.call(box.querySelectorAll('.keyword-table'), function (table) {
+      if (skipTable(table)) return;
+      var rows = Array.prototype.slice.call(table.querySelectorAll('tbody tr'));
+      var keptHere = 0;
+      rows.forEach(function (row) {
+        var cells = row.querySelectorAll('td');
+        var cell = row.closest('.keyword-position-card') ? cells[1] : cells[0];
+        var matches = cell && plain(cell.textContent).indexOf(plain(term)) > -1;
+        if (matches) { keptHere++; return; }
+        row.remove();
+        hidden++;
+      });
+      kept += keptHere;
+      if (!keptHere) {
+        var body = table.querySelector('tbody');
+        var columns = table.querySelectorAll('thead th').length || 4;
+        if (body) {
+          body.innerHTML = '<tr><td colspan="' + columns + '">Nessuna riga contiene &ldquo;' + esc(term) +
+            '&rdquo;. Le altre keyword non sono state perse: azzera il filtro per rivederle.</td></tr>';
+        }
+      }
+    });
+
+    var banner = document.createElement('div');
+    banner.className = 'notice seogrow-filter-banner';
+    banner.innerHTML = '<strong>Filtro attivo:</strong> &ldquo;' + esc(term) + '&rdquo; · ' + kept +
+      ' righe mostrate, ' + hidden + ' temporaneamente nascoste. ' +
+      '<button type="button" data-action="keyword-search-clear">Azzera filtro e mostra tutto</button>';
+
+    var card = box.querySelector('.keyword-search-card');
+    if (card) card.appendChild(banner);
+    else box.insertBefore(banner, box.firstChild);
+
+    return box.innerHTML;
+  }
+
+  var previousKeywordPositions = ui.keywordPositions;
+  ui.keywordPositions = function () {
+    var state = previousStateFn.call(this);
+    var term = storedTerm(state, state.activeProjectId);
+    if (!term) return previousKeywordPositions.call(this);
+
+    /* Si chiede al livello precedente la versione integrale, poi si filtra qui. */
+    hideStoredTerm = true;
+    var html;
+    try {
+      html = previousKeywordPositions.call(this);
+    } finally {
+      hideStoredTerm = false;
+    }
+    return applyKeywordFilter(html, term);
+  };
+
+  /* =================================================================== *
+   * 5. Noindex verificabile.
+   * =================================================================== */
+  var SOURCE_LABEL = {
+    public_meta_robots: 'meta robots nell’HTML pubblico',
+    public_x_robots_tag: 'header HTTP X-Robots-Tag',
+    public_html_no_noindex: 'HTML pubblico senza direttive',
+    public_check_deferred: 'controllo rinviato per limite di tempo',
+    public_check_skipped: 'controllo pubblico non richiesto',
+    public_request_failed: 'pagina pubblica non raggiungibile',
+    public_redirect_mismatch: 'la pagina reindirizza altrove',
+    public_content_type_not_html: 'la risposta non è HTML',
+    public_html_missing: 'risposta pubblica vuota'
+  };
+
+  function sourceLabel(value) {
+    var key = String(value || '');
+    if (SOURCE_LABEL[key]) return SOURCE_LABEL[key];
+    if (0 === key.indexOf('public_http_')) return 'la pagina pubblica risponde HTTP ' + key.replace('public_http_', '');
+    return key || 'origine non registrata';
+  }
+
+  function inconclusive(source) {
+    var key = String(source || '');
+    return !key || 'public_html_no_noindex' === key || 'public_meta_robots' === key || 'public_x_robots_tag' === key ? false : true;
+  }
+
+  var previousAnalyze = SeoGrowPages.analyze;
+  SeoGrowPages.analyze = function (projectId, rows) {
+    var byUrl = {};
+    (rows || []).forEach(function (row) { if (row && row.url) byUrl[row.url] = row; });
+
+    return previousAnalyze(projectId, rows).map(function (finding) {
+      if ('noindex_page' !== finding.type) return finding;
+
+      var row = byUrl[(finding.affectedItems || [])[0]] || {};
+      var directive = String(row.indexabilityDirective || '');
+      var detail = String(row.indexabilityDetail || '');
+      if (!directive) return finding;
+
+      finding.description = 'Direttiva trovata: ' + directive + ' — letta da ' + sourceLabel(row.indexabilitySource) +
+        '. Se la pagina risulta comunque indicizzata su Google, controlla che questa direttiva sia ancora presente aprendo il sorgente della pagina.';
+      if (finding.evidence && finding.evidence[0]) {
+        finding.evidence[0].value = Object.assign({}, finding.evidence[0].value, {
+          directive: directive,
+          detail: detail
+        });
+      }
+      return finding;
+    });
+  };
+
+  /*
+   * Quando l'ultimo controllo non e' concludente, un vecchio riscontro non puo'
+   * continuare a dichiararsi "confermato".
+   */
+  function downgradeUnverifiedNoindex(app) {
+    var state = app.store.getState();
+    var projectId = state.activeProjectId;
+    var dataset = latest(state, projectId, 'pages-onpage');
+    if (!dataset || !Array.isArray(dataset.data)) return 0;
+
+    var byUrl = {};
+    dataset.data.forEach(function (row) { if (row && row.url) byUrl[row.url] = row; });
+
+    var changed = 0;
+    state.findings.forEach(function (finding) {
+      if (finding.projectId !== projectId || 'noindex_page' !== finding.type) return;
+      if (CLOSED.indexOf(finding.status) > -1) return;
+
+      var row = byUrl[(finding.affectedItems || [])[0]];
+      if (!row || !inconclusive(row.indexabilitySource)) return;
+      if (/riverificare/.test(String(finding.title || ''))) return;
+
+      changed++;
+      app.store.dispatch({
+        type: 'FINDING_UPSERTED',
+        projectId: projectId,
+        finding: Object.assign({}, finding, {
+          title: 'Pagina noindex da riverificare',
+          confidence: 60,
+          description: 'L’ultimo controllo non ha potuto leggere la pagina pubblica (' + sourceLabel(row.indexabilitySource) +
+            '), quindi la direttiva noindex non è più confermata. Usa “Ricontrolla indicizzabilità” prima di intervenire.',
+          evidence: (finding.evidence || []).concat([{
+            type: 'robots_directive',
+            source: 'WORDPRESS_CONNECTOR',
+            value: { url: row.url, source: row.indexabilitySource, checkedAt: row.indexabilityCheckedAt || SeoGrowUtils.now() },
+            reliability: 'MEDIUM',
+            timestamp: SeoGrowUtils.now()
+          }])
+        })
+      });
+    });
+
+    return changed;
+  }
+
+  var previousImportWordPressPages = appProto.importWordPressPages;
+  appProto.importWordPressPages = async function (credentials) {
+    var result = await previousImportWordPressPages.call(this, credentials);
+    downgradeUnverifiedNoindex(this);
+    await this.flushSave();
+    return result;
+  };
+
+  appProto.recheckIndexability = async function () {
+    if (!this.wordpress) throw new Error('Collega prima WordPress nella sezione Pagine e on-page.');
+    this.wordpressForceFresh = true;
+    try {
+      return await this.importWordPressPages();
+    } finally {
+      this.wordpressForceFresh = false;
+    }
+  };
+
+  /* =================================================================== *
+   * 6. Report scaricabile.
+   * =================================================================== */
+  function reportRows(state, projectId) {
+    return state.findings
+      .filter(function (finding) { return finding.projectId === projectId; })
+      .sort(function (left, right) {
+        var order = { high: 0, medium: 1, low: 2 };
+        var bySeverity = (order[left.severity] === undefined ? 1 : order[left.severity]) - (order[right.severity] === undefined ? 1 : order[right.severity]);
+        return bySeverity || String(left.type).localeCompare(String(right.type));
+      });
+  }
+
+  function severityWord(value) {
+    return 'high' === value ? 'Alta' : 'low' === value ? 'Bassa' : 'Media';
+  }
+
+  function statusWord(value) {
+    return String(value || '').replace(/_/g, ' ');
+  }
+
+  function buildCsv(state, projectId) {
+    var rows = reportRows(state, projectId);
+    var header = ['Gravita', 'Tipo', 'Titolo', 'Stato', 'Confidenza', 'URL', 'Descrizione', 'Creato', 'Aggiornato'];
+    var lines = [header.join(';')];
+
+    rows.forEach(function (finding) {
+      var cells = [
+        severityWord(finding.severity),
+        finding.type,
+        finding.title,
+        statusWord(finding.status),
+        finding.confidence,
+        (finding.affectedItems || []).join(' | '),
+        finding.description,
+        finding.createdAt,
+        finding.updatedAt
+      ].map(function (cell) {
+        var value = String(cell === undefined || cell === null ? '' : cell).replace(/"/g, '""').replace(/[\r\n]+/g, ' ');
+        return '"' + value + '"';
+      });
+      lines.push(cells.join(';'));
+    });
+
+    /* BOM: Excel in italiano apre il file in UTF-8 senza chiedere nulla. */
+    return '\uFEFF' + lines.join('\r\n') + '\r\n';
+  }
+
+  function tableFrom(headers, rows) {
+    if (!rows.length) return '<p class="muted">Nessun dato disponibile.</p>';
+    return '<table><thead><tr>' + headers.map(function (h) { return '<th>' + esc(h) + '</th>'; }).join('') +
+      '</tr></thead><tbody>' + rows.map(function (cells) {
+        return '<tr>' + cells.map(function (cell, index) {
+          return '<td' + (index ? '' : '') + '>' + cell + '</td>';
+        }).join('') + '</tr>';
+      }).join('') + '</tbody></table>';
+  }
+
+  function buildReport(state, projectId) {
+    var project = projectOf(state);
+    var domain = project ? project.domain : 'progetto senza dominio';
+    var generated = new Date().toLocaleString('it-IT');
+    var findings = reportRows(state, projectId);
+    var open = findings.filter(function (f) { return CLOSED.indexOf(f.status) < 0; });
+    var tasks = state.tasks.filter(function (t) { return t.projectId === projectId; });
+    var counts = { high: 0, medium: 0, low: 0 };
+    open.forEach(function (f) { counts[f.severity] = (counts[f.severity] || 0) + 1; });
+
+    var sources = datasetsOf(state, projectId, function () { return true; }).slice().reverse().map(function (item) {
+      var files = item.provenance && Array.isArray(item.provenance.sourceFiles) ? item.provenance.sourceFiles.join(', ') : (item.provenance && item.provenance.fileName ? item.provenance.fileName : '');
+      return [esc(item.type), esc(item.records), esc(when(item.importedAt)), esc(item.source || ''), files ? esc(files) : '<span class="muted">—</span>'];
+    });
+
+    var findingRows = findings.map(function (finding) {
+      var urls = (finding.affectedItems || []).map(function (item) {
+        var href = safeUrl(item);
+        return href ? '<a href="' + esc(href) + '">' + esc(href) + '</a>' : esc(item);
+      }).join('<br>');
+      return [
+        '<span class="sev sev-' + esc(finding.severity || 'medium') + '">' + esc(severityWord(finding.severity)) + '</span>',
+        esc(finding.title),
+        urls || '<span class="muted">—</span>',
+        esc(finding.description),
+        esc(statusWord(finding.status)) + ' · ' + esc(finding.confidence) + '%'
+      ];
+    });
+
+    var positions = latest(state, projectId, 'dataforseo-keyword-positions');
+    var positionRows = positions && Array.isArray(positions.data) ? positions.data.slice()
+      .sort(function (a, b) { return Number(a.position || 999) - Number(b.position || 999); })
+      .slice(0, 100)
+      .map(function (row) {
+        var href = safeUrl(row.url);
+        return [esc(row.position === null || row.position === undefined ? '—' : row.position), esc(row.keyword),
+          href ? '<a href="' + esc(href) + '">' + esc(href) + '</a>' : '—',
+          esc(row.searchVolume === null || row.searchVolume === undefined ? '—' : row.searchVolume)];
+      }) : [];
+
+    var queries = latest(state, projectId, 'search-console-queries');
+    var queryRows = queries && Array.isArray(queries.data) ? queries.data.slice()
+      .sort(function (a, b) { return Number((b.metrics || {}).clicks || 0) - Number((a.metrics || {}).clicks || 0); })
+      .slice(0, 100)
+      .map(function (row) {
+        var data = row && row.data && 'object' === typeof row.data ? row.data : {};
+        var key = Object.keys(data).find(function (name) { return /quer|keyword|parola/i.test(name); });
+        var metrics = row.metrics || {};
+        return [esc(key ? data[key] : '—'), esc(metrics.clicks === null || metrics.clicks === undefined ? '—' : metrics.clicks),
+          esc(metrics.impressions === null || metrics.impressions === undefined ? '—' : metrics.impressions),
+          esc(metrics.position === null || metrics.position === undefined ? '—' : Number(metrics.position).toFixed(1))];
+      }) : [];
+
+    var organic = latest(state, projectId, 'dataforseo-competitors');
+    var organicRows = organic && Array.isArray(organic.data) ? organic.data.slice(0, 50).map(function (row) {
+      return [esc(row.domain), esc(row.intersections), esc(row.organicKeywords), esc(Math.round(Number(row.estimatedOrganicTraffic || 0)))];
+    }) : [];
+
+    var local = latest(state, projectId, 'dataforseo-local-competitors');
+    var localRows = local && Array.isArray(local.data) ? local.data.slice(0, 50).map(function (row) {
+      return [esc(row.rank === null || row.rank === undefined ? '—' : row.rank), esc(row.name), esc(row.domain || '—'),
+        esc(row.rating === null || row.rating === undefined ? '—' : row.rating)];
+    }) : [];
+
+    var style = 'body{margin:0;background:#fff;color:#16202a;font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}' +
+      '.page{max-width:1000px;margin:0 auto;padding:40px 28px 80px}' +
+      'h1{font-size:28px;margin:0 0 6px;line-height:1.15}h2{font-size:18px;margin:36px 0 10px;padding-bottom:6px;border-bottom:2px solid #146c43}' +
+      '.lead{color:#5b6b62;margin:0 0 24px}' +
+      '.kpis{display:flex;flex-wrap:wrap;gap:12px;margin:20px 0}' +
+      '.kpi{flex:1 1 140px;border:1px solid #dce4de;border-left:4px solid #146c43;border-radius:4px;padding:12px 14px}' +
+      '.kpi b{display:block;font-size:26px;line-height:1.1}.kpi span{color:#5b6b62;font-size:12px;text-transform:uppercase;letter-spacing:.06em}' +
+      'table{width:100%;border-collapse:collapse;margin:8px 0 4px;font-size:13px}' +
+      'th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e6ebe7;vertical-align:top}' +
+      'th{background:#f3f6f4;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5b6b62}' +
+      'a{color:#0d5c40;word-break:break-all}.muted{color:#8a968f}' +
+      '.sev{display:inline-block;padding:2px 8px;border-radius:3px;font-size:11px;font-weight:700;white-space:nowrap}' +
+      '.sev-high{background:#fbe9e9;color:#a13232}.sev-medium{background:#fdf2e2;color:#8a5a00}.sev-low{background:#eef2ef;color:#5b6b62}' +
+      'footer{margin-top:40px;padding-top:16px;border-top:1px solid #dce4de;color:#8a968f;font-size:12px}' +
+      '@media print{.page{padding:0}h2{break-after:avoid}tr{break-inside:avoid}}';
+
+    return '<!doctype html><html lang="it"><head><meta charset="utf-8">' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<meta name="robots" content="noindex,nofollow">' +
+      '<title>Report SEO ' + esc(domain) + '</title><style>' + style + '</style></head><body><div class="page">' +
+      '<h1>Report SEO — ' + esc(domain) + '</h1>' +
+      '<p class="lead">Generato il ' + esc(generated) + ' con seoGrow ' + esc(SeoGrow.VERSION) +
+      '. Ogni riga proviene da un dato importato: nessun valore è stimato o simulato.</p>' +
+      '<div class="kpis">' +
+      '<div class="kpi"><b>' + open.length + '</b><span>Riscontri aperti</span></div>' +
+      '<div class="kpi"><b>' + (counts.high || 0) + '</b><span>Priorità alta</span></div>' +
+      '<div class="kpi"><b>' + tasks.filter(function (t) { return ['verified', 'archived', 'obsolete'].indexOf(t.status) < 0; }).length + '</b><span>Attività aperte</span></div>' +
+      '<div class="kpi"><b>' + tasks.filter(function (t) { return 'verified' === t.status; }).length + '</b><span>Attività verificate</span></div>' +
+      '</div>' +
+      '<h2>Fonti dei dati</h2>' + tableFrom(['Dataset', 'Righe', 'Importato', 'Origine', 'File'], sources) +
+      '<h2>Riscontri (' + findings.length + ')</h2>' + tableFrom(['Priorità', 'Riscontro', 'Pagina', 'Dettaglio', 'Stato'], findingRows) +
+      (positionRows.length ? '<h2>Posizioni keyword — DataForSEO</h2>' + tableFrom(['Pos.', 'Keyword', 'Pagina', 'Volume'], positionRows) : '') +
+      (queryRows.length ? '<h2>Query Search Console</h2>' + tableFrom(['Query', 'Clic', 'Impressioni', 'Posizione media'], queryRows) : '') +
+      (organicRows.length ? '<h2>Competitor organici</h2>' + tableFrom(['Dominio', 'Keyword condivise', 'Keyword organiche', 'Traffico stimato'], organicRows) : '') +
+      (localRows.length ? '<h2>Competitor locali</h2>' + tableFrom(['Pos.', 'Attività', 'Sito', 'Valutazione'], localRows) : '') +
+      '<footer>Report autonomo: puoi aprirlo offline e stamparlo in PDF dal browser. ' +
+      'Le posizioni DataForSEO Labs sono stime aggiornate periodicamente, non una SERP live; ' +
+      'la posizione media di Search Console è una media di periodo.</footer>' +
+      '</div></body></html>';
+  }
+
+  ui.report = function () {
+    var state = this.state();
+    var projectId = state.activeProjectId;
+    var project = projectOf(state);
+    var findings = reportRows(state, projectId);
+    var open = findings.filter(function (f) { return CLOSED.indexOf(f.status) < 0; });
+    var sets = datasetsOf(state, projectId, function () { return true; });
+
+    var list = sets.length
+      ? sets.slice().reverse().map(function (item) {
+          return '<li><strong>' + esc(item.type) + '</strong> — ' + esc(item.records) + ' righe · ' + esc(when(item.importedAt)) + '</li>';
+        }).join('')
+      : '<li>Nessun dato importato in questo progetto.</li>';
+
+    return '<h1>Report</h1><p class="muted">Un documento autonomo con riscontri, fonti e dati importati del progetto selezionato.</p>' +
+      '<section class="card"><h2>' + esc(project ? project.domain : 'Nessun progetto') + '</h2>' +
+      '<p>' + findings.length + ' riscontri totali, di cui <strong>' + open.length + ' aperti</strong>. ' + sets.length + ' dataset importati.</p>' +
+      '<ul class="dataset-summary">' + list + '</ul>' +
+      '<div class="actions"><button class="primary" data-action="download-report">Scarica report HTML</button>' +
+      '<button data-action="download-report-csv">Scarica riscontri in CSV</button></div>' +
+      '<p><small>Il report HTML si apre in qualsiasi browser anche offline e si stampa in PDF con Ctrl/Cmd+P. Il CSV usa il punto e virgola e si apre direttamente in Excel.</small></p></section>' +
+      '<section class="card"><h2>Cosa contiene</h2><ul class="dataset-summary">' +
+      '<li>Riepilogo: riscontri aperti, priorità alta, attività aperte e verificate.</li>' +
+      '<li>Fonti dei dati con data di import e file di origine.</li>' +
+      '<li>Tutti i riscontri con pagina interessata, dettaglio ed evidenza.</li>' +
+      '<li>Posizioni keyword, query Search Console e competitor, quando presenti.</li>' +
+      '</ul></section>';
+  };
+
+  /* =================================================================== *
+   * 7. Navigazione, azioni e stile.
+   * =================================================================== */
+  function installStyle() {
+    if (typeof document === 'undefined' || document.getElementById('seogrow-v1022-style')) return;
+    var style = document.createElement('style');
+    style.id = 'seogrow-v1022-style';
+    style.textContent = '.seogrow-filter-banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:14px}' +
+      '.seogrow-filter-banner button{margin-left:auto}' +
+      '.notice{padding:10px 14px;border-radius:8px;border:1px solid var(--line);background:#f4faf6;margin-bottom:14px}' +
+      '.notice.error{background:#fdf1f1;border-color:#e6c3c3;color:#7d2020}';
+    document.head.appendChild(style);
+  }
+
+  var previousLayout = ui.layout;
+  ui.layout = function (content) {
+    installStyle();
+    var html = previousLayout.call(this, content);
+    var button = '<button class="nav ' + ('report' === this.view ? 'active' : '') + '" data-view="report">Report</button>';
+    return SeoGrowUtils.replaceOrWarn(html, '</aside>', button + '</aside>', 'voce di menu Report');
+  };
+
+  var previousRender = ui.render;
+  ui.render = function () {
+    if (!this.root) return;
+    if ('report' !== this.view) return previousRender.call(this);
+    this.root.innerHTML = this.layout(this.report());
+  };
+
+  var previousMount = ui.mount;
+  ui.mount = function (root) {
+    var result = previousMount.call(this, root);
+    installFlushGuards(this.app);
+    installStyle();
+    return result;
+  };
+
+  var previousClick = ui.click;
+  ui.click = async function (event) {
+    var element = event.target.closest('[data-action],[data-view]');
+    var action = element && element.dataset.action;
+
+    if ('download-report' === action || 'download-report-csv' === action) {
+      var state = this.state();
+      var project = projectOf(state);
+      var stamp = new Date().toISOString().slice(0, 10);
+      try {
+        if ('download-report' === action) {
+          downloadFile('seogrow-report-' + slug(project && project.domain) + '-' + stamp + '.html', buildReport(state, state.activeProjectId), 'text/html;charset=utf-8');
+          this.notify('Report HTML scaricato. Aprilo nel browser e usa Stampa per salvarlo in PDF.');
+        } else {
+          downloadFile('seogrow-riscontri-' + slug(project && project.domain) + '-' + stamp + '.csv', buildCsv(state, state.activeProjectId), 'text/csv;charset=utf-8');
+          this.notify('CSV dei riscontri scaricato.');
+        }
+      } catch (error) {
+        this.notify('Non è stato possibile generare il file: ' + error.message, 'error');
+      }
+      return;
+    }
+
+    if ('keyword-check-live' === action) {
+      /*
+       * Il livello precedente applicava il filtro sulla keyword appena
+       * verificata, facendo sparire tutte le altre righe. Qui la verifica
+       * resta una verifica: il risultato si legge in "Verifiche puntuali".
+       */
+      if (element.disabled) return;
+      var field = document.getElementById('keywordExactSearch');
+      var keyword = field ? field.value : '';
+      element.disabled = true;
+      var checkLabel = element.textContent;
+      element.textContent = 'Verifica in corso…';
+      try {
+        var checked = await this.app.checkDataForSeoKeyword(keyword);
+        if (!checked || !checked.cancelled) {
+          this.notify(checked.found
+            ? 'Posizione live trovata: ' + checked.position + ' per “' + checked.keyword + '”. La trovi in “Verifiche puntuali”; l’elenco completo resta invariato.'
+            : '“' + checked.keyword + '” non è stato trovato nei primi ' + (checked.depth || 100) + ' risultati organici.');
+        }
+      } catch (error) {
+        this.notify(error.message, 'error');
+      } finally {
+        if (element.isConnected) {
+          element.disabled = false;
+          element.textContent = checkLabel;
+        }
+      }
+      return;
+    }
+
+    if ('recheck-indexability' === action) {
+      if (element.disabled) return;
+      element.disabled = true;
+      var label = element.textContent;
+      element.textContent = 'Ricontrollo in corso…';
+      try {
+        var result = await this.app.recheckIndexability();
+        this.notify('Indicizzabilità ricontrollata su ' + result.records + ' pagine, ignorando la cache del connettore.');
+      } catch (error) {
+        this.notify(error.message, 'error');
+      } finally {
+        if (element.isConnected) {
+          element.disabled = false;
+          element.textContent = label;
+        }
+      }
+      return;
+    }
+
+    return previousClick.call(this, event);
+  };
+
+  /* Pulsante di ricontrollo nella vista Pagine, accanto all'import. */
+  var previousPages = ui.pages;
+  ui.pages = function () {
+    var html = previousPages.call(this);
+    if (!this.app.wordpress) return html;
+    return SeoGrowUtils.replaceOrWarn(
+      html,
+      '<div class="actions"><button class="primary" data-action="wp-connect-import">',
+      '<div class="actions"><button data-action="recheck-indexability">Ricontrolla indicizzabilità</button><button class="primary" data-action="wp-connect-import">',
+      'pulsante ricontrollo indicizzabilità'
+    );
+  };
+
+  var previousStart = appProto.start;
+  appProto.start = async function () {
+    var result = await previousStart.call(this);
+    downgradeUnverifiedNoindex(this);
+    return result;
+  };
+
+  window.SeoGrowFeatures.set('release-0.10.22', {
+    version: '0.10.22',
+    features: [
+      'search-console-visible',
+      'non-destructive-notifications',
+      'reversible-keyword-filter',
+      'auditable-noindex',
+      'fresh-indexability-recheck',
+      'downloadable-report'
     ]
   });
 })();
