@@ -1,4 +1,4 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.19</title>
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>seoGrow 0.10.21</title>
 <style>:root{--bg:#f5f7f6;--surface:#fff;--text:#162019;--muted:#617066;--line:#dce4de;--green:#146c43;--dark:#102017;--danger:#a13232;--warning:#8a5a00;--radius:16px}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}button,select,input{font:inherit}button{border:1px solid var(--line);border-radius:9px;background:#fff;padding:9px 12px;cursor:pointer}button:hover{border-color:#91a99b}.primary{background:var(--green);border-color:var(--green);color:#fff}header{height:64px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:3}header small{color:var(--muted);font-weight:500}.shell{display:grid;grid-template-columns:240px minmax(0,1fr);min-height:calc(100vh - 64px)}aside{background:var(--dark);padding:20px 12px}.brand{color:#fff;padding:0 10px 20px}.brand span{display:block;color:#aebbb2;font-size:12px}.nav{width:100%;text-align:left;border:0;background:transparent;color:#b7c4ba;margin:2px 0}.nav.active,.nav:hover{background:#1f3728;color:#fff;box-shadow:inset 3px 0 #5bd28e}main{padding:28px;max-width:1300px}.hero,.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin-bottom:18px}.hero{background:linear-gradient(135deg,#fff,#eef8f1)}h1{font-size:30px;line-height:1.15;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}.muted,small{color:var(--muted)}.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metrics div{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px}.metrics b{display:block;font-size:28px}.metrics span{color:var(--muted)}.row{display:grid;grid-template-columns:minmax(0,1fr) 150px 180px;gap:14px;align-items:center;border-bottom:1px solid var(--line);padding:15px 0}.row:last-child{border-bottom:0}.row p{margin:4px 0}.status{font-size:12px;font-weight:700;text-transform:capitalize;padding:5px 8px;border-radius:99px;background:#eef0ef;display:inline-block}.status.candidate,.status.todo,.status.pending_approval,.status.verification_pending{background:#fff2d8;color:var(--warning)}.status.validated,.status.approved,.status.executing,.status.completed,.status.verified,.status.resolved,.status.task_created{background:#e6f5eb;color:var(--green)}.status.excluded,.status.obsolete,.status.archived{background:#f2eded;color:#795252}.actions{display:flex;gap:8px;flex-wrap:wrap}.empty{padding:22px;background:#f7faf8;border-radius:10px;color:var(--muted)}.notice{margin-bottom:16px;border-radius:10px;padding:11px 14px;background:#e6f5eb;color:var(--green);border:1px solid #c5e4d0}.notice.error{background:#fbeeee;color:var(--danger);border-color:#efcccc}label{font-weight:700;display:block;margin-bottom:8px}input[type=file],input[type=url],input[type=password],input:not([type]){display:block;width:min(560px,100%);max-width:100%;margin-bottom:14px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}@media(max-width:850px){header{padding:0 12px}.shell{grid-template-columns:1fr}aside{display:flex;overflow:auto;padding:10px;gap:4px}.brand{display:none}.nav{width:auto;white-space:nowrap}.metrics{grid-template-columns:1fr 1fr}main{padding:16px}.row{grid-template-columns:1fr;gap:8px}}@media(max-width:420px){.metrics{grid-template-columns:1fr}h1{font-size:26px}}
 .progress{height:9px;border-radius:99px;background:#dfe8e2;margin:18px 0 6px;overflow:hidden}.progress span{display:block;height:100%;background:var(--green);border-radius:99px}.wizard-list{background:#fff;border:1px solid var(--line);border-radius:var(--radius);margin-bottom:18px}.wizard-step{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:center;padding:18px;border-bottom:1px solid var(--line)}.wizard-step:last-child{border-bottom:0}.wizard-step p{margin:4px 0 0;color:var(--muted)}.step-number{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#eef1ef;font-weight:800;color:var(--muted)}.wizard-step.complete .step-number{background:#e6f5eb;color:var(--green)}@media(max-width:560px){.wizard-step{grid-template-columns:34px 1fr}.wizard-step>div:last-child{grid-column:2}.wizard-step button{width:100%}}
 .dataset-summary{margin:0;padding-left:20px}.dataset-summary li{margin:7px 0;color:var(--muted)}.dataset-summary b{color:var(--text)}.dataset-list{display:grid;gap:10px}.dataset-row{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.dataset-row p{margin:3px 0}.dataset-row details{min-width:180px}.dataset-row summary{cursor:pointer;font-weight:700}.dataset-row pre{max-width:420px;max-height:260px;overflow:auto;white-space:pre-wrap;background:#f7faf8;padding:10px;border-radius:8px;font-size:12px}@media(max-width:700px){.dataset-row{display:block}.dataset-row details{margin-top:10px}}
@@ -12,7 +12,8 @@ window.SeoGrowModules.contracts = {
   }
 };
 </script><script>window.SeoGrow = window.SeoGrow || {};
-SeoGrow.VERSION = '0.10.10'; SeoGrow.SCHEMA_VERSION = 4;
+/* Versione unica dell'applicazione: nessun blocco successivo la riscrive. */
+SeoGrow.VERSION = '0.10.21'; SeoGrow.SCHEMA_VERSION = 4;
 SeoGrow.FINDING_STATES = ['candidate','validated','insufficient_data','excluded','task_created','resolved','obsolete','reopened'];
 SeoGrow.TASK_STATES = ['todo','pending_approval','approved','executing','completed','verification_pending','verified','failed','archived','obsolete'];
 SeoGrow.TRANSITIONS = { finding:{candidate:['validated','insufficient_data','excluded'],validated:['task_created','resolved','obsolete'],task_created:['resolved','reopened'],resolved:['reopened'],obsolete:['reopened'],reopened:['validated','excluded']}, task:{todo:['pending_approval','approved','archived'],pending_approval:['approved','archived'],approved:['executing','archived'],executing:['completed','failed'],completed:['verification_pending'],verification_pending:['verified','failed'],failed:['approved','archived'],verified:['archived'],archived:[]} };
@@ -58,7 +59,35 @@ SeoGrowSearchConsoleBundle.row=function(line,sep){var out=[],value='',quoted=fal
 SeoGrowSearchConsoleBundle.csv=function(text){var lines=String(text||'').replace(/^\uFEFF/,'').split(/\r?\n/).filter(function(x){return x.trim()!==''});if(!lines.length)return {headers:[],rows:[]};var sep=lines[0].indexOf(';')>-1?';':',';var headers=SeoGrowSearchConsoleBundle.row(lines.shift(),sep).map(function(x){return x.trim()});return {headers:headers,rows:lines.map(function(line){var c=SeoGrowSearchConsoleBundle.row(line,sep),row={};headers.forEach(function(h,i){row[h]=String(c[i]||'').trim()});return row})};};
 SeoGrowSearchConsoleBundle.kind=function(headers){var h=headers.map(SeoGrowSearchConsoleBundle.header).join('|');if(h.indexOf('query')>-1)return 'queries';if(h.indexOf('pagine principali')>-1||h.indexOf('pagine')>-1||h.indexOf('top pages')>-1||h.indexOf('page')>-1||h.indexOf('pages')>-1||h.indexOf('url')>-1)return 'pages';if(h.indexOf('paese')>-1||h.indexOf('country')>-1)return 'countries';if(h.indexOf('dispositivo')>-1||h.indexOf('device')>-1)return 'devices';if(h.indexOf('aspetto nella ricerca')>-1||h.indexOf('search appearance')>-1)return 'searchAppearance';if(h.indexOf('filtra')>-1||h.indexOf('filter')>-1)return 'filters';if(h.indexOf('data')>-1||h.indexOf('date')>-1)return 'chart';return 'unknown'};
 SeoGrowSearchConsoleBundle.metrics=function(row){var get=function(names){var key=Object.keys(row).find(function(k){return names.indexOf(SeoGrowSearchConsoleBundle.header(k))>-1});return key?row[key]:null};var n=function(v){if(v===null||v===undefined||String(v).trim()==='')return null;var value=Number(String(v).replace('%','').replace(',','.'));return Number.isFinite(value)?value:null};return {clicks:n(get(['clic','clicks'])),impressions:n(get(['impressioni','impressions'])),ctr:n(get(['ctr'])),position:n(get(['posizione','position']))};};
-SeoGrowSearchConsoleBundle.readZip=async function(buffer){var view=new DataView(buffer),decoder=new TextDecoder(),entries=[],i=0;while(i+46<=view.byteLength){if(view.getUint32(i,true)!==0x02014b50){i++;continue}var method=view.getUint16(i+10,true),size=view.getUint32(i+20,true),nameLen=view.getUint16(i+28,true),extraLen=view.getUint16(i+30,true),commentLen=view.getUint16(i+32,true),offset=view.getUint32(i+42,true),name=decoder.decode(new Uint8Array(buffer,i+46,nameLen));if(entries.length>=20)throw Error('ZIP con troppi file: importa al massimo 20 CSV per volta.');var local=new DataView(buffer,offset),localName=local.getUint16(26,true),localExtra=local.getUint16(28,true),data=new Uint8Array(buffer,offset+30+localName+localExtra,size),bytes=data;if(method===8){if(!window.DecompressionStream)throw Error('Questo browser non supporta l’import ZIP: estrai i CSV e selezionali insieme.');bytes=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())}else if(method!==0)throw Error('ZIP con compressione non supportata');if(bytes.byteLength>10485760)throw Error('Uno dei CSV nello ZIP supera 10 MB. Importalo separatamente.');if(/\.csv$/i.test(name))entries.push({name:name,text:decoder.decode(bytes)});i+=46+nameLen+extraLen+commentLen}if(!entries.length)throw Error('Lo ZIP non contiene file CSV riconoscibili.');return entries};
+SeoGrowSearchConsoleBundle.readZip=async function(buffer){
+  try {
+    var view=new DataView(buffer),decoder=new TextDecoder(),entries=[],i=0,centralFound=false;
+    while(i+46<=view.byteLength){
+      if(view.getUint32(i,true)!==0x02014b50){i++;continue}
+      centralFound=true;
+      var method=view.getUint16(i+10,true),size=view.getUint32(i+20,true),nameLen=view.getUint16(i+28,true),extraLen=view.getUint16(i+30,true),commentLen=view.getUint16(i+32,true),offset=view.getUint32(i+42,true),centralEnd=i+46+nameLen+extraLen+commentLen;
+      if(centralEnd>view.byteLength)throw Error('ZIP_TRUNCATED');
+      var name=decoder.decode(new Uint8Array(buffer,i+46,nameLen));
+      if(entries.length>=20)throw Error('ZIP con troppi file: importa al massimo 20 CSV per volta.');
+      if(offset+30>view.byteLength)throw Error('ZIP_TRUNCATED');
+      var local=new DataView(buffer,offset);
+      if(local.getUint32(0,true)!==0x04034b50)throw Error('ZIP_LOCAL_HEADER');
+      var localName=local.getUint16(26,true),localExtra=local.getUint16(28,true),dataStart=offset+30+localName+localExtra,dataEnd=dataStart+size;
+      if(dataStart>view.byteLength||dataEnd>view.byteLength||dataEnd<dataStart)throw Error('ZIP_TRUNCATED');
+      var data=new Uint8Array(buffer,dataStart,size),bytes=data;
+      if(method===8){if(!window.DecompressionStream)throw Error('Questo browser non supporta l’import ZIP: estrai i CSV e selezionali insieme.');bytes=new Uint8Array(await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer())}else if(method!==0)throw Error('ZIP con compressione non supportata');
+      if(bytes.byteLength>10485760)throw Error('Uno dei CSV nello ZIP supera 10 MB. Importalo separatamente.');
+      if(/\.csv$/i.test(name))entries.push({name:name,text:decoder.decode(bytes)});
+      i=centralEnd;
+    }
+    if(!centralFound||!entries.length)throw Error('Lo ZIP non contiene file CSV riconoscibili.');
+    return entries;
+  } catch(error) {
+    if(error&&/^(ZIP_TRUNCATED|ZIP_LOCAL_HEADER|RangeError)/.test(String(error.message||error.name||'')))throw Error('Lo ZIP sembra danneggiato o incompleto. Scaricalo di nuovo da Search Console oppure estrai e importa i CSV.');
+    if(error instanceof RangeError)throw Error('Lo ZIP sembra danneggiato o incompleto. Scaricalo di nuovo da Search Console oppure estrai e importa i CSV.');
+    throw error;
+  }
+};
 SeoGrowSearchConsoleBundle.readFiles=async function(files){var out=[];for(var i=0;i<files.length;i++){var file=files[i];if(file.size>20971520)throw Error('Un file supera 20 MB. Riduci l’export o importalo separatamente.');if(/\.zip$/i.test(file.name))out=out.concat(await SeoGrowSearchConsoleBundle.readZip(await file.arrayBuffer()));else out.push({name:file.name,text:await file.text()})}return out};
 SeoGrowSearchConsoleBundle.importBundle=async function(files){var raw=await SeoGrowSearchConsoleBundle.readFiles(files),groups={};raw.forEach(function(file){var data=SeoGrowSearchConsoleBundle.csv(file.text),kind=SeoGrowSearchConsoleBundle.kind(data.headers);if(!groups[kind])groups[kind]=[];groups[kind]=groups[kind].concat(data.rows.map(function(row){return {sourceFile:file.name,data:row,metrics:SeoGrowSearchConsoleBundle.metrics(row)}}))});return groups};
 </script><script>window.SeoGrowPages=window.SeoGrowPages||{};
@@ -70,13 +99,12 @@ SeoGrowPages.analyze=(projectId,rows)=>{const out=[];const add=(type,title,descr
 SeoGrowCompetitors.parse=text=>{const lines=String(text||'').replace(/^\uFEFF/,'').trim().split(/\r?\n/).filter(Boolean);if(lines.length<2)throw Error('Il CSV competitor non contiene record');const sep=lines[0].includes(';')?';':',';const h=lines.shift().split(sep).map(x=>x.trim().toLowerCase());const at=(...x)=>h.findIndex(v=>x.includes(v));const q=at('keyword','query'),d=at('domain','dominio'),p=at('position','posizione'),u=at('url','page','pagina');if([q,d,p].some(x=>x<0))throw Error('CSV non supportato: servono Keyword, Domain e Position');return lines.map(line=>{const c=line.split(sep).map(v=>v.trim().replace(/^"|"$/g,''));return {keyword:c[q],domain:String(c[d]||'').replace(/^https?:\/\//,'').replace(/^www\./,'').replace(/\/.*$/,'').toLowerCase(),position:Number(String(c[p]).replace(',','.')),url:u<0?'':SeoGrowUtils.safeUrl(c[u])}}).filter(x=>x.keyword&&x.domain&&Number.isFinite(x.position))};
 SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomain.replace(/^www\./,'').toLowerCase(),byKeyword=new Map();rows.forEach(r=>{const k=r.keyword.toLowerCase().trim();if(!byKeyword.has(k))byKeyword.set(k,[]);byKeyword.get(k).push(r)});return [...byKeyword].flatMap(([keyword,list])=>{const client=list.some(r=>r.domain===mine),competitors=list.filter(r=>r.domain!==mine&&r.position<=20);if(client||!competitors.length)return [];const names=[...new Set(competitors.map(x=>x.domain))].sort();return [{projectId,type:'competitor_keyword_gap',title:`Keyword gap: ${keyword}`,description:`${names.join(', ')} risulta tra le prime 20 posizioni nei dati importati; ${mine} non è presente nel medesimo dataset.`,severity:'medium',impact:'medium',confidence:80,source:'IMPORTED',affectedItems:names,evidence:competitors.map(x=>({type:'competitor_position',source:'IMPORTED',value:x,reliability:'HIGH',timestamp:SeoGrowUtils.now()})),signature:SeoGrowUtils.signature(projectId,'competitor_keyword_gap',keyword,names.join(','))}]})};
 </script><script>SeoGrowCore.healthCheck = app => {const s=app.store.getState(), ids=new Set(),issues=[]; const add=(level,message)=>issues.push({level,message}); for(const p of s.projects){if(ids.has(p.id))add('FAIL','ID progetto duplicato');ids.add(p.id)} for(const f of s.findings){if(!s.projects.some(p=>p.id===f.projectId))add('FAIL',`Finding senza progetto: ${f.title}`);if(!SeoGrow.FINDING_STATES.includes(f.status))add('FAIL',`Stato finding non valido: ${f.status}`)} for(const t of s.tasks){if(!s.projects.some(p=>p.id===t.projectId))add('FAIL',`Task senza progetto: ${t.title}`);if(!s.findings.some(f=>f.id===t.findingId))add('FAIL',`Task senza finding: ${t.title}`);if(!SeoGrow.TASK_STATES.includes(t.status))add('FAIL',`Stato task non valido: ${t.status}`)} if(!issues.length)add('PASS','Integrità dati, referenze e stati verificati'); return issues; };
-</script><script>window.SeoGrowUI=window.SeoGrowUI||{};SeoGrowUI.App=class{constructor(app){this.app=app;this.view='dashboard';this.message=''}mount(root){this.root=root;document.addEventListener('click',e=>this.click(e));document.addEventListener('change',e=>this.change(e));this.app.bus.on('state:changed',()=>this.render());this.render()}notify(message,type='success'){this.message={message,type};this.render()}async click(e){const el=e.target.closest('[data-action],[data-view]');if(!el)return;try{if(el.dataset.view){this.view=el.dataset.view;return this.render()}const a=el.dataset.action,id=el.dataset.id;if(a==='new-project'){const d=prompt('Dominio del progetto');if(d)this.app.createProject(d)}if(a==='validate')this.app.findings.status(id,'validated');if(a==='exclude')this.app.findings.status(id,'excluded');if(a==='create-task')this.app.tasks.create(id);if(a==='approve')this.app.tasks.status(id,'approved');if(a==='start')this.app.tasks.status(id,'executing');if(a==='complete')this.app.tasks.status(id,'completed');if(a==='verify')this.app.tasks.status(id,'verification_pending');if(a==='verified')this.app.tasks.status(id,'verified');if(a==='health')this.health();if(a==='backup')this.download('seogrow-backup.json',this.app.storage.backup(this.app.store.getState()));if(a==='restore')await this.restore();if(a==='import-links')await this.importLinks();if(a==='import-gsc')await this.importGsc()}catch(error){this.notify(error.message,'error')}}change(e){if(e.target.id==='projectSelect')this.app.store.dispatch({type:'PROJECT_SELECTED',id:e.target.value})}async restore(){const file=document.getElementById('backupFile')?.files?.[0];if(!file)throw Error('Seleziona il backup JSON');if(!confirm('Il ripristino sostituirà i dati correnti. È stato creato uno snapshot locale prima dell’operazione.'))return;await this.app.restore(await file.text());this.notify('Backup ripristinato e verificato.')}async importLinks(){const file=document.getElementById('linkFile')?.files?.[0];if(!file)throw Error('Seleziona un CSV o JSON');const p=this.app.store.select(s=>s.activeProjectId),r=SeoGrowTechnical.validateLinks(SeoGrowTechnical.parseLinks(await file.text()));if(!r.valid.length)throw Error('Nessun record link valido');this.dataset(p,'internal-links',r.valid.length,r.invalid.length);SeoGrowTechnical.analyzeBrokenLinks(p,r.valid).forEach(x=>this.app.findings.create(x));this.notify(`Importati ${r.valid.length} link; ${r.invalid.length} ignorati.`)}async importGsc(){const file=document.getElementById('gscFile')?.files?.[0];if(!file)throw Error('Seleziona l’export CSV di Search Console');const p=this.app.store.select(s=>s.activeProjectId),rows=SeoGrowSearchConsole.parse(await file.text());if(!rows.length)throw Error('Nessun record Search Console valido');this.dataset(p,'search-console',rows.length,0);const found=SeoGrowSearchConsole.cannibalization(p,rows);found.forEach(x=>this.app.findings.create(x));this.notify(`Importati ${rows.length} record Search Console; ${found.length} riscontri candidati.`)}dataset(projectId,type,records,invalid){this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId,type,source:'IMPORTED',importedAt:SeoGrowUtils.now(),records,invalid}})}download(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;a.click();URL.revokeObjectURL(a.href)}health(){const x=SeoGrowCore.healthCheck(this.app);this.notify(x.map(i=>`${i.level}: ${i.message}`).join(' · '),x.some(i=>i.level==='FAIL')?'error':'success')}state(){return this.app.store.getState()}badge(v){return `<span class="status ${SeoGrowUtils.escapeHTML(v)}">${SeoGrowUtils.escapeHTML(v.replaceAll('_',' '))}</span>`}layout(content){const s=this.state(),nav=[['dashboard','Dashboard'],['gsc','Search Console'],['technical','Link interni'],['findings','Riscontri'],['tasks','Attività'],['settings','Integrità e backup']];return `<header><strong>seoGrow <small>v${SeoGrow.VERSION}</small></strong><div><select id="projectSelect">${s.projects.map(p=>`<option value="${p.id}" ${p.id===s.activeProjectId?'selected':''}>${SeoGrowUtils.escapeHTML(p.domain)}</option>`).join('')}</select><button data-action="new-project">+ Progetto</button></div></header><div class="shell"><aside><div class="brand"><b>seoGrow</b><span>SEO data → decisioni</span></div>${nav.map(([id,t])=>`<button class="nav ${this.view===id?'active':''}" data-view="${id}">${t}</button>`).join('')}</aside><main>${this.message?`<div class="notice ${this.message.type}">${SeoGrowUtils.escapeHTML(this.message.message)}</div>`:''}${content}</main></div>`}dashboard(){const s=this.state(),p=s.activeProjectId,f=s.findings.filter(x=>x.projectId===p),t=s.tasks.filter(x=>x.projectId===p);return `<section class="hero"><h1>Dati SEO verificabili, decisioni controllate</h1><p>Importa dati reali; seoGrow esplicita le evidenze e non confonde una stima con un problema confermato.</p><div class="actions"><button class="primary" data-view="gsc">Importa Search Console</button><button data-view="technical">Verifica link interni</button></div></section><section class="metrics"><div><b>${s.datasets.filter(x=>x.projectId===p).length}</b><span>Dataset</span></div><div><b>${f.length}</b><span>Riscontri</span></div><div><b>${t.filter(x=>!['verified','archived'].includes(x.status)).length}</b><span>Attività aperte</span></div><div><b>${t.filter(x=>x.status==='verified').length}</b><span>Verificate</span></div></section>`}gsc(){return `<h1>Importa Search Console</h1><p class="muted">Modulo reale: importa l’export CSV Query + Page. Non richiede credenziali e non finge una connessione API.</p><section class="card"><label for="gscFile">Export CSV Search Console</label><input id="gscFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Query, Page, Clicks, Impressions, Position.</small></p><button class="primary" data-action="import-gsc">Importa e analizza</button></section>`}technical(){return `<h1>Verifica link interni</h1><p class="muted">Importa CSV/JSON con <code>source,target,status</code>. Vengono creati riscontri solo per HTTP 404/410 confermati.</p><section class="card"><label for="linkFile">File CSV o JSON</label><input id="linkFile" type="file" accept=".csv,.json,application/json,text/csv"><button class="primary" data-action="import-links">Importa e analizza</button></section>`}findings(){const rows=this.state().findings.filter(x=>x.projectId===this.state().activeProjectId);return `<h1>Riscontri</h1><section class="card">${rows.length?rows.map(f=>`<article class="row"><div><b>${SeoGrowUtils.escapeHTML(f.title)}</b><p>${SeoGrowUtils.escapeHTML(f.description)}</p><small>Confidenza ${f.confidence}% · evidenze ${f.evidence.length}</small></div><div>${this.badge(f.status)}</div><div class="actions">${f.status==='candidate'?`<button data-action="validate" data-id="${f.id}">Valida</button><button data-action="exclude" data-id="${f.id}">Escludi</button>`:''}${f.status==='validated'?`<button class="primary" data-action="create-task" data-id="${f.id}">Crea attività</button>`:''}</div></article>`).join(''):'<div class="empty">Nessun riscontro: importa un dataset reale per iniziare.</div>'}</section>`}tasks(){const rows=this.state().tasks.filter(x=>x.projectId===this.state().activeProjectId),next={todo:['approve','Approva'],approved:['start','Avvia'],executing:['complete','Completa'],completed:['verify','Richiedi verifica'],verification_pending:['verified','Segna verificata']};return `<h1>Attività</h1><section class="card">${rows.length?rows.map(t=>`<article class="row"><div><b>${SeoGrowUtils.escapeHTML(t.title)}</b><p>${SeoGrowUtils.escapeHTML(t.description)}</p></div><div>${this.badge(t.status)}</div><div>${next[t.status]?`<button data-action="${next[t.status][0]}" data-id="${t.id}">${next[t.status][1]}</button>`:''}</div></article>`).join(''):'<div class="empty">Nessuna attività.</div>'}</section>`}settings(){const s=this.state();return `<h1>Integrità, backup e ripristino</h1><section class="card"><h2>Backup completo</h2><div class="actions"><button class="primary" data-action="backup">Scarica backup</button></div><hr><label for="backupFile">Ripristina backup JSON</label><input id="backupFile" type="file" accept=".json,application/json"><button data-action="restore">Verifica e ripristina</button><p class="muted">Prima del ripristino viene creato uno snapshot locale. Storage primario: IndexedDB; schema ${s.schemaVersion}; storico ${s.history.length} eventi.</p></section><section class="card"><button class="primary" data-action="health">Controlla integrità applicazione</button></section>`}render(){if(!this.root)return;const views={dashboard:()=>this.dashboard(),gsc:()=>this.gsc(),technical:()=>this.technical(),findings:()=>this.findings(),tasks:()=>this.tasks(),settings:()=>this.settings()};this.root.innerHTML=this.layout(views[this.view]())}};
-</script><script>(function(){var proto=SeoGrowUI.App.prototype,oldClick=proto.click,oldDashboard=proto.dashboard;proto.importPages=async function(){var file=document.getElementById('pagesFile')&&document.getElementById('pagesFile').files[0];if(!file)throw Error('Seleziona un CSV');var project=this.app.store.select(function(state){return state.activeProjectId;}),text=await file.text(),searchConsoleRows=SeoGrowPages.searchConsolePages(text);if(searchConsoleRows){this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:project,type:'search-console-pages',source:'SEARCH_CONSOLE_CSV',importedAt:SeoGrowUtils.now(),records:searchConsoleRows.length,invalid:0,data:searchConsoleRows,provenance:{fileName:file.name,detectedAs:'Search Console · Pagine'}}});this.notify('Importate e salvate '+searchConsoleRows.length+' pagine da Search Console. Il wizard ora riconosce Search Console come completato. Per title, H1 e canonical usa WordPress o un crawl on-page.');return;}var rows=SeoGrowPages.parse(text);if(!rows.length)throw Error('Nessuna pagina valida nel file');this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:project,type:'pages-onpage',source:'CSV',importedAt:SeoGrowUtils.now(),records:rows.length,invalid:0,data:rows,provenance:{fileName:file.name}}});var results=SeoGrowPages.analyze(project,rows);results.forEach(function(finding){this.app.findings.create(finding);},this);this.notify('Importate '+rows.length+' pagine; creati '+results.length+' riscontri basati sui dati disponibili.');};proto.click=async function(event){var element=event.target.closest('[data-action]');if(element&&element.dataset.action==='import-pages'){try{await this.importPages();}catch(error){this.notify(error.message,'error');}return;}return oldClick.call(this,event);};proto.pages=function(){return '<h1>Pagine e on-page</h1><p class="muted">Importa un crawl on-page o collegati a WordPress. Se scegli qui un CSV “Pagine principali” di Search Console, seoGrow lo riconosce e lo salva automaticamente nel dataset Search Console.</p><section class="card"><h2>Importazione automatica WordPress</h2><p>Legge tutte le pagine pubblicate, anche oltre 100 record, con title, meta description, H1, canonical e indexability.</p><button class="primary" data-action="wp-import-pages">Collega e importa da WordPress</button></section><section class="card"><h2>Importazione CSV</h2><label for="pagesFile">CSV pagine</label><input id="pagesFile" type="file" accept=".csv,text/csv"><p><small>Crawl on-page: URL, Title, Meta Description, H1, Canonical, Indexability. Export Search Console “Pagine principali, Clic, Impressioni, CTR, Posizione”: riconosciuto e salvato automaticamente come Search Console.</small></p><button data-action="import-pages">Importa e verifica</button></section>';};proto.dashboard=function(){return oldDashboard.call(this).replace('data-view="gsc">Importa Search Console','data-view="pages">Importa pagine').replace('</section><section class="metrics">','</section><section class="card"><h2>Da dove iniziare</h2><p>1. Crea o seleziona il dominio. 2. Importa le pagine da WordPress o CSV. 3. Verifica i riscontri. 4. Approva le attività necessarie.</p><button data-view="pages">Apri Pagine / On-page</button></section><section class="metrics">');};proto.render=function(){if(!this.root)return;var views={dashboard:()=>this.dashboard(),pages:()=>this.pages(),gsc:()=>this.gsc(),technical:()=>this.technical(),findings:()=>this.findings(),tasks:()=>this.tasks(),settings:()=>this.settings()};this.root.innerHTML=this.layout(views[this.view]());};})();
-</script><script>(function(){const proto=SeoGrowUI.App.prototype,previousClick=proto.click;proto.importCompetitors=async function(){const file=document.getElementById('competitorFile')?.files?.[0];if(!file)throw Error('Seleziona il CSV competitor');const p=this.app.store.select(s=>s.activeProjectId),project=this.app.store.select(s=>s.projects.find(x=>x.id===p)),rows=SeoGrowCompetitors.parse(await file.text());this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:p,type:'competitor-positions',source:'CSV',importedAt:SeoGrowUtils.now(),records:rows.length,invalid:0,data:rows,provenance:{fileName:file.name}}});const found=SeoGrowCompetitors.gaps(p,project.domain,rows);found.forEach(x=>this.app.findings.create(x));this.notify(`Importati ${rows.length} record competitor; ${found.length} keyword gap candidate.`)};proto.click=async function(e){const el=e.target.closest('[data-action]');if(el?.dataset.action==='import-competitors'){try{await this.importCompetitors()}catch(error){this.notify(error.message,'error')}return}return previousClick.call(this,e)};proto.competitors=function(){return `<h1>Competitor e keyword gap</h1><p class="muted">Importa un CSV con posizionamenti osservati. Il dominio del progetto viene confrontato solo con le righe contenute nel file.</p><section class="card"><label for="competitorFile">CSV posizionamenti</label><input id="competitorFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Keyword, Domain, Position. Opzionale: URL. Includi anche il tuo dominio per distinguere un vero gap da un dato assente.</small></p><button class="primary" data-action="import-competitors">Importa e confronta</button></section>`};proto.render=function(){if(!this.root)return;const views={dashboard:()=>this.dashboard(),pages:()=>this.pages(),competitors:()=>this.competitors(),gsc:()=>this.gsc(),technical:()=>this.technical(),findings:()=>this.findings(),tasks:()=>this.tasks(),settings:()=>this.settings()};this.root.innerHTML=this.layout(views[this.view]())}})();
+</script><script>window.SeoGrowUI=window.SeoGrowUI||{};SeoGrowUI.App=class{constructor(app){this.app=app;this.view='dashboard';this.message=''}mount(root){this.root=root;document.addEventListener('click',e=>this.click(e));document.addEventListener('change',e=>this.change(e));this.app.bus.on('state:changed',()=>this.render());this.render()}notify(message,type='success'){this.message={message,type};this.render()}async click(e){const el=e.target.closest('[data-action],[data-view]');if(!el)return;try{if(el.dataset.view){this.view=el.dataset.view;return this.render()}const a=el.dataset.action,id=el.dataset.id;if(a==='new-project'){const d=prompt('Dominio del progetto');if(d)this.app.createProject(d)}if(a==='validate')this.app.findings.status(id,'validated');if(a==='exclude')this.app.findings.status(id,'excluded');if(a==='create-task')this.app.tasks.create(id);if(a==='approve')this.app.tasks.status(id,'approved');if(a==='start')this.app.tasks.status(id,'executing');if(a==='complete')this.app.tasks.status(id,'completed');if(a==='verify')this.app.tasks.status(id,'verification_pending');if(a==='verified')this.app.tasks.status(id,'verified');if(a==='health')this.health();if(a==='backup')this.download('seogrow-backup.json',this.app.storage.backup(this.app.store.getState()));if(a==='restore')await this.restore();if(a==='import-links')await this.importLinks();if(a==='import-gsc')await this.importGsc()}catch(error){this.notify(error.message,'error')}}change(e){if(e.target.id==='projectSelect')this.app.store.dispatch({type:'PROJECT_SELECTED',id:e.target.value})}async restore(){const file=document.getElementById('backupFile')?.files?.[0];if(!file)throw Error('Seleziona il backup JSON');if(!confirm('Il ripristino sostituirà i dati correnti. È stato creato uno snapshot locale prima dell’operazione.'))return;await this.app.restore(await file.text());this.notify('Backup ripristinato e verificato.')}async importLinks(){const file=document.getElementById('linkFile')?.files?.[0];if(!file)throw Error('Seleziona un CSV o JSON');const p=this.app.store.select(s=>s.activeProjectId),r=SeoGrowTechnical.validateLinks(SeoGrowTechnical.parseLinks(await file.text()));if(!r.valid.length)throw Error('Nessun record link valido');this.dataset(p,'internal-links',r.valid.length,r.invalid.length);SeoGrowTechnical.analyzeBrokenLinks(p,r.valid).forEach(x=>this.app.findings.create(x));this.notify(`Importati ${r.valid.length} link; ${r.invalid.length} ignorati.`)}async importGsc(){const file=document.getElementById('gscFile')?.files?.[0];if(!file)throw Error('Seleziona l’export CSV di Search Console');const p=this.app.store.select(s=>s.activeProjectId),rows=SeoGrowSearchConsole.parse(await file.text());if(!rows.length)throw Error('Nessun record Search Console valido');this.dataset(p,'search-console',rows.length,0);const found=SeoGrowSearchConsole.cannibalization(p,rows);(this.app.findings.createMany?this.app.findings.createMany(found):found.forEach(x=>this.app.findings.create(x)));this.notify(`Importati ${rows.length} record Search Console; ${found.length} riscontri candidati.`)}dataset(projectId,type,records,invalid){this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId,type,source:'IMPORTED',importedAt:SeoGrowUtils.now(),records,invalid}})}download(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000)}health(){const x=SeoGrowCore.healthCheck(this.app);this.notify(x.map(i=>`${i.level}: ${i.message}`).join(' · '),x.some(i=>i.level==='FAIL')?'error':'success')}state(){return this.app.store.getState()}badge(v){return `<span class="status ${SeoGrowUtils.escapeHTML(v)}">${SeoGrowUtils.escapeHTML(v.replaceAll('_',' '))}</span>`}layout(content){const s=this.state(),nav=[['dashboard','Dashboard'],['gsc','Search Console'],['technical','Link interni'],['findings','Riscontri'],['tasks','Attività'],['settings','Integrità e backup']];return `<header><strong>seoGrow <small>v${SeoGrow.VERSION}</small></strong><div><select id="projectSelect">${s.projects.map(p=>`<option value="${p.id}" ${p.id===s.activeProjectId?'selected':''}>${SeoGrowUtils.escapeHTML(p.domain)}</option>`).join('')}</select><button data-action="new-project">+ Progetto</button></div></header><div class="shell"><aside><div class="brand"><b>seoGrow</b><span>SEO data → decisioni</span></div>${nav.map(([id,t])=>`<button class="nav ${this.view===id?'active':''}" data-view="${id}">${t}</button>`).join('')}</aside><main>${this.message?`<div class="notice ${this.message.type}">${SeoGrowUtils.escapeHTML(this.message.message)}</div>`:''}${content}</main></div>`}dashboard(){const s=this.state(),p=s.activeProjectId,f=s.findings.filter(x=>x.projectId===p),t=s.tasks.filter(x=>x.projectId===p);return `<section class="hero"><h1>Dati SEO verificabili, decisioni controllate</h1><p>Importa dati reali; seoGrow esplicita le evidenze e non confonde una stima con un problema confermato.</p><div class="actions"><button class="primary" data-view="gsc">Importa Search Console</button><button data-view="technical">Verifica link interni</button></div></section><section class="metrics"><div><b>${s.datasets.filter(x=>x.projectId===p).length}</b><span>Dataset</span></div><div><b>${f.length}</b><span>Riscontri</span></div><div><b>${t.filter(x=>!['verified','archived'].includes(x.status)).length}</b><span>Attività aperte</span></div><div><b>${t.filter(x=>x.status==='verified').length}</b><span>Verificate</span></div></section>`}gsc(){return `<h1>Importa Search Console</h1><p class="muted">Modulo reale: importa l’export CSV Query + Page. Non richiede credenziali e non finge una connessione API.</p><section class="card"><label for="gscFile">Export CSV Search Console</label><input id="gscFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Query, Page, Clicks, Impressions, Position.</small></p><button class="primary" data-action="import-gsc">Importa e analizza</button></section>`}technical(){return `<h1>Verifica link interni</h1><p class="muted">Importa CSV/JSON con <code>source,target,status</code>. Vengono creati riscontri solo per HTTP 404/410 confermati.</p><section class="card"><label for="linkFile">File CSV o JSON</label><input id="linkFile" type="file" accept=".csv,.json,application/json,text/csv"><button class="primary" data-action="import-links">Importa e analizza</button></section>`}findings(){const rows=this.state().findings.filter(x=>x.projectId===this.state().activeProjectId);return `<h1>Riscontri</h1><section class="card">${rows.length?rows.map(f=>`<article class="row"><div><b>${SeoGrowUtils.escapeHTML(f.title)}</b><p>${SeoGrowUtils.escapeHTML(f.description)}</p><small>Confidenza ${f.confidence}% · evidenze ${f.evidence.length}</small></div><div>${this.badge(f.status)}</div><div class="actions">${f.status==='candidate'?`<button data-action="validate" data-id="${f.id}">Valida</button><button data-action="exclude" data-id="${f.id}">Escludi</button>`:''}${f.status==='validated'?`<button class="primary" data-action="create-task" data-id="${f.id}">Crea attività</button>`:''}</div></article>`).join(''):'<div class="empty">Nessun riscontro: importa un dataset reale per iniziare.</div>'}</section>`}tasks(){const rows=this.state().tasks.filter(x=>x.projectId===this.state().activeProjectId),next={todo:['approve','Approva'],approved:['start','Avvia'],executing:['complete','Completa'],completed:['verify','Richiedi verifica'],verification_pending:['verified','Segna verificata']};return `<h1>Attività</h1><section class="card">${rows.length?rows.map(t=>`<article class="row"><div><b>${SeoGrowUtils.escapeHTML(t.title)}</b><p>${SeoGrowUtils.escapeHTML(t.description)}</p></div><div>${this.badge(t.status)}</div><div>${next[t.status]?`<button data-action="${next[t.status][0]}" data-id="${t.id}">${next[t.status][1]}</button>`:''}</div></article>`).join(''):'<div class="empty">Nessuna attività.</div>'}</section>`}settings(){const s=this.state();return `<h1>Integrità, backup e ripristino</h1><section class="card"><h2>Backup completo</h2><div class="actions"><button class="primary" data-action="backup">Scarica backup</button></div><hr><label for="backupFile">Ripristina backup JSON</label><input id="backupFile" type="file" accept=".json,application/json"><button data-action="restore">Verifica e ripristina</button><p class="muted">Prima del ripristino viene creato uno snapshot locale. Storage primario: IndexedDB; schema ${s.schemaVersion}; storico ${s.history.length} eventi.</p></section><section class="card"><button class="primary" data-action="health">Controlla integrità applicazione</button></section>`}render(){if(!this.root)return;const views={dashboard:()=>this.dashboard(),gsc:()=>this.gsc(),technical:()=>this.technical(),findings:()=>this.findings(),tasks:()=>this.tasks(),settings:()=>this.settings()};this.root.innerHTML=this.layout(views[this.view]())}};
+</script><script>(function(){var proto=SeoGrowUI.App.prototype,oldClick=proto.click,oldDashboard=proto.dashboard;proto.importPages=async function(){var file=document.getElementById('pagesFile')&&document.getElementById('pagesFile').files[0];if(!file)throw Error('Seleziona un CSV');var project=this.app.store.select(function(state){return state.activeProjectId;}),text=await file.text(),searchConsoleRows=SeoGrowPages.searchConsolePages(text);if(searchConsoleRows){this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:project,type:'search-console-pages',source:'SEARCH_CONSOLE_CSV',importedAt:SeoGrowUtils.now(),records:searchConsoleRows.length,invalid:0,data:searchConsoleRows,provenance:{fileName:file.name,detectedAs:'Search Console · Pagine'}}});this.notify('Importate e salvate '+searchConsoleRows.length+' pagine da Search Console. Il wizard ora riconosce Search Console come completato. Per title, H1 e canonical usa WordPress o un crawl on-page.');return;}var rows=SeoGrowPages.parse(text);if(!rows.length)throw Error('Nessuna pagina valida nel file');this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:project,type:'pages-onpage',source:'CSV',importedAt:SeoGrowUtils.now(),records:rows.length,invalid:0,data:rows,provenance:{fileName:file.name}}});var results=SeoGrowPages.analyze(project,rows);(this.app.findings.createMany?this.app.findings.createMany(results):results.forEach(function(finding){this.app.findings.create(finding);},this));this.notify('Importate '+rows.length+' pagine; creati '+results.length+' riscontri basati sui dati disponibili.');};proto.click=async function(event){var element=event.target.closest('[data-action]');if(element&&element.dataset.action==='import-pages'){try{await this.importPages();}catch(error){this.notify(error.message,'error');}return;}return oldClick.call(this,event);};proto.pages=function(){return '<h1>Pagine e on-page</h1><p class="muted">Importa un crawl on-page o collegati a WordPress. Se scegli qui un CSV “Pagine principali” di Search Console, seoGrow lo riconosce e lo salva automaticamente nel dataset Search Console.</p><section class="card"><h2>Importazione automatica WordPress</h2><p>Legge tutte le pagine pubblicate, anche oltre 100 record, con title, meta description, H1, canonical e indexability.</p><button class="primary" data-action="wp-import-pages">Collega e importa da WordPress</button></section><section class="card"><h2>Importazione CSV</h2><label for="pagesFile">CSV pagine</label><input id="pagesFile" type="file" accept=".csv,text/csv"><p><small>Crawl on-page: URL, Title, Meta Description, H1, Canonical, Indexability. Export Search Console “Pagine principali, Clic, Impressioni, CTR, Posizione”: riconosciuto e salvato automaticamente come Search Console.</small></p><button data-action="import-pages">Importa e verifica</button></section>';};proto.dashboard=function(){return oldDashboard.call(this).replace('data-view="gsc">Importa Search Console','data-view="pages">Importa pagine').replace('</section><section class="metrics">','</section><section class="card"><h2>Da dove iniziare</h2><p>1. Crea o seleziona il dominio. 2. Importa le pagine da WordPress o CSV. 3. Verifica i riscontri. 4. Approva le attività necessarie.</p><button data-view="pages">Apri Pagine / On-page</button></section><section class="metrics">');};proto.render=function(){if(!this.root)return;var views={dashboard:()=>this.dashboard(),pages:()=>this.pages(),gsc:()=>this.gsc(),technical:()=>this.technical(),findings:()=>this.findings(),tasks:()=>this.tasks(),settings:()=>this.settings()};this.root.innerHTML=this.layout(views[this.view]());};})();
+</script><script>(function(){const proto=SeoGrowUI.App.prototype,previousClick=proto.click;proto.importCompetitors=async function(){const file=document.getElementById('competitorFile')?.files?.[0];if(!file)throw Error('Seleziona il CSV competitor');const p=this.app.store.select(s=>s.activeProjectId),project=this.app.store.select(s=>s.projects.find(x=>x.id===p)),rows=SeoGrowCompetitors.parse(await file.text());this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:p,type:'competitor-positions',source:'CSV',importedAt:SeoGrowUtils.now(),records:rows.length,invalid:0,data:rows,provenance:{fileName:file.name}}});const found=SeoGrowCompetitors.gaps(p,project.domain,rows);(this.app.findings.createMany?this.app.findings.createMany(found):found.forEach(x=>this.app.findings.create(x)));this.notify(`Importati ${rows.length} record competitor; ${found.length} keyword gap candidate.`)};proto.click=async function(e){const el=e.target.closest('[data-action]');if(el?.dataset.action==='import-competitors'){try{await this.importCompetitors()}catch(error){this.notify(error.message,'error')}return}return previousClick.call(this,e)};proto.competitors=function(){return `<h1>Competitor e keyword gap</h1><p class="muted">Importa un CSV con posizionamenti osservati. Il dominio del progetto viene confrontato solo con le righe contenute nel file.</p><section class="card"><label for="competitorFile">CSV posizionamenti</label><input id="competitorFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Keyword, Domain, Position. Opzionale: URL. Includi anche il tuo dominio per distinguere un vero gap da un dato assente.</small></p><button class="primary" data-action="import-competitors">Importa e confronta</button></section>`};proto.render=function(){if(!this.root)return;const views={dashboard:()=>this.dashboard(),pages:()=>this.pages(),competitors:()=>this.competitors(),gsc:()=>this.gsc(),technical:()=>this.technical(),findings:()=>this.findings(),tasks:()=>this.tasks(),settings:()=>this.settings()};this.root.innerHTML=this.layout(views[this.view]())}})();
 </script><script>(function(){const proto=SeoGrowUI.App.prototype,oldClick=proto.click,oldLayout=proto.layout,oldDashboard=proto.dashboard;proto.click=async function(e){const el=e.target.closest('[data-action]');if(el?.dataset.action==='wizard-new-project'){const domain=prompt('Inserisci il dominio da analizzare, ad esempio esempio.it');if(domain){try{this.app.createProject(domain);this.notify('Progetto creato. Ora importa almeno una fonte dati reale.')}catch(error){this.notify(error.message,'error')}}return}return oldClick.call(this,e)};proto.layout=function(content){const base=oldLayout.call(this,content);return base.replace('</aside>',`<button class="nav ${this.view==='wizard'?'active':''}" data-view="wizard">Configurazione guidata</button></aside>`)};proto.wizard=function(){const s=this.state(),p=s.projects.find(x=>x.id===s.activeProjectId),types=new Set(s.datasets.filter(x=>x.projectId===s.activeProjectId).map(x=>x.type)),checks=[['Progetto',!!p&&p.domain!=='esempio.it',p?.domain==='esempio.it'?'Sostituisci il progetto demo con il dominio reale.':p?.domain||'Crea il primo progetto','wizard-new-project','Aggiungi dominio'],['Pagine / On-page',types.has('pages-onpage'),'Importa URL, title, meta description, H1, canonical e indexability.','', 'Importa pagine'],['Search Console',types.has('search-console'),'Importa Query + Page per leggere domanda, clic, impressioni e cannibalizzazioni.','', 'Importa Search Console'],['Crawl link interni',types.has('internal-links'),'Importa source, target e codice HTTP per rilevare solo link rotti confermati.','', 'Importa link'],['Competitor',types.has('competitor-positions'),'Importa posizionamenti osservati oppure collega in futuro un provider API.','', 'Importa competitor']];const complete=checks.filter(x=>x[1]).length,viewFor={'Pagine / On-page':'pages','Search Console':'gsc','Crawl link interni':'technical','Competitor':'competitors'};return `<section class="hero"><h1>Configura seoGrow in pochi passaggi</h1><p>Il wizard mostra ciò che serve per analizzare il sito con dati reali. Nessun dato viene simulato.</p><div class="progress"><span style="width:${complete/checks.length*100}%"></span></div><small>${complete} di ${checks.length} passaggi completati</small></section><section class="wizard-list">${checks.map(([name,done,desc,action,label],i)=>`<article class="wizard-step ${done?'complete':''}"><div class="step-number">${done?'✓':i+1}</div><div><b>${name}</b><p>${desc}</p></div><div>${done?'<span class="status verified">Pronto</span>':action?`<button class="primary" data-action="${action}">${label}</button>`:`<button class="primary" data-view="${viewFor[name]}">${label}</button>`}</div></article>`).join('')}</section><section class="card"><h2>Quando puoi avviare l’analisi?</h2><p>Con Pagine + Search Console hai già una base affidabile per on-page e query. Crawl e competitor arricchiscono l’analisi, ma non sono obbligatori.</p><button data-view="dashboard">Vai alla dashboard</button></section>`};proto.dashboard=function(){return oldDashboard.call(this).replace('<div class="actions">','<div class="actions"><button class="primary" data-view="wizard">Configura progetto</button>')};proto.render=function(){if(!this.root)return;const views={dashboard:()=>this.dashboard(),wizard:()=>this.wizard(),pages:()=>this.pages(),competitors:()=>this.competitors(),gsc:()=>this.gsc(),technical:()=>this.technical(),findings:()=>this.findings(),tasks:()=>this.tasks(),settings:()=>this.settings()};this.root.innerHTML=this.layout(views[this.view]())}})();
 </script><script>(function(){const proto=SeoGrowUI.App.prototype,oldClick=proto.click,oldWizard=proto.wizard;proto.click=async function(e){const el=e.target.closest('[data-action]');if(el?.dataset.action==='wp-import-pages'){if(el.disabled)return;el.disabled=true;el.textContent='Connessione in corso…';try{const result=await this.app.importWordPressPages();this.notify(`Importate automaticamente ${result.records} pagine da WordPress. I riscontri sono pronti per la revisione.`)}catch(error){this.notify(error.message,'error')}finally{if(el.isConnected){el.disabled=false;el.textContent='Collega e importa da WordPress'}}return}return oldClick.call(this,e)};proto.wizard=function(){return oldWizard.call(this).replace('data-view="pages">Importa pagine','data-action="wp-import-pages">Collega e importa pagine').replace('data-view="gsc">Importa Search Console','data-view="gsc">Importa CSV Search Console').replace('data-view="technical">Importa link','data-view="technical">Importa crawl link').replace('data-view="competitors">Importa competitor','data-view="competitors">Importa CSV competitor')};})();
-</script><script>(function(){var proto=SeoGrowUI.App.prototype,oldClick=proto.click;proto.importGscBundle=async function(){var input=document.getElementById('gscFiles'),files=input&&input.files;if(!files||!files.length)throw Error('Seleziona uno o più CSV oppure lo ZIP di Search Console');var groups=await SeoGrowSearchConsoleBundle.importBundle(files),project=this.app.store.select(function(s){return s.activeProjectId}),imported=[],unknown=[];Object.keys(groups).forEach(function(kind){var rows=groups[kind]||[];if(kind==='unknown'){unknown=unknown.concat(rows.map(function(x){return x.sourceFile}));return}this.dataset(project,'search-console-'+kind,rows.length,0);imported.push(kind+' ('+rows.length+')')},this);if(!imported.length)throw Error('Nessun report Search Console riconosciuto');var note='Importati dati reali: '+imported.join(', ')+'.';if(unknown.length)note+=' File non riconosciuti: '+[...new Set(unknown)].join(', ')+'.';note+=' Le cannibalizzazioni richiedono un export Query + Pagina combinato oppure l’API Search Console.';this.notify(note)};proto.click=async function(e){var el=e.target.closest('[data-action]');if(el&&el.dataset.action==='import-gsc-bundle'){try{await this.importGscBundle()}catch(error){this.notify(error.message,'error')}return}return oldClick.call(this,e)};proto.gsc=function(){return `<h1>Importa export Search Console</h1><p class="muted">Seleziona tutti i CSV esportati insieme oppure direttamente lo ZIP. seoGrow riconosce Query, Pagine, Top pages, Paesi, Dispositivi, Aspetto nella ricerca, Filtri e Grafico.</p><section class="card"><label for="gscFiles">File Search Console</label><input id="gscFiles" type="file" accept=".csv,.zip,text/csv,application/zip" multiple><p><small>Puoi scegliere più CSV o lo ZIP. Le intestazioni URL sono riconosciute anche come Pagine, Pagine principali, Page, Pages, Top pages e URL.</small></p><button class="primary" data-action="import-gsc-bundle">Importa tutti i dati</button></section><section class="card"><h2>Controlli importazione</h2><p>Ogni report conserva tipo, numero di righe e momento dell’import. I file sconosciuti vengono segnalati, non ignorati silenziosamente.</p></section>`};})();
-</script><script>(function(){var proto=SeoGrowUI.App.prototype;proto.importGscBundle=async function(){var input=document.getElementById('gscFiles'),files=input&&input.files;if(!files||!files.length)throw Error('Seleziona uno o più CSV oppure lo ZIP di Search Console');var groups=await SeoGrowSearchConsoleBundle.importBundle(files),project=this.app.store.select(function(s){return s.activeProjectId}),imported=[],unknown=[];Object.keys(groups).forEach(function(kind){var rows=groups[kind]||[];if(kind==='unknown'){unknown=unknown.concat(rows.map(function(x){return x.sourceFile}));return}this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:project,type:'search-console-'+kind,source:'IMPORTED',importedAt:SeoGrowUtils.now(),records:rows.length,invalid:0,data:rows}});imported.push(kind+' ('+rows.length+')')},this);if(!imported.length)throw Error('Nessun report Search Console riconosciuto');var note='Importati e salvati dati reali: '+imported.join(', ')+'.';if(unknown.length)note+=' File non riconosciuti: '+[...new Set(unknown)].join(', ')+'.';note+=' Le cannibalizzazioni richiedono un export Query + Pagina combinato oppure l’API Search Console.';this.notify(note)};})();
+</script><script>(function(){var proto=SeoGrowUI.App.prototype,oldClick=proto.click;proto.click=async function(e){var el=e.target.closest('[data-action]');if(el&&el.dataset.action==='import-gsc-bundle'){try{await this.importGscBundle()}catch(error){this.notify(error.message,'error')}return}return oldClick.call(this,e)};proto.gsc=function(){return `<h1>Importa export Search Console</h1><p class="muted">Seleziona tutti i CSV esportati insieme oppure direttamente lo ZIP. seoGrow riconosce Query, Pagine, Top pages, Paesi, Dispositivi, Aspetto nella ricerca, Filtri e Grafico.</p><section class="card"><label for="gscFiles">File Search Console</label><input id="gscFiles" type="file" accept=".csv,.zip,text/csv,application/zip" multiple><p><small>Puoi scegliere più CSV o lo ZIP. Le intestazioni URL sono riconosciute anche come Pagine, Pagine principali, Page, Pages, Top pages e URL.</small></p><button class="primary" data-action="import-gsc-bundle">Importa tutti i dati</button></section><section class="card"><h2>Controlli importazione</h2><p>Ogni report conserva tipo, numero di righe e momento dell’import. I file sconosciuti vengono segnalati, non ignorati silenziosamente.</p></section>`};})();
 </script><script>(function(){var proto=SeoGrowUI.App.prototype;proto.wizard=function(){var s=this.state(),project=s.projects.find(function(x){return x.id===s.activeProjectId}),datasets=s.datasets.filter(function(x){return x.projectId===s.activeProjectId}),has=function(type){return datasets.some(function(x){return x.type===type||x.type.indexOf(type+'-')===0})},checks=[['Progetto',!!project&&project.domain!=='esempio.it',project&&project.domain==='esempio.it'?'Sostituisci il progetto demo con il dominio reale.':project?project.domain:'Crea il primo progetto','wizard-new-project','Aggiungi dominio'],['Pagine / On-page',has('pages-onpage'),'Importa URL, title, meta description, H1, canonical e indexability.','','Importa pagine'],['Search Console',has('search-console'),'Dati Search Console importati: query, pagine e altri report disponibili.','','Importa Search Console'],['Crawl link interni',has('internal-links'),'Importa source, target e codice HTTP per rilevare solo link rotti confermati.','','Importa link'],['Competitor',has('competitor-positions')||has('dataforseo-competitors'),'Importa posizionamenti osservati o aggiorna automaticamente tramite DataForSEO.','','Apri competitor']],complete=checks.filter(function(x){return x[1]}).length,viewFor={'Pagine / On-page':'pages','Search Console':'gsc','Crawl link interni':'technical','Competitor':'competitors'},summary=datasets.length?datasets.map(function(x){return '<li><b>'+SeoGrowUtils.escapeHTML(x.type.replace(/^search-console-/,'Search Console · ').replace(/^dataforseo-/,'DataForSEO · '))+'</b> — '+x.records+' record</li>'}).join(''):'<li>Nessun dataset ancora importato.</li>';return `<section class="hero"><h1>Configura seoGrow in pochi passaggi</h1><p>Il wizard mostra ciò che serve per analizzare il sito con dati reali. Nessun dato viene simulato.</p><div class="progress"><span style="width:${complete/checks.length*100}%"></span></div><small>${complete} di ${checks.length} passaggi completati</small></section><section class="wizard-list">${checks.map(function(item,i){var name=item[0],done=item[1],desc=item[2],action=item[3],label=item[4];return `<article class="wizard-step ${done?'complete':''}"><div class="step-number">${done?'✓':i+1}</div><div><b>${name}</b><p>${desc}</p></div><div>${done?'<span class="status verified">Pronto</span>':action?`<button class="primary" data-action="${action}">${label}</button>`:`<button class="primary" data-view="${viewFor[name]}">${label}</button>`}</div></article>`}).join('')}</section><section class="card"><h2>Dati importati in questo progetto</h2><ul class="dataset-summary">${summary}</ul></section>`};})();
 </script><script>(function(){var proto=SeoGrowUI.App.prototype,previousClick=proto.click;proto.importDataForSeoCompetitors=async function(){var result=await this.app.importDataForSeoCompetitors();if(result.cancelled)return;var cost=result.cost===null||typeof result.cost==='undefined'?'':(' Costo riportato: $'+Number(result.cost).toFixed(4)+'.');this.notify('Competitor aggiornati automaticamente: '+result.records+' domini salvati nel progetto.'+cost)};proto.click=async function(e){var el=e.target.closest('[data-action]');if(el&&el.dataset.action==='dataforseo-import-competitors'){try{await this.importDataForSeoCompetitors()}catch(error){this.notify(error.message,'error')}return}return previousClick.call(this,e)};proto.competitors=function(){return `<h1>Competitor e keyword gap</h1><p class="muted">Scegli l’aggiornamento automatico per avere competitor organici reali, oppure importa un CSV per il keyword gap.</p><section class="card"><h2>Competitor automatici con DataForSEO</h2><p>Il connettore WordPress esegue la richiesta con le credenziali configurate in <b>WordPress → Impostazioni → seoGrow Connector</b>. L’HTML non riceve né salva la chiave DataForSEO.</p><p><small>Prima di ogni aggiornamento viene chiesta conferma: la chiamata Live può consumare credito DataForSEO.</small></p><button class="primary" data-action="dataforseo-import-competitors">Aggiorna competitor con DataForSEO</button></section><section class="card"><h2>Keyword gap da CSV</h2><label for="competitorFile">CSV posizionamenti</label><input id="competitorFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Keyword, Domain, Position. Opzionale: URL. Includi anche il tuo dominio per distinguere un vero gap da un dato assente.</small></p><button data-action="import-competitors">Importa e confronta</button></section>`};})();
 </script><script>(function(){var proto=SeoGrowUI.App.prototype,previousSettings=proto.settings;proto.importLinks=async function(){var file=document.getElementById('linkFile')&&document.getElementById('linkFile').files[0];if(!file)throw Error('Seleziona un CSV o JSON');var project=this.app.store.select(function(s){return s.activeProjectId}),result=SeoGrowTechnical.validateLinks(SeoGrowTechnical.parseLinks(await file.text()));if(!result.valid.length)throw Error('Nessun record link valido');this.app.store.dispatch({type:'DATASET_IMPORTED',dataset:{id:SeoGrowUtils.id('dataset'),projectId:project,type:'internal-links',source:'CSV',importedAt:SeoGrowUtils.now(),records:result.valid.length,invalid:result.invalid.length,data:result.valid,provenance:{fileName:file.name}}});SeoGrowTechnical.analyzeBrokenLinks(project,result.valid).forEach(this.app.findings.create.bind(this.app.findings));this.notify('Importati '+result.valid.length+' link; '+result.invalid.length+' ignorati.')};proto.settings=function(){var state=this.state(),project=state.activeProjectId,datasets=state.datasets.filter(function(item){return item.projectId===project});var rows=datasets.length?datasets.slice().reverse().map(function(item){var sample=Array.isArray(item.data)?item.data.slice(0,3):[];var info=item.provenance&&item.provenance.cost!==undefined&&item.provenance.cost!==null?' · costo $'+Number(item.provenance.cost).toFixed(4):'';return '<article class="dataset-row"><div><b>'+SeoGrowUtils.escapeHTML(item.type.replace(/^search-console-/,'Search Console · ').replace(/^dataforseo-/,'DataForSEO · '))+'</b><p>'+SeoGrowUtils.escapeHTML(item.source||'IMPORTED')+' · '+item.records+' record · '+new Date(item.importedAt).toLocaleString('it-IT')+info+'</p>'+(item.provenance&&item.provenance.fileName?'<small>File: '+SeoGrowUtils.escapeHTML(item.provenance.fileName)+'</small>':'')+'</div><details><summary>Anteprima</summary><pre>'+SeoGrowUtils.escapeHTML(JSON.stringify(sample,null,2))+'</pre></details></article>'}).join(''):'<div class="empty">Nessun dataset nel progetto selezionato.</div>';return previousSettings.call(this)+'<section class="card"><h2>Dati importati</h2><p class="muted">Ogni importazione viene mantenuta con fonte, data e anteprima. I nuovi import non sostituiscono silenziosamente quelli precedenti.</p><div class="dataset-list">'+rows+'</div></section>'}})();
@@ -146,7 +174,7 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
         auditedAt:SeoGrowUtils.now()
       }
     }});
-    findings.forEach(this.app.findings.create.bind(this.app.findings));
+    if(this.app.findings.createMany){this.app.findings.createMany(findings);}else{findings.forEach(this.app.findings.create.bind(this.app.findings));}
 
     if(auditStatus==='no_broken_links'){
       var checked=result.valid.length?' su '+result.valid.length+' link importati':'';
@@ -189,14 +217,13 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return base+'<section class="card"><h2>Ultimo crawl link interni</h2><p class="status '+(passed?'verified':'candidate')+'">'+title+'</p><p>'+detail+'</p><p class="muted">'+checkedLabel+' · '+new Date(audit.importedAt).toLocaleString('it-IT')+'</p></section>';
   };
 })();
-</script>
-<script>
+</script><script>
 /* seoGrow 0.10.9 — collegamento WordPress e integrità degli import. */
 (function () {
   'use strict';
   if (SeoGrow.__hardening109) return;
   SeoGrow.__hardening109 = true;
-  SeoGrow.VERSION = '0.10.10';
+  /* versione definita una sola volta in testa al file */
   SeoGrow.SCHEMA_VERSION = 4;
 
   function appError(message, code) {
@@ -528,9 +555,14 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     var attempt = {connectionId: connection.id, controller: controller, superseded: false, promise: null};
     attempt.promise = (async function () {
       var all = [];
-      var perPage = 5;
+      /*
+       * Il connettore 1.3.4 dichiara la dimensione di pagina consigliata; con un
+       * plugin piu' vecchio si resta a 5, che e' il suo massimo.
+       */
+      var perPage = Math.max(1, Math.min(50, Number(connection.capabilities && connection.capabilities.pagesPerPageRecommended) || 5));
       var page = 1;
       var total = Infinity;
+      var guard = 0;
 
       while (all.length < total) {
         var result;
@@ -549,11 +581,15 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
         var rows = Array.isArray(result.payload && result.payload.rows) ? result.payload.rows.map(function (row) {
           return {
-            url: row.url,
+            /*
+             * Stessa forma canonica dell'import CSV: senza questa normalizzazione
+             * uno slug accentato produce due firme diverse per la stessa pagina.
+             */
+            url: SeoGrowUtils.safeUrl(row.url) || String(row.url || ''),
             title: row.title || '',
             meta: row.metaDescription || '',
             h1: row.h1 || '',
-            canonical: row.canonical || '',
+            canonical: SeoGrowUtils.safeUrl(row.canonical) || '',
             indexability: row.indexability || 'unknown',
             indexabilitySource: row.indexabilitySource || '',
             indexabilityCheckedAt: row.indexabilityCheckedAt || '',
@@ -562,7 +598,14 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
         }) : [];
         all.push.apply(all, rows);
         total = Number(result.payload && result.payload.total || all.length);
-        if (!rows.length || rows.length < perPage) break;
+        app.bus.emit('wordpress:import-progress', {loaded: all.length, total: total, page: page});
+        /*
+         * Un connettore piu' vecchio riduce per_page al proprio massimo, quindi una
+         * pagina corta non significa "fine elenco": ci si ferma su una pagina vuota
+         * o quando il totale dichiarato e' stato raggiunto.
+         */
+        guard += 1;
+        if (!rows.length || all.length >= total || guard > 400) break;
         page += 1;
       }
 
@@ -584,7 +627,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
           provenance: {pagesFetched: page, site: connection.base}
         }
       });
-      SeoGrowPages.analyze(projectId, all).forEach(function (finding) { app.findings.create(finding); });
+      var analysed = SeoGrowPages.analyze(projectId, all);
+      if (app.findings.createMany) { app.findings.createMany(analysed); } else { analysed.forEach(function (finding) { app.findings.create(finding); }); }
       return {records: all.length, pages: page};
     })();
 
@@ -1034,7 +1078,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       anchor.href = URL.createObjectURL(new Blob([template], {type: 'text/csv;charset=utf-8'}));
       anchor.download = 'seogrow-link-interni-modello.csv';
       anchor.click();
-      URL.revokeObjectURL(anchor.href);
+      /* Revocare l'URL nello stesso tick puo' annullare il download. */
+      setTimeout(function () { URL.revokeObjectURL(anchor.href); }, 1000);
       this.notify('Modello CSV scaricato. Sostituisci la riga di esempio con l’export reale del crawl.');
       return;
     }
@@ -1091,16 +1136,15 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return legacyClick.call(this, event);
   };
 })();
-</script>
-<script>
+</script><script>
 /* seoGrow 0.10.11 — collegamenti Dashboard e configurazione DataForSEO. */
 (function () {
   'use strict';
 
   if (!window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowDashboardLinks) return;
   window.SeoGrowDashboardLinks = true;
-  SeoGrow.VERSION = '0.10.11';
-  document.title = 'seoGrow 0.10.11';
+  /* versione definita una sola volta in testa al file */
+  document.title = 'seoGrow ' + SeoGrow.VERSION;
 
   function escapeHtml(value) {
     return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
@@ -1254,16 +1298,15 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       '<section class="card"><h2>Keyword gap da CSV</h2><label for="competitorFile">CSV posizionamenti</label><input id="competitorFile" type="file" accept=".csv,text/csv"><p><small>Colonne richieste: Keyword, Domain, Position. Opzionale: URL.</small></p><button data-action="import-competitors">Importa e confronta</button></section>';
   };
 })();
-</script>
-<script>
+</script><script>
 /* seoGrow 0.10.12 — refresh esplicito dello stato DataForSEO. */
 (function () {
   'use strict';
 
   if (!window.SeoGrowApp || !window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowDataForSeoRefresh) return;
   window.SeoGrowDataForSeoRefresh = true;
-  SeoGrow.VERSION = '0.10.12';
-  document.title = 'seoGrow 0.10.12';
+  /* versione definita una sola volta in testa al file */
+  document.title = 'seoGrow ' + SeoGrow.VERSION;
 
   function escapeHtml(value) {
     return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
@@ -1449,8 +1492,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
 
   if (!window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowActionPlan) return;
   window.SeoGrowActionPlan = true;
-  SeoGrow.VERSION = '0.10.15';
-  document.title = 'seoGrow 0.10.15';
+  /* versione definita una sola volta in testa al file */
+  document.title = 'seoGrow ' + SeoGrow.VERSION;
 
   function escapeHtml(value) {
     return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
@@ -1873,16 +1916,15 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return previousClick.call(this, event);
   };
 })();
-</script>
-<script>
+</script><script>
 /* seoGrow 0.10.16 — robots pubblici, competitor locali, posizioni keyword e configurazione raccolta. */
 (function () {
   'use strict';
 
   if (!window.SeoGrowUI || !window.SeoGrowUI.App || window.SeoGrowV1016) return;
   window.SeoGrowV1016 = true;
-  SeoGrow.VERSION = '0.10.16';
-  document.title = 'seoGrow 0.10.16';
+  /* versione definita una sola volta in testa al file */
+  document.title = 'seoGrow ' + SeoGrow.VERSION;
 
   function escapeHtml(value) {
     return SeoGrowUtils.escapeHTML(String(value === undefined || value === null ? '' : value));
@@ -2100,7 +2142,9 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
       return '<tr><td class="position-rank">' + formatNumber(row.position) + '</td><td>' + escapeHtml(row.keyword || '—') + '</td><td>' + page + '</td><td>' + formatNumber(row.searchVolume) + '</td><td>' + formatNumber(row.estimatedTraffic, 2) + '</td></tr>';
     }).join('') : '<tr><td colspan="5">DataForSEO non ha restituito keyword organiche per il dominio e la località configurata.</td></tr>';
     var cost = provenance.cost === undefined || provenance.cost === null ? '' : ' · Costo API: $' + escapeHtml(provenance.cost);
-    var coverage = provenance.total ? ' · Mostrate ' + rows.length + ' di ' + escapeHtml(provenance.total) + ' keyword disponibili' : ' · Mostrate ' + rows.length + ' keyword';
+    /* Il rapporto confronta due volte la stessa base: keyword mostrate su keyword importate. */
+    var coverage = ' · ' + rows.length + ' keyword mostrate su ' + allRows.length + ' importate';
+    if (provenance.total && Number(provenance.total) > allRows.length) coverage += ' (' + escapeHtml(provenance.total) + ' disponibili su DataForSEO)';
     var filtered = allRows.length > rows.length ? ' · ' + (allRows.length - rows.length) + ' query a basso allineamento tematico nascoste' : '';
     return '<section class="card keyword-position-card"><h2>Posizioni keyword importate</h2><p class="muted">Dominio: ' + escapeHtml(provenance.target || '—') + ' · Località DataForSEO: ' + escapeHtml(provenance.locationCode || '—') + ' · Aggiornate ' + escapeHtml(dateLabel(dataset.importedAt) || '—') + coverage + filtered + cost + '.</p><p><small>La pertinenza viene calcolata confrontando la keyword con URL, title e H1 importati del progetto; i dati originali restano conservati nel dataset.</small></p><div class="keyword-table-wrap"><table class="keyword-table"><thead><tr><th>Pos.</th><th>Keyword</th><th>Pagina</th><th>Volume</th><th>Traffico stimato</th></tr></thead><tbody>' + body + '</tbody></table></div></section>';
   }
@@ -2341,24 +2385,29 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return previousClick.call(this, event);
   };
 })();
-</script>
-<script>
-/* seoGrow 0.10.19 — consolidated regression and data-integrity layer. */
+</script><script>
+/* seoGrow 0.10.20 — consolidated regression and data-integrity layer. */
 (function () {
   'use strict';
 
   if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1017) return;
   window.SeoGrowRelease1017 = true;
   window.SeoGrowFeatures = window.SeoGrowFeatures || new Map();
-  SeoGrow.VERSION = '0.10.19';
-  document.title = 'seoGrow 0.10.19';
+  /* versione definita una sola volta in testa al file */
+  document.title = 'seoGrow ' + SeoGrow.VERSION;
 
-  var WORDPRESS_SESSION_KEY = 'seogrow:wordpress-session:v1';
+  var WORDPRESS_SESSION_KEY = 'seogrow:wordpress-session:v2';
 
   function saveWordPressSession(connection) {
     if (typeof sessionStorage === 'undefined' || !connection || !connection.base) return;
     try {
-      sessionStorage.setItem(WORDPRESS_SESSION_KEY, JSON.stringify({base: connection.base, headers: connection.headers || {}, fingerprint: connection.fingerprint || '', capabilities: connection.capabilities || {}, connectedAt: connection.connectedAt || SeoGrowUtils.now()}));
+      sessionStorage.removeItem('seogrow:wordpress-session:v1');
+      var token = connection.headers && connection.headers['X-SeoGrow-Token'];
+      if (connection.rememberSession !== true || !token) {
+        sessionStorage.removeItem(WORDPRESS_SESSION_KEY);
+        return;
+      }
+      sessionStorage.setItem(WORDPRESS_SESSION_KEY, JSON.stringify({base: connection.base, token: token, fingerprint: connection.fingerprint || '', capabilities: connection.capabilities || {}, connectedAt: connection.connectedAt || SeoGrowUtils.now(), userOptIn: true}));
     } catch (error) {}
   }
 
@@ -2366,14 +2415,14 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     if (typeof sessionStorage === 'undefined') return null;
     try {
       var saved = JSON.parse(sessionStorage.getItem(WORDPRESS_SESSION_KEY) || 'null');
-      if (!saved || !/^https:\/\//i.test(saved.base) || !saved.headers || typeof saved.headers !== 'object') return null;
-      return {id: SeoGrowUtils.id('wp_session'), base: saved.base.replace(/\/+$/, ''), headers: saved.headers, fingerprint: saved.fingerprint || '', capabilities: saved.capabilities || {}, connectedAt: saved.connectedAt || SeoGrowUtils.now(), restoredFromSession: true};
+      if (!saved || saved.userOptIn !== true || !/^https:\/\//i.test(saved.base) || !saved.token) return null;
+      return {id: SeoGrowUtils.id('wp_session'), base: saved.base.replace(/\/+$/, ''), headers: {'X-SeoGrow-Token': saved.token}, fingerprint: saved.fingerprint || '', capabilities: saved.capabilities || {}, connectedAt: saved.connectedAt || SeoGrowUtils.now(), restoredFromSession: true, rememberSession: true};
     } catch (error) { return null; }
   }
 
   function clearWordPressSession() {
     if (typeof sessionStorage === 'undefined') return;
-    try { sessionStorage.removeItem(WORDPRESS_SESSION_KEY); } catch (error) {}
+    try { sessionStorage.removeItem(WORDPRESS_SESSION_KEY); sessionStorage.removeItem('seogrow:wordpress-session:v1'); } catch (error) {}
   }
 
   function normalizeHeader(value) {
@@ -2743,6 +2792,8 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
   var previousConnectWordPress = SeoGrowApp.prototype.connectWordPress;
   SeoGrowApp.prototype.connectWordPress = async function (credentials) {
     var connection = await previousConnectWordPress.call(this, credentials);
+    var rememberInput = typeof document !== 'undefined' && document.getElementById('wpRememberSession');
+    connection.rememberSession = Boolean(rememberInput && rememberInput.checked && connection.headers && connection.headers['X-SeoGrow-Token']);
     saveWordPressSession(connection);
     return connection;
   };
@@ -2925,7 +2976,723 @@ SeoGrowCompetitors.gaps=(projectId,projectDomain,rows)=>{const mine=projectDomai
     return previousClick.call(this, event);
   };
 
-  window.SeoGrowFeatures.set('release-0.10.19', {version: '0.10.19', features: ['strict-urls', 'shared-csv', 'finding-reconciliation', 'verified-tasks', 'recoverable-snapshots', 'clickable-metrics', 'gsc-keyword-table', 'verified-dataforseo']});
+  window.SeoGrowFeatures.set('release-0.10.20', {version: '0.10.20', features: ['strict-urls', 'shared-csv', 'finding-reconciliation', 'verified-tasks', 'recoverable-snapshots', 'clickable-metrics', 'gsc-keyword-table', 'verified-dataforseo']});
+})();
+</script><script>
+/* seoGrow 0.10.20 — Search Console project isolation and explicit keyword lookup. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrowUI || !window.SeoGrowSearchConsoleBundle || window.SeoGrowProjectIsolation1020) return;
+  window.SeoGrowProjectIsolation1020 = true;
+
+  function normalize(value) {
+    return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  }
+
+  function rowUrl(row) {
+    var data = row && row.data && typeof row.data === 'object' ? row.data : {};
+    var key = Object.keys(data).find(function (name) {
+      return ['page', 'pages', 'pagina', 'pagine', 'pagine principali', 'top pages', 'url'].indexOf(normalize(name)) > -1;
+    });
+    return key ? SeoGrowUtils.safeUrl(data[key]) : '';
+  }
+
+  function comparableHost(value) {
+    try { return new URL(value).hostname.replace(/^www\./i, '').toLowerCase(); } catch (error) { return ''; }
+  }
+
+  function isProjectHost(host, projectDomain) {
+    var domain = String(projectDomain || '').replace(/^www\./i, '').toLowerCase();
+    return host === domain || host.endsWith('.' + domain);
+  }
+
+  function searchValue(state, projectId) {
+    var saved = state.settings && state.settings.connections && state.settings.connections.keywordSearch || {};
+    return String(saved[projectId] || '').trim();
+  }
+
+  function setSearch(app, projectId, value) {
+    var current = app.store.getState().settings.connections.keywordSearch || {};
+    var next = Object.assign({}, current);
+    next[projectId] = String(value || '').trim();
+    app.store.dispatch({type: 'CONNECTION_UPDATED', connection: 'keywordSearch', value: next});
+  }
+
+  SeoGrowApp.prototype.checkDataForSeoKeyword = async function (keyword) {
+    keyword = String(keyword || '').trim();
+    if (!keyword) throw new Error('Inserisci la keyword da verificare.');
+    if (!this.wordpress) throw new Error('Collega prima WordPress dalla sezione Pagine e on-page.');
+    var state = this.store.getState();
+    var project = state.projects.find(function (item) { return item.id === state.activeProjectId; });
+    if (!project) throw new Error('Seleziona un progetto.');
+    if (!confirm('La verifica live di “' + keyword + '” può consumare credito DataForSEO e controlla fino ai primi 100 risultati. Procedere?')) return {cancelled: true};
+    var response = await fetch(this.wordpress.base + '/wp-json/seogrow/v1/dataforseo/keyword-check', {
+      method: 'POST',
+      headers: Object.assign({}, this.wordpress.headers || {}, {'Content-Type': 'application/json', 'Accept': 'application/json'}),
+      body: JSON.stringify({target: project.domain, keyword: keyword})
+    });
+    var payload;
+    try { payload = await response.json(); } catch (error) { throw new Error('DataForSEO ha restituito una risposta non valida (HTTP ' + response.status + ').'); }
+    if (!response.ok) throw new Error(payload.message || 'Verifica keyword non riuscita (HTTP ' + response.status + ').');
+    this.store.dispatch({type: 'DATASET_IMPORTED', dataset: {
+      id: SeoGrowUtils.id('dataset'), projectId: project.id, type: 'dataforseo-keyword-checks', source: 'DATAFORSEO',
+      importedAt: payload.retrievedAt || SeoGrowUtils.now(), records: 1, invalid: 0, data: [payload],
+      provenance: {target: project.domain, locationCode: payload.locationCode, languageCode: payload.languageCode, depth: payload.depth || 100, cost: payload.cost}
+    }});
+    return payload;
+  };
+
+  var ui = SeoGrowUI.App.prototype;
+  var previousGsc = ui.gsc;
+  var previousPages = ui.pages;
+  var previousKeywordPositions = ui.keywordPositions;
+  var previousClick = ui.click;
+
+  ui.importGscBundle = async function () {
+    var input = document.getElementById('gscFiles');
+    var files = input && input.files;
+    if (!files || !files.length) throw new Error('Seleziona uno o più CSV oppure lo ZIP di Search Console.');
+    var state = this.app.store.getState();
+    var projectId = state.activeProjectId;
+    var project = state.projects.find(function (item) { return item.id === projectId; });
+    if (!project) throw new Error('Seleziona il progetto a cui appartiene l’export Search Console.');
+
+    var groups = await SeoGrowSearchConsoleBundle.importBundle(files);
+    var urls = [];
+    Object.keys(groups).forEach(function (kind) {
+      (groups[kind] || []).forEach(function (row) { var value = rowUrl(row); if (value) urls.push(value); });
+    });
+    var hosts = Array.from(new Set(urls.map(comparableHost).filter(Boolean)));
+    var foreign = hosts.filter(function (host) { return !isProjectHost(host, project.domain); });
+    if (foreign.length) {
+      throw new Error('Import bloccato: l’export contiene URL di ' + foreign.join(', ') + ', ma il progetto attivo è ' + project.domain + '. Seleziona il progetto corretto prima di importare.');
+    }
+    var confirmation = document.getElementById('gscProjectConfirmed');
+    if (!hosts.length && !(confirmation && confirmation.checked)) {
+      throw new Error('Questo export contiene solo query e non permette di verificare il dominio. Conferma che appartiene a ' + project.domain + ' prima di importarlo.');
+    }
+
+    var imported = [], unknown = [];
+    Object.keys(groups).forEach(function (kind) {
+      var rows = groups[kind] || [];
+      if (kind === 'unknown') { unknown = unknown.concat(rows.map(function (row) { return row.sourceFile; })); return; }
+      this.app.store.dispatch({type: 'DATASET_IMPORTED', dataset: {
+        id: SeoGrowUtils.id('dataset'), projectId: projectId, type: 'search-console-' + kind,
+        source: 'IMPORTED', importedAt: SeoGrowUtils.now(), records: rows.length, invalid: 0, data: rows,
+        provenance: {propertyDomain: project.domain, verifiedFromUrls: hosts.length > 0, confirmedByUser: hosts.length === 0, sourceFiles: Array.from(new Set(rows.map(function (row) { return row.sourceFile; })))}
+      }});
+      imported.push(kind + ' (' + rows.length + ')');
+    }, this);
+    if (!imported.length) throw new Error('Nessun report Search Console riconosciuto.');
+    var note = 'Import Search Console associato a ' + project.domain + ': ' + imported.join(', ') + '.';
+    if (unknown.length) note += ' File non riconosciuti: ' + Array.from(new Set(unknown)).join(', ') + '.';
+    this.notify(note);
+  };
+
+  ui.gsc = function () {
+    var state = this.state();
+    var project = state.projects.find(function (item) { return item.id === state.activeProjectId; });
+    var domain = project ? project.domain : 'nessun progetto';
+    var output = previousGsc.call(this);
+    var guard = '<section class="card"><h2>Progetto di destinazione</h2><p><strong>' + SeoGrowUtils.escapeHTML(domain) + '</strong></p><p class="muted">Se l’export contiene URL, seoGrow verifica automaticamente il dominio e blocca proprietà diverse. Per un export solo Query serve la conferma manuale.</p><label><input id="gscProjectConfirmed" type="checkbox"> Confermo che l’export solo Query appartiene a ' + SeoGrowUtils.escapeHTML(domain) + '</label></section>';
+    var cleanup = '<section class="card"><h2>Dati già importati</h2><p class="muted">Se hai associato per errore un export di un altro sito, rimuovi i dataset Search Console dal progetto corrente e reimporta quelli corretti.</p><button data-action="clear-project-gsc">Rimuovi Search Console da questo progetto</button></section>';
+    return output.replace('<section class="card">', guard + '<section class="card">') + cleanup;
+  };
+
+  ui.pages = function () {
+    var output = previousPages.call(this);
+    var remember = '<p><label><input id="wpRememberSession" type="checkbox"> Ricorda la chiave fino alla chiusura di questa scheda</label><br><small>Opzionale: salva nel sessionStorage soltanto la chiave seoGrow, mai la Password applicazione. Qualunque script attivo sulla pagina può leggere questo storage; usa l’opzione solo su un dispositivo fidato.</small></p>';
+    /*
+     * Il markup finale della vista arriva dal livello 0.10.9, che usa
+     * data-action="wp-connect-import": agganciarsi al nome vecchio faceva fallire
+     * la sostituzione in silenzio e la casella non compariva mai.
+     */
+    output = SeoGrowUtils.replaceOrWarn(output, '<div class="actions"><button class="primary" data-action="wp-connect-import">', remember + '<div class="actions"><button class="primary" data-action="wp-connect-import">', 'consenso chiave di sessione');
+    return SeoGrowUtils.replaceOrWarn(output, 'Collega WordPress con un solo flusso controllato, oppure importa un crawl on-page. La connessione rimane attiva solo nella sessione corrente.', 'Collega WordPress con un solo flusso controllato, oppure importa un crawl on-page. La chiave non entra nel backup e puoi conservarla nella scheda corrente solo con consenso esplicito.', 'nota chiave di sessione');
+  };
+
+  function filterKeywordTables(html, term) {
+    if (!term || typeof document === 'undefined') return html;
+    var box = document.createElement('div');
+    box.innerHTML = html;
+    box.querySelectorAll('.keyword-table').forEach(function (table) {
+      var rows = Array.from(table.querySelectorAll('tbody tr'));
+      var kept = 0;
+      rows.forEach(function (row) {
+        var cells = row.querySelectorAll('td');
+        var keywordCell = row.closest('.keyword-position-card') ? cells[1] : cells[0];
+        var matches = keywordCell && normalize(keywordCell.textContent).indexOf(normalize(term)) > -1;
+        if (!matches) row.remove(); else kept++;
+      });
+      if (!kept) {
+        var body = table.querySelector('tbody');
+        if (body) body.innerHTML = '<tr><td colspan="' + (table.querySelectorAll('thead th').length || 4) + '">La keyword “' + SeoGrowUtils.escapeHTML(term) + '” non è presente in questo dataset. Importa la proprietà Search Console corretta o aggiorna DataForSEO.</td></tr>';
+      }
+    });
+    return box.innerHTML;
+  }
+
+  function keywordChecks(state, projectId) {
+    var datasets = state.datasets.filter(function (dataset) {
+      return dataset.projectId === projectId && dataset.type === 'dataforseo-keyword-checks' && Array.isArray(dataset.data) && dataset.data.length;
+    }).slice(-20).reverse();
+    if (!datasets.length) return '<section class="card"><h2>Verifiche puntuali DataForSEO</h2><p class="muted">Nessuna verifica live eseguita. Inserisci una keyword sopra per controllare il dominio nei primi 100 risultati organici.</p></section>';
+    var body = datasets.map(function (dataset) {
+      var row = dataset.data[0] || {};
+      var href = SeoGrowUtils.safeUrl(row.url);
+      var page = href ? '<a href="' + SeoGrowUtils.escapeHTML(href) + '" target="_blank" rel="noopener noreferrer">' + SeoGrowUtils.escapeHTML(href) + '</a>' : '—';
+      var position = row.found === false || row.position === null || row.position === undefined ? 'Non trovato nei primi ' + SeoGrowUtils.escapeHTML(row.depth || 100) : SeoGrowUtils.escapeHTML(row.position);
+      return '<tr><td>' + SeoGrowUtils.escapeHTML(row.keyword || '—') + '</td><td>' + position + '</td><td>' + page + '</td><td>' + SeoGrowUtils.escapeHTML(new Date(dataset.importedAt).toLocaleString('it-IT')) + '</td></tr>';
+    }).join('');
+    return '<section class="card"><h2>Verifiche puntuali DataForSEO</h2><p class="muted">Risultati live distinti dall’elenco Labs e dalle medie Search Console.</p><div class="keyword-table-wrap"><table class="keyword-table"><thead><tr><th>Keyword</th><th>Posizione organica</th><th>Pagina</th><th>Verificata</th></tr></thead><tbody>' + body + '</tbody></table></div></section>';
+  }
+
+  ui.keywordPositions = function () {
+    var state = this.state();
+    var projectId = state.activeProjectId;
+    var term = searchValue(state, projectId);
+    var checks = keywordChecks(state, projectId);
+    var output = filterKeywordTables(previousKeywordPositions.call(this) + checks, term);
+    var search = '<section class="card keyword-search-card"><h2>Cerca o verifica una keyword specifica</h2><p class="muted">“Cerca nei dati salvati” filtra DataForSEO e Search Console senza costi. “Verifica posizione live” interroga Google tramite DataForSEO e può consumare credito.</p><label for="keywordExactSearch">Keyword</label><input id="keywordExactSearch" type="search" value="' + SeoGrowUtils.escapeHTML(term) + '" placeholder="es. yoga cinisello balsamo"><div class="actions"><button class="primary" data-action="keyword-search">Cerca nei dati salvati</button><button data-action="keyword-check-live">Verifica posizione live</button><button data-action="keyword-search-clear">Azzera filtro</button></div></section>';
+    return '<h1>Posizioni keyword</h1><p class="muted">Confronta verifiche live DataForSEO, stime Labs e query reali Search Console del solo progetto selezionato.</p>' + search + output.replace(/^<h1>[\s\S]*?<\/p>/, '');
+  };
+
+  ui.click = async function (event) {
+    var element = event.target.closest('[data-action]');
+    if (element && element.dataset.action === 'keyword-search') {
+      setSearch(this.app, this.state().activeProjectId, document.getElementById('keywordExactSearch').value);
+      this.render();
+      return;
+    }
+    if (element && element.dataset.action === 'keyword-search-clear') {
+      setSearch(this.app, this.state().activeProjectId, '');
+      this.render();
+      return;
+    }
+    if (element && element.dataset.action === 'keyword-check-live') {
+      var keywordInput = document.getElementById('keywordExactSearch');
+      var keyword = keywordInput ? keywordInput.value : '';
+      try {
+        var result = await this.app.checkDataForSeoKeyword(keyword);
+        if (result.cancelled) return;
+        setSearch(this.app, this.state().activeProjectId, keyword);
+        this.notify(result.found ? 'Posizione live trovata: ' + result.position + ' per “' + result.keyword + '”.' : '“' + result.keyword + '” non è stato trovato nei primi ' + (result.depth || 100) + ' risultati organici.');
+      } catch (error) { this.notify(error.message, 'error'); }
+      return;
+    }
+    if (element && element.dataset.action === 'clear-project-gsc') {
+      var state = this.app.store.getState();
+      var projectId = state.activeProjectId;
+      if (!confirm('Rimuovere tutti i dataset Search Console dal progetto corrente? Verrà prima creato uno snapshot locale.')) return;
+      await this.app.storage.saveSnapshot(state);
+      var next = SeoGrowUtils.clone(state);
+      next.datasets = next.datasets.filter(function (dataset) { return dataset.projectId !== projectId || !/^search-console-/.test(dataset.type); });
+      next.findings = next.findings.map(function (finding) {
+        if (finding.projectId !== projectId || finding.type !== 'cannibalization') return finding;
+        return Object.assign({}, finding, {status: 'obsolete', updatedAt: SeoGrowUtils.now(), description: 'Dati Search Console rimossi dal progetto; reimporta la proprietà corretta.'});
+      });
+      next.backupMeta = Object.assign({}, next.backupMeta || {}, {snapshotAt: SeoGrowUtils.now()});
+      this.app.store.replace(next, {source: 'search-console:clear'});
+      await this.app.storage.save(next);
+      this.notify('Dati Search Console rimossi dal progetto. Ora importa l’export della proprietà corretta.');
+      return;
+    }
+    return previousClick.call(this, event);
+  };
+
+  window.SeoGrowFeatures.set('project-isolation-0.10.20', {version: '0.10.20', features: ['gsc-domain-guard', 'explicit-keyword-search', 'live-keyword-check', 'gsc-project-reset', 'opt-in-token-session', 'zip-boundary-validation']});
+})();
+</script>
+<script>
+/* seoGrow 0.10.21 — prestazioni degli import, integrità degli URL e composizione UI verificabile. */
+(function () {
+  'use strict';
+
+  if (!window.SeoGrow || !window.SeoGrowApp || !window.SeoGrowUI || window.SeoGrowRelease1021) return;
+  window.SeoGrowRelease1021 = true;
+  window.SeoGrowFeatures = window.SeoGrowFeatures || new Map();
+
+  var appProto = SeoGrowApp.prototype;
+  var ui = SeoGrowUI.App.prototype;
+  var CLOSED_STATES = ['excluded', 'resolved', 'obsolete'];
+
+  /* ------------------------------------------------------------------ *
+   * Composizione: una sostituzione che non trova il proprio bersaglio
+   * disattivava una funzione senza dirlo. Ora lo segnala.
+   * ------------------------------------------------------------------ */
+  SeoGrowUtils.replaceOrWarn = function (html, needle, replacement, label) {
+    var source = String(html || '');
+    var next = source.replace(needle, replacement);
+    if (next === source && typeof console !== 'undefined' && console.warn) {
+      console.warn('[seoGrow] composizione non applicata: ' + (label || String(needle).slice(0, 60)));
+    }
+    return next;
+  };
+
+  function schedule(callback) {
+    if (typeof requestAnimationFrame === 'function') return requestAnimationFrame(callback);
+    return setTimeout(callback, 16);
+  }
+
+  function brokenKey(finding) {
+    var items = Array.isArray(finding && finding.affectedItems) ? finding.affectedItems : [];
+    return String(items[0] || '').trim() + '|' + String(items[1] || '').trim();
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Import in una sola transazione.
+   *
+   * Prima ogni riscontro era un dispatch: tre cloni completi dello stato,
+   * un render integrale del DOM e una riscrittura di IndexedDB a testa.
+   * Con 300 pagine significavano 900 dispatch e oltre un minuto di blocco.
+   * ------------------------------------------------------------------ */
+  var previousDispatch = SeoGrowCore.Store.prototype.dispatch;
+  SeoGrowCore.Store.prototype.dispatch = function (action) {
+    if (!action || 'FINDINGS_UPSERTED' !== action.type || !Array.isArray(action.findings)) {
+      return previousDispatch.call(this, action);
+    }
+
+    var next = SeoGrowUtils.clone(this.state);
+    var at = SeoGrowUtils.now();
+    var bySignature = {};
+    var byBrokenPair = {};
+
+    next.findings.forEach(function (finding, index) {
+      if (!finding) return;
+      if (finding.signature) bySignature[finding.signature] = index;
+      if ('broken_internal_link' === finding.type) byBrokenPair[brokenKey(finding)] = index;
+    });
+
+    action.findings.forEach(function (candidate) {
+      if (!candidate || !candidate.signature) return;
+      var index = bySignature[candidate.signature];
+      if (undefined === index && 'broken_internal_link' === candidate.type) index = byBrokenPair[brokenKey(candidate)];
+
+      if (undefined === index) {
+        bySignature[candidate.signature] = next.findings.length;
+        if ('broken_internal_link' === candidate.type) byBrokenPair[brokenKey(candidate)] = next.findings.length;
+        next.findings.push(candidate);
+        return;
+      }
+
+      /* Stessa semantica di preserveFinding: id, stato e data di creazione restano quelli del riscontro esistente. */
+      var existing = next.findings[index];
+      next.findings[index] = Object.assign({}, existing, candidate, {
+        id: existing.id,
+        status: existing.status,
+        createdAt: existing.createdAt,
+        signature: existing.signature,
+        updatedAt: at
+      });
+    });
+
+    next.history.push({
+      id: SeoGrowUtils.id('history'),
+      projectId: action.projectId || next.activeProjectId,
+      entityType: 'finding',
+      entityId: '',
+      action: 'FINDINGS_UPSERTED',
+      timestamp: at,
+      metadata: Object.assign({count: action.findings.length}, action.metadata || {})
+    });
+
+    this.state = next;
+    this.bus.emit('state:changed', {action: action, state: this.getState()});
+    return this.getState();
+  };
+
+  SeoGrowServices.FindingService.prototype.createMany = function (candidates) {
+    var list = (Array.isArray(candidates) ? candidates : []).filter(Boolean);
+    if (!list.length) return [];
+    if (1 === list.length) return [this.create(list[0])];
+
+    var statusBefore = {};
+    this.store.select(function (state) { return state.findings; }).forEach(function (finding) {
+      if (finding && finding.signature) statusBefore[finding.signature] = finding.status;
+    });
+
+    var now = SeoGrowUtils.now();
+    var prepared = list.map(function (candidate) {
+      return {
+        id: SeoGrowUtils.id('finding'),
+        projectId: candidate.projectId,
+        type: candidate.type,
+        title: candidate.title,
+        description: candidate.description || '',
+        status: 'candidate',
+        severity: candidate.severity || 'medium',
+        impact: candidate.impact || 'medium',
+        confidence: Number(candidate.confidence || 0),
+        evidence: candidate.evidence || [],
+        affectedItems: candidate.affectedItems || [],
+        source: candidate.source || 'UNKNOWN',
+        signature: candidate.signature,
+        createdAt: now,
+        updatedAt: now
+      };
+    });
+
+    this.store.dispatch({
+      type: 'FINDINGS_UPSERTED',
+      findings: prepared,
+      projectId: prepared[0].projectId
+    });
+
+    var saved = {};
+    this.store.select(function (state) { return state.findings; }).forEach(function (finding) {
+      if (finding && finding.signature) saved[finding.signature] = finding;
+    });
+
+    var service = this;
+    var out = [];
+    prepared.forEach(function (candidate) {
+      var current = saved[candidate.signature];
+      if (!current) return;
+      out.push(current);
+      var previousStatus = statusBefore[candidate.signature];
+      if (previousStatus && CLOSED_STATES.indexOf(previousStatus) > -1) {
+        try {
+          service.status(current.id, 'reopened');
+          service.bus.emit('finding:reopened', current);
+        } catch (error) {
+          if (typeof console !== 'undefined' && console.warn) console.warn('[seoGrow] riapertura riscontro non riuscita', error);
+        }
+      }
+    });
+
+    this.bus.emit('findings:created', {count: out.length});
+    return out;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Render e salvataggio raggruppati: una sequenza di dispatch produce un
+   * solo render e una sola scrittura, invece di uno per evento.
+   * ------------------------------------------------------------------ */
+  function installCoalescedSubscribers(app) {
+    if (!app || app.__coalescedSubscribers) return;
+    var handlers = app.bus && app.bus.events && app.bus.events.get('state:changed');
+    if (!handlers) return;
+
+    app.__coalescedSubscribers = true;
+    handlers.clear();
+
+    var renderQueued = false;
+    var saveTimer = null;
+
+    app.bus.on('state:changed', function () {
+      if (renderQueued || !app.ui) return;
+      renderQueued = true;
+      schedule(function () {
+        renderQueued = false;
+        if (app.ui) app.ui.render();
+      });
+    });
+
+    app.bus.on('state:changed', function () {
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = setTimeout(function () {
+        saveTimer = null;
+        app.storage.save(app.store.getState()).then(function () {
+          app.bus.emit('storage:saved');
+        }).catch(function (error) {
+          app.logger.error('storage', 'save', {error: error.message});
+          app.bus.emit('storage:error', {error: error});
+        });
+      }, 250);
+    });
+  }
+
+  function installProgress(app) {
+    app.bus.on('wordpress:import-progress', function (payload) {
+      if (typeof document === 'undefined') return;
+      var button = document.querySelector('[data-action="wp-connect-import"]');
+      if (!button || !button.disabled) return;
+      var total = Number(payload && payload.total || 0);
+      var loaded = Number(payload && payload.loaded || 0);
+      button.textContent = total ? 'Import pagine: ' + loaded + ' di ' + total + '…' : 'Import pagine: ' + loaded + '…';
+    });
+  }
+
+  var previousMount = ui.mount;
+  ui.mount = function (root) {
+    var result = previousMount.call(this, root);
+    installCoalescedSubscribers(this.app);
+    installProgress(this.app);
+    return result;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Il render ricostruisce tutto l'HTML: senza questo il testo digitato
+   * in un campo e la posizione del cursore andavano persi.
+   * ------------------------------------------------------------------ */
+  var previousRender = ui.render;
+  ui.render = function () {
+    var memo = null;
+    if (typeof document !== 'undefined' && this.root) {
+      var active = document.activeElement;
+      var editable = active && ('INPUT' === active.tagName || 'TEXTAREA' === active.tagName);
+      if (editable && active.id && this.root.contains(active)) {
+        memo = {id: active.id, value: active.value, start: null, end: null};
+        try {
+          memo.start = active.selectionStart;
+          memo.end = active.selectionEnd;
+        } catch (error) {
+          memo.start = null;
+        }
+      }
+    }
+
+    var result = previousRender.call(this);
+
+    if (memo) {
+      var field = document.getElementById(memo.id);
+      if (field) {
+        if (field.value !== memo.value) field.value = memo.value;
+        try {
+          field.focus();
+          if (null !== memo.start && field.setSelectionRange) field.setSelectionRange(memo.start, memo.end);
+        } catch (error) {
+          /* type="url" e type="email" non espongono la selezione: il focus basta. */
+        }
+      }
+    }
+
+    return result;
+  };
+
+  /* Le notifiche non venivano mai azzerate e restavano a schermo per decine di render. */
+  var previousNotify = ui.notify;
+  ui.notify = function (message, type) {
+    var self = this;
+    if (this.__notifyTimer) clearTimeout(this.__notifyTimer);
+    var result = previousNotify.call(this, message, type);
+    this.__notifyTimer = setTimeout(function () {
+      self.__notifyTimer = null;
+      if (!self.message) return;
+      self.message = '';
+      self.render();
+    }, 'error' === type ? 12000 : 6000);
+    return result;
+  };
+
+  /* ------------------------------------------------------------------ *
+   * Coerenza fra sito collegato e progetto attivo.
+   * Per competitor organici e posizioni keyword il vincolo lo impone il
+   * plugin; la ricerca locale non ha un target, quindi va controllata qui.
+   * ------------------------------------------------------------------ */
+  function connectionHost(app) {
+    var base = app.wordpress && app.wordpress.base;
+    if (!base) return '';
+    try {
+      return new URL(base).hostname.replace(/^www\./i, '').toLowerCase();
+    } catch (error) {
+      return '';
+    }
+  }
+
+  function projectMismatch(app) {
+    var host = connectionHost(app);
+    if (!host) return '';
+    var state = app.store.getState();
+    var project = state.projects.find(function (item) { return item.id === state.activeProjectId; });
+    var domain = project ? String(project.domain || '').replace(/^www\./i, '').toLowerCase() : '';
+    if (!domain) return '';
+    if (host === domain || host.indexOf('.' + domain) === host.length - domain.length - 1 || domain.indexOf('.' + host) === domain.length - host.length - 1) return '';
+    return 'WordPress è collegato a ' + host + ', ma il progetto attivo è ' + domain + '. Seleziona il progetto giusto o ricollega il sito prima di salvare questi dati.';
+  }
+
+  function requireBrowserOrigin() {
+    if (typeof location !== 'undefined' && 'file:' === location.protocol) {
+      throw new Error('seoGrow è aperto come file locale. Pubblicalo su HTTPS o avvialo da localhost: file:// invia un’origine null che WordPress rifiuta.');
+    }
+  }
+
+  var previousLocalCompetitors = appProto.importDataForSeoLocalCompetitors;
+  if ('function' === typeof previousLocalCompetitors) {
+    appProto.importDataForSeoLocalCompetitors = async function (params) {
+      requireBrowserOrigin();
+      var mismatch = projectMismatch(this);
+      if (mismatch) throw new Error(mismatch);
+      return previousLocalCompetitors.call(this, params);
+    };
+  }
+
+  var previousKeywordCheck = appProto.checkDataForSeoKeyword;
+  if ('function' === typeof previousKeywordCheck) {
+    appProto.checkDataForSeoKeyword = async function (keyword) {
+      requireBrowserOrigin();
+      var mismatch = projectMismatch(this);
+      if (mismatch) throw new Error(mismatch);
+      return previousKeywordCheck.call(this, keyword);
+    };
+  }
+
+  var previousRefresh = appProto.refreshWordPressCapabilities;
+  if ('function' === typeof previousRefresh) {
+    appProto.refreshWordPressCapabilities = async function () {
+      requireBrowserOrigin();
+      return previousRefresh.call(this);
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Lettura ZIP dalla End Of Central Directory.
+   *
+   * La scansione byte per byte della firma 0x02014b50 poteva trovarla
+   * dentro i dati compressi e rifiutare uno ZIP valido come danneggiato.
+   * ------------------------------------------------------------------ */
+  if (window.SeoGrowSearchConsoleBundle) {
+    SeoGrowSearchConsoleBundle.readZip = async function (buffer) {
+      var view = new DataView(buffer);
+      var decoder = new TextDecoder();
+      var size = view.byteLength;
+
+      function corrupt() {
+        return new Error('Lo ZIP sembra danneggiato o incompleto. Scaricalo di nuovo da Search Console oppure estrai e importa i CSV.');
+      }
+
+      var eocd = -1;
+      var floor = Math.max(0, size - 22 - 65535);
+      for (var probe = size - 22; probe >= floor; probe--) {
+        if (0x06054b50 === view.getUint32(probe, true)) {
+          eocd = probe;
+          break;
+        }
+      }
+      if (eocd < 0) throw corrupt();
+
+      var entryCount = view.getUint16(eocd + 10, true);
+      var directorySize = view.getUint32(eocd + 12, true);
+      var directoryOffset = view.getUint32(eocd + 16, true);
+
+      if (0xffff === entryCount || 0xffffffff === directoryOffset) {
+        throw new Error('ZIP in formato Zip64 non supportato: estrai i CSV e selezionali insieme.');
+      }
+      if (directoryOffset + directorySize > size) throw corrupt();
+      if (entryCount > 500) throw new Error('ZIP con troppi file: importa al massimo 20 CSV per volta.');
+
+      var entries = [];
+      var cursor = directoryOffset;
+
+      for (var index = 0; index < entryCount; index++) {
+        if (cursor + 46 > size || 0x02014b50 !== view.getUint32(cursor, true)) throw corrupt();
+
+        var method = view.getUint16(cursor + 10, true);
+        var compressedSize = view.getUint32(cursor + 20, true);
+        var nameLength = view.getUint16(cursor + 28, true);
+        var extraLength = view.getUint16(cursor + 30, true);
+        var commentLength = view.getUint16(cursor + 32, true);
+        var localOffset = view.getUint32(cursor + 42, true);
+        var nextEntry = cursor + 46 + nameLength + extraLength + commentLength;
+        if (nextEntry > size) throw corrupt();
+
+        var name = decoder.decode(new Uint8Array(buffer, cursor + 46, nameLength));
+        cursor = nextEntry;
+
+        if (!/\.csv$/i.test(name) || /\/$/.test(name)) continue;
+        if (entries.length >= 20) throw new Error('ZIP con troppi file: importa al massimo 20 CSV per volta.');
+        if (localOffset + 30 > size) throw corrupt();
+
+        var local = new DataView(buffer, localOffset);
+        if (0x04034b50 !== local.getUint32(0, true)) throw corrupt();
+
+        var dataStart = localOffset + 30 + local.getUint16(26, true) + local.getUint16(28, true);
+        var dataEnd = dataStart + compressedSize;
+        if (dataStart > size || dataEnd > size || dataEnd < dataStart) throw corrupt();
+
+        var bytes = new Uint8Array(buffer, dataStart, compressedSize);
+        if (8 === method) {
+          if ('function' !== typeof DecompressionStream) {
+            throw new Error('Questo browser non supporta l’import ZIP: estrai i CSV e selezionali insieme.');
+          }
+          try {
+            bytes = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+          } catch (error) {
+            throw corrupt();
+          }
+        } else if (0 !== method) {
+          throw new Error('ZIP con compressione non supportata: estrai i CSV e selezionali insieme.');
+        }
+
+        if (bytes.byteLength > 10485760) throw new Error('Uno dei CSV nello ZIP supera 10 MB. Importalo separatamente.');
+        entries.push({name: name, text: decoder.decode(bytes)});
+      }
+
+      if (!entries.length) throw new Error('Lo ZIP non contiene file CSV riconoscibili.');
+      return entries;
+    };
+  }
+
+  /* ------------------------------------------------------------------ *
+   * Il controllo integrità verifica anche che la UI composta contenga
+   * davvero i comandi previsti: e' la rete di sicurezza contro una
+   * sostituzione di stringa che smette di trovare il proprio bersaglio.
+   * ------------------------------------------------------------------ */
+  var previousHealthCheck = SeoGrowCore.healthCheck;
+  SeoGrowCore.healthCheck = function (app) {
+    var issues = previousHealthCheck(app);
+    var view = app && app.ui;
+    if (!view || typeof document === 'undefined') return issues;
+
+    var expected = [
+      ['pages', '[data-action="wp-connect-import"]', 'collegamento WordPress'],
+      ['pages', '#wpRememberSession', 'consenso alla chiave di sessione'],
+      ['pages', '#pagesFile', 'import CSV pagine'],
+      ['technical', '#linkFile', 'import crawl link interni'],
+      ['gsc', '#gscFiles', 'import Search Console'],
+      ['gsc', '#gscProjectConfirmed', 'conferma proprietà Search Console'],
+      ['competitors', '#competitorFile', 'import CSV competitor'],
+      ['keyword-positions', '#keywordExactSearch', 'ricerca keyword'],
+      ['settings', '[data-action="health"]', 'controllo integrità'],
+      ['settings', '[data-action="restore-local-snapshot"]', 'ripristino snapshot']
+    ];
+
+    var realRoot = view.root;
+    var realView = view.view;
+    var probe = document.createElement('div');
+    var failures = 0;
+
+    view.root = probe;
+    expected.forEach(function (item) {
+      view.view = item[0];
+      try {
+        view.render();
+      } catch (error) {
+        failures++;
+        issues.push({level: 'FAIL', message: 'La vista "' + item[0] + '" non viene generata: ' + error.message});
+        return;
+      }
+      if (!probe.querySelector(item[1])) {
+        failures++;
+        issues.push({level: 'FAIL', message: 'Comando assente nella vista "' + item[0] + '": ' + item[2]});
+      }
+    });
+    view.root = realRoot;
+    view.view = realView;
+
+    if (failures) {
+      issues = issues.filter(function (issue) { return 'PASS' !== issue.level; });
+    } else {
+      issues.push({level: 'PASS', message: 'Interfaccia verificata: ' + expected.length + ' comandi presenti nelle rispettive viste' });
+    }
+
+    return issues;
+  };
+
+  window.SeoGrowFeatures.set('release-0.10.21', {
+    version: '0.10.21',
+    features: [
+      'batched-finding-import',
+      'coalesced-render-and-save',
+      'canonical-connector-urls',
+      'session-consent-restored',
+      'input-state-preserved',
+      'eocd-zip-reader',
+      'project-connection-guard',
+      'ui-self-check'
+    ]
+  });
 })();
 </script>
 </body></html>
