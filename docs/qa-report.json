@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "checks": [
+    "titolo dashboard",
+    "quattro metriche",
+    "grafico visibilità",
+    "importazione ZIP Search Console",
+    "clic Search Console reali",
+    "impressioni Search Console reali",
+    "origine dati dichiarata",
+    "opportunità da query reali",
+    "aggiornamento stato task",
+    "generazione contenuto demo",
+    "audit SEO reale",
+    "menu mobile disponibile",
+    "sidebar mobile apribile"
+  ],
+  "testedAt": "2026-09-03T12:08:38.293Z"
+}

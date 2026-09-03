@@ -1,1 +1,8 @@
+node_modules
+dist
+.env
+.qa-runtime
+.seogrow-data
+.seogrow-port
 .DS_Store
+npm-debug.log*

@@ -1,0 +1,12 @@
+SEOGROW AI — AVVIO SU MAC
+
+1. Estrai il file ZIP.
+2. Apri la cartella “seoGrow-AI-MVP-1.4.2”.
+3. Fai doppio clic su “AVVIA.command”.
+4. Al primo avvio attendi l’installazione dei componenti.
+5. L’app userà normalmente http://localhost:5176 e riaprirà sempre l’indirizzo corretto.
+
+Se macOS impedisce il primo avvio, fai clic destro su AVVIA.command, scegli
+“Apri” e conferma l’apertura. Non spostare AVVIA.command fuori dalla cartella.
+
+Per arrestare l’app, torna nella finestra del Terminale e premi Control + C.
