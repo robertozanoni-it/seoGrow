@@ -1,6 +1,7 @@
 import './gdprSeoMigration';
 import './remediationVerificationMigration';
 import './remediationIntegrity';
+import './wordpressDraftCopyRemediation';
 import './locationEvents';
 import './seoResponseIntegrity';
 import './remediationReportUx';
