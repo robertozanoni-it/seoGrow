@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, ExternalLink, History, RotateCcw, ShieldCheck, XCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronDown,
+  ExternalLink,
+  Eye,
+  History,
+  RotateCcw,
+  ShieldCheck,
+} from "lucide-react";
 import { apiFetch } from "./api";
 import {
   lastBatch,
@@ -26,17 +35,15 @@ const currentHash = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)); } catch { return ""; }
 };
 
-const openCorrections = () => {
-  window.__seogrowCorrectionsMode = true;
-  window.location.hash = encodeURIComponent("Correzioni");
-};
-
-const preview = (value, max = 360) => {
+const preview = (value, max = 300) => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return text.length > max ? `${text.slice(0, max)}…` : text || "—";
 };
 
 const statusClass = (status) => String(status || "").toLowerCase().replaceAll(" ", "-");
+const isVerified = (record) => record.status === "Verificato";
+const isPending = (record) => record.status === "Applicato" || record.status === "Da verificare";
+const isRolledBack = (record) => record.status === "Ripristinato";
 
 export default function CorrectionsWorkspace() {
   const [active, setActive] = useState(currentHash() === "Correzioni");
@@ -45,6 +52,8 @@ export default function CorrectionsWorkspace() {
   const [version, setVersion] = useState(0);
   const [rows, setRows] = useState([]);
   const [showAll, setShowAll] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [expanded, setExpanded] = useState(() => new Set());
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [rollingBack, setRollingBack] = useState("");
@@ -57,7 +66,9 @@ export default function CorrectionsWorkspace() {
     const syncTargets = () => {
       setNavTarget(document.querySelector(".sidebar nav"));
       setMainTarget(document.querySelector(".app main"));
-      setActive(currentHash() === "Correzioni");
+      const nextActive = currentHash() === "Correzioni";
+      setActive(nextActive);
+      window.__seogrowCorrectionsMode = nextActive;
     };
     syncTargets();
     const observer = new MutationObserver(syncTargets);
@@ -108,7 +119,7 @@ export default function CorrectionsWorkspace() {
       if (!currentBatch) return;
       if (sessionStorage.getItem(OPENED_BATCH_KEY) === currentBatch) return;
       sessionStorage.setItem(OPENED_BATCH_KEY, currentBatch);
-      openCorrections();
+      window.location.hash = encodeURIComponent("Correzioni");
     };
     const observer = new MutationObserver(checkCompletion);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
@@ -118,10 +129,26 @@ export default function CorrectionsWorkspace() {
 
   const stats = useMemo(() => ({
     total: rows.length,
-    verified: rows.filter((item) => item.status === "Verificato").length,
-    pending: rows.filter((item) => item.status === "Applicato" || item.status === "Da verificare").length,
-    rolledBack: rows.filter((item) => item.status === "Ripristinato").length,
+    verified: rows.filter(isVerified).length,
+    pending: rows.filter(isPending).length,
+    rolledBack: rows.filter(isRolledBack).length,
   }), [rows]);
+
+  const filteredRows = useMemo(() => rows.filter((record) => {
+    if (statusFilter === "verified") return isVerified(record);
+    if (statusFilter === "pending") return isPending(record);
+    if (statusFilter === "rolled") return isRolledBack(record);
+    return true;
+  }), [rows, statusFilter]);
+
+  const toggleExpanded = (id) => {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const rollback = async (id) => {
     if (!password) {
@@ -176,7 +203,7 @@ export default function CorrectionsWorkspace() {
       type="button"
       className={active ? "active corrections-nav-button" : "corrections-nav-button"}
       aria-current={active ? "page" : undefined}
-      onClick={openCorrections}
+      onClick={() => { window.location.hash = encodeURIComponent("Correzioni"); }}
     >
       <History />
       <span>Correzioni</span>
@@ -188,8 +215,8 @@ export default function CorrectionsWorkspace() {
     <div className="corrections-workspace-root">
       <div className="page-title corrections-title">
         <div>
-          <h1>Correzioni — storico e rollback</h1>
-          <p>Modifiche applicate dall’agente, verifica SeoGrow, confronto Prima/Dopo e ripristino della versione precedente.</p>
+          <h1>Correzioni</h1>
+          <p>Qui vedi cosa è stato scritto in WordPress, cosa è realmente visibile sul sito e quali Task possono essere chiuse.</p>
         </div>
         <div className="corrections-filter">
           <button type="button" className={!showAll ? "primary" : "secondary"} onClick={() => setShowAll(false)}>Ultimo batch</button>
@@ -197,47 +224,79 @@ export default function CorrectionsWorkspace() {
         </div>
       </div>
 
-      <div className="corrections-stats">
-        <section><strong>{stats.total}</strong><span>Correzioni</span></section>
-        <section className="verified"><strong>{stats.verified}</strong><span>Verificate</span></section>
-        <section className="pending"><strong>{stats.pending}</strong><span>Da verificare</span></section>
-        <section className="rolled"><strong>{stats.rolledBack}</strong><span>Ripristinate</span></section>
+      <section className="corrections-logic panel">
+        <div><span>1</span><strong>Salvato in WordPress</strong><small>REST conferma la scrittura</small></div>
+        <i>→</i>
+        <div><span>2</span><strong>Visibile sul sito</strong><small>confronto con il frontend</small></div>
+        <i>→</i>
+        <div><span>3</span><strong>Problema SEO risolto</strong><small>nuovo controllo SeoGrow</small></div>
+        <i>→</i>
+        <div><span>4</span><strong>Task chiusa</strong><small>solo dopo conferma</small></div>
+      </section>
+
+      <div className="corrections-stats" aria-label="Filtra correzioni per stato">
+        <button type="button" className={statusFilter === "all" ? "active" : ""} onClick={() => setStatusFilter("all")}><strong>{stats.total}</strong><span>Tutte</span></button>
+        <button type="button" className={`verified ${statusFilter === "verified" ? "active" : ""}`} onClick={() => setStatusFilter("verified")}><strong>{stats.verified}</strong><span>Verificate</span></button>
+        <button type="button" className={`pending ${statusFilter === "pending" ? "active" : ""}`} onClick={() => setStatusFilter("pending")}><strong>{stats.pending}</strong><span>Da verificare</span></button>
+        <button type="button" className={`rolled ${statusFilter === "rolled" ? "active" : ""}`} onClick={() => setStatusFilter("rolled")}><strong>{stats.rolledBack}</strong><span>Ripristinate</span></button>
       </div>
 
       <section className="panel corrections-security">
-        <div><ShieldCheck /><span><strong>Rollback WordPress</strong><small>La password applicativa viene usata solo per questa sessione e non viene salvata.</small></span></div>
+        <div><ShieldCheck /><span><strong>Rollback WordPress</strong><small>La password applicativa serve solo se vuoi ripristinare una versione precedente e non viene salvata.</small></span></div>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa WordPress" autoComplete="new-password" />
       </section>
 
       {message && <p className="integration-result corrections-message">{message}</p>}
 
       <div className="corrections-list">
-        {rows.map((record) => (
-          <article className="panel correction-card" key={record.id}>
-            <div className="correction-card-head">
-              <div>
-                <span className={`correction-status ${statusClass(record.status)}`}>{record.status === "Verificato" ? <CheckCircle2 /> : record.status === "Ripristinato" ? <RotateCcw /> : <XCircle />}{record.status}</span>
-                <h2>{record.issueLabel}</h2>
-                <a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />{record.sourceUrl}</a>
-              </div>
-              <div className="correction-meta">
-                <span>{new Date(record.appliedAt).toLocaleString("it-IT")}</span>
-                <small>{record.fields?.join(", ") || "modifica WordPress"}</small>
-              </div>
-            </div>
+        {filteredRows.map((record) => {
+          const open = expanded.has(record.id);
+          const verified = isVerified(record);
+          const pending = isPending(record);
+          return (
+            <article className={`panel correction-card ${open ? "open" : ""}`} key={record.id}>
+              <button type="button" className="correction-summary" onClick={() => toggleExpanded(record.id)} aria-expanded={open}>
+                <span className={`correction-status ${statusClass(record.status)}`}>{verified ? <CheckCircle2 /> : pending ? <AlertTriangle /> : <RotateCcw />}{record.status}</span>
+                <span className="correction-summary-main">
+                  <strong>{record.issueLabel}</strong>
+                  <small>{record.fields?.join(", ") || "modifica WordPress"} · {new Date(record.appliedAt).toLocaleString("it-IT")}</small>
+                </span>
+                <span className="correction-quick-state">
+                  <span className="ok">1 WordPress</span>
+                  <span className={record.frontendConfirmed ? "ok" : "wait"}>2 Frontend</span>
+                  <span className={verified ? "ok" : "wait"}>3 SEO</span>
+                  <span className={verified ? "ok" : "wait"}>4 Task</span>
+                </span>
+                <ChevronDown className="correction-chevron" />
+              </button>
 
-            <div className="correction-diff-grid">
-              <section className="before"><strong>Prima</strong>{(record.fields || Object.keys(record.before || {})).map((field) => <div key={`before-${field}`}><small>{field}</small><p>{preview(record.before?.[field])}</p>{String(record.before?.[field] || "").length > 360 && <details><summary>Mostra contenuto completo</summary><pre>{String(record.before?.[field] || "")}</pre></details>}</div>)}</section>
-              <section className="after"><strong>Dopo</strong>{(record.fields || Object.keys(record.after || {})).map((field) => <div key={`after-${field}`}><small>{field}</small><p>{preview(record.after?.[field])}</p>{String(record.after?.[field] || "").length > 360 && <details><summary>Mostra contenuto completo</summary><pre>{String(record.after?.[field] || "")}</pre></details>}</div>)}</section>
-            </div>
+              <div className="correction-summary-actions">
+                <a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>
+                <button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi dettagli" : "Vedi Prima / Dopo"}</button>
+              </div>
 
-            <div className="correction-footer">
-              <span>{record.verificationNote || record.rollbackNote || "Modifica registrata."}</span>
-              <button type="button" className="secondary" disabled={rollingBack === record.id || record.status === "Ripristinato"} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
-            </div>
-          </article>
-        ))}
-        {!rows.length && <section className="panel corrections-empty"><History /><h2>Nessuna correzione registrata</h2><p>Le prossime remediation WordPress appariranno qui con Prima/Dopo e rollback.</p></section>}
+              <p className={`correction-verification-note ${verified ? "verified" : "pending"}`}>{record.verificationNote || record.rollbackNote || "Modifica registrata."}</p>
+
+              {open && (
+                <div className="correction-details">
+                  <div className="correction-diff-grid">
+                    <section className="before"><strong>Prima — versione precedente</strong>{(record.fields || Object.keys(record.before || {})).map((field) => <div key={`before-${field}`}><small>{field}</small><p>{preview(record.before?.[field])}</p>{String(record.before?.[field] || "").length > 300 && <details><summary>Mostra contenuto completo</summary><pre>{String(record.before?.[field] || "")}</pre></details>}</div>)}</section>
+                    <section className="after"><strong>Dopo — versione inviata a WordPress</strong>{(record.fields || Object.keys(record.after || {})).map((field) => <div key={`after-${field}`}><small>{field}</small><p>{preview(record.after?.[field])}</p>{String(record.after?.[field] || "").length > 300 && <details><summary>Mostra contenuto completo</summary><pre>{String(record.after?.[field] || "")}</pre></details>}</div>)}</section>
+                  </div>
+
+                  <div className="correction-footer">
+                    <div>
+                      <strong>{verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
+                      <span>{verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere rimossa dalle attività aperte." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
+                    </div>
+                    <button type="button" className="secondary" disabled={rollingBack === record.id || record.status === "Ripristinato"} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
+                  </div>
+                </div>
+              )}
+            </article>
+          );
+        })}
+        {!filteredRows.length && <section className="panel corrections-empty"><History /><h2>Nessuna correzione in questo filtro</h2><p>Cambia filtro oppure esegui una nuova remediation.</p></section>}
       </div>
     </div>,
     mainTarget,
