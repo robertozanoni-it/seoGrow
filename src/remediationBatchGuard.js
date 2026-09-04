@@ -30,15 +30,15 @@ export function remediationTargetFromGenerateBody(body) {
 
 export function shouldBlockGenerationForStatus(status) {
   const normalized = String(status || "").trim().toLowerCase();
-  return Boolean(normalized && normalized !== "draft");
+  return ["trash", "auto-draft", "inherit"].includes(normalized);
 }
 
 const blockedResponse = (status) =>
   new Response(
     JSON.stringify({
       error:
-        "Remediation automatica bloccata: il contenuto WordPress è pubblicato o non è una bozza. SeoGrow non modifica contenuti live durante il QA. Crea o usa una bozza e applica lì la correzione.",
-      code: "DRAFT_REQUIRED",
+        "Remediation automatica bloccata: questo stato WordPress non è una sorgente sicura per creare una bozza corretta.",
+      code: "UNSAFE_SOURCE_STATUS",
       currentStatus: String(status || "unknown"),
     }),
     { status: 409, headers: { "content-type": "application/json; charset=utf-8" } },
