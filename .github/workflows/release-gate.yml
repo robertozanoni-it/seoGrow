@@ -1,0 +1,64 @@
+name: Release Gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify package and lockfile version
+        run: |
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          const lock = require('./package-lock.json');
+          const root = lock.packages?.['']?.version;
+          if (lock.version !== pkg.version || root !== pkg.version) {
+            console.error(`Version mismatch: package=${pkg.version}, lock=${lock.version}, lock-root=${root}`);
+            process.exit(1);
+          }
+          console.log(`Version ${pkg.version} is consistent.`);
+          NODE
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit and integration tests
+        run: npm test
+
+      - name: Launcher syntax
+        run: npm run test:launcher
+
+      - name: Production build
+        run: npm run build
+
+      - name: Dependency audit
+        run: npm audit --audit-level=high
+
+      - name: Ensure secrets and runtime data are not tracked
+        run: |
+          tracked="$(git ls-files .env .seogrow-data .qa-runtime dist node_modules)"
+          if [ -n "$tracked" ]; then
+            echo "Release contains forbidden runtime or secret paths:"
+            echo "$tracked"
+            exit 1
+          fi
