@@ -232,6 +232,22 @@ export async function exportWorkspaceBackup(data, passphrase) {
   );
 }
 
+export function normalizeAgentRuns(value, fallback = {}) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return fallback;
+  const normalized = {};
+  for (const [projectId, runs] of Object.entries(value)) {
+    if (!Array.isArray(runs)) return fallback;
+    normalized[projectId] = runs.filter((run) => run && typeof run.id === "string" && typeof run.goal === "string").map((run) => ({ ...run, observations: Array.isArray(run.observations) ? run.observations : [], recommendations: Array.isArray(run.recommendations) ? run.recommendations.map((item) => ({ ...item, evidence: Array.isArray(item?.evidence) ? item.evidence : [], sources: Array.isArray(item?.sources) ? item.sources : [] })) : [], approvalHistory: Array.isArray(run.approvalHistory) ? run.approvalHistory : [], errors: Array.isArray(run.errors) ? run.errors : [], plan: run.plan && typeof run.plan === "object" ? { ...run.plan, steps: Array.isArray(run.plan.steps) ? run.plan.steps : [] } : null }));
+  }
+  return normalized;
+}
+
+function validAgentRuns(value) {
+  if (value == null) return true;
+  if (typeof value !== "object" || Array.isArray(value)) return false;
+  return Object.entries(value).every(([projectId, runs]) => /^\d+$/.test(projectId) && Array.isArray(runs) && runs.every((run) => run && typeof run.id === "string" && typeof run.goal === "string" && Array.isArray(run.observations) && Array.isArray(run.recommendations) && Array.isArray(run.approvalHistory) && (!run.plan || Array.isArray(run.plan.steps)) && run.recommendations.every((item) => item && Array.isArray(item.evidence) && Array.isArray(item.sources))));
+}
+
 export async function readWorkspaceBackup(file, passphrase = "") {
   if (!file || file.size > 25 * 1024 * 1024)
     throw new Error("Il backup supera il limite di sicurezza di 25 MB.");
@@ -328,6 +344,8 @@ export async function readWorkspaceBackup(file, passphrase = "") {
         throw new Error("Il backup contiene un profilo WordPress non valido.");
     }
   }
+  if (!validAgentRuns(data.agentRuns))
+    throw new Error("Il backup contiene una memoria SEO Agent non valida.");
   const jsonSize = JSON.stringify(data).length;
   if (jsonSize > 25 * 1024 * 1024)
     throw new Error("Il contenuto del backup supera il limite consentito.");

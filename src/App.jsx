@@ -46,6 +46,7 @@ import {
   downloadClientReport,
   exportWorkspaceBackup,
   readWorkspaceBackup,
+  normalizeAgentRuns,
   suggestPageForQuery,
 } from "./seoHelpers";
 import {
@@ -126,6 +127,7 @@ const validateStoredValue = (key, value, initial) => {
   if (key.startsWith("seogrow-tasks")) {
     return normalizeStoredTasks(value, initial);
   }
+  if (key === "seogrow-agent-runs-v1") return normalizeAgentRuns(value, initial);
   if (key === "seogrow-selected-page-v1")
     return nav.some(([label]) => label === value) ? value : initial;
   if (key === "seogrow-selected-client-v1")
@@ -4882,6 +4884,7 @@ export default function App() {
               [selectedClient]: [run, ...(current[selectedClient] || []).filter((item) => item.id !== run.id)].slice(0, 20),
             }))
           }
+          onDeleteRun={(runId) => setAgentRuns((current) => ({ ...current, [selectedClient]: (current[selectedClient] || []).filter((item) => item.id !== runId) }))}
           onCreateTask={createManualTask}
         />
       );

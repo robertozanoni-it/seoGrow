@@ -61,7 +61,20 @@ test("tollera analisi storiche prive degli elenchi di problemi", () => {
     [],
   );
 });
-import { readWorkspaceBackup } from "./seoHelpers.js";
+import { normalizeAgentRuns, readWorkspaceBackup } from "./seoHelpers.js";
+
+test("migra memoria Agent legacy e normalizza evidence e sources null", () => {
+  const result = normalizeAgentRuns({ 1: [{ id: "run-1", goal: "opportunità", recommendations: [{ evidence: null, sources: null }] }] });
+  assert.deepEqual(result[1][0].recommendations[0].evidence, []);
+  assert.deepEqual(result[1][0].recommendations[0].sources, []);
+  assert.deepEqual(result[1][0].approvalHistory, []);
+});
+
+test("rifiuta backup con memoria Agent malformata", async () => {
+  const data = { schemaVersion: 3, clients: [{ id: 1, name: "Test", url: "https://example.com" }], tasks: [], gscData: {}, agentRuns: { 1: [{ id: "run", goal: "test", observations: [], recommendations: [{ evidence: null, sources: [] }], approvalHistory: [] }] } };
+  const file = { size: 100, text: async () => JSON.stringify(data) };
+  await assert.rejects(() => readWorkspaceBackup(file), /memoria SEO Agent non valida/);
+});
 
 test("interpreta correttamente numeri italiani e internazionali", () => {
   assert.equal(numberValue("18,77"), 18.77);

@@ -3,38 +3,45 @@ import { CheckCircle2, Circle, LoaderCircle, Play, ShieldCheck } from "lucide-re
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
 
 const quickGoals = ["Trova le 10 migliori opportunità SEO", "Perché il traffico organico è diminuito?", "Quali pagine posso portare in Top 10?", "Quali contenuti devo aggiornare?", "Trova opportunità di internal linking"];
-const statusLabel = { PLANNING: "Pianificazione", RUNNING: "Analisi in corso", COMPLETED: "Completata", PARTIAL: "Risultato parziale", BLOCKED: "Dati insufficienti", FAILED: "Errore", CANCELLED: "Interrotta" };
+const statusLabel = { PLANNING: "Pianificazione", RUNNING: "Analisi in corso", WAITING_APPROVAL: "In attesa di approvazione", COMPLETED: "Completata", PARTIAL: "Risultato parziale", BLOCKED: "Dati insufficienti", FAILED: "Errore", CANCELLED: "Interrotta" };
 
-export default function AgentPage({ client, dataset, analysis, rankings, savedRuns = [], onSaveRun, onCreateTask }) {
+export default function AgentPage({ client, dataset, analysis, rankings, savedRuns = [], onSaveRun, onDeleteRun, onCreateTask }) {
   const [goal, setGoal] = useState("");
   const [currentRun, setCurrentRun] = useState(null);
   const [running, setRunning] = useState(false);
+  const [mode, setMode] = useState(AgentMode.ASSISTED);
+  const [selectedRunId, setSelectedRunId] = useState("");
   const orchestrator = useMemo(() => new SeoAgentOrchestrator({ registry: createSeoGrowToolRegistry(), onUpdate: setCurrentRun }), []);
-  const run = currentRun || savedRuns[0];
+  const run = currentRun || savedRuns.find((item) => item?.id === selectedRunId) || savedRuns[0];
+  const input = { projectId: client.id, dataset, analysis, rankings, dataVersion: [dataset?.importedAt, analysis?.analyzedAt, rankings?.[0]?.checkedAt].filter(Boolean).join("|"), mode };
   const start = async () => {
     if (!goal.trim() || running) return;
     setRunning(true);
-    const result = await orchestrator.run(goal, { projectId: client.id, dataset, analysis, rankings, dataVersion: [dataset?.importedAt, analysis?.analyzedAt, rankings?.[0]?.checkedAt].filter(Boolean).join("|"), mode: AgentMode.ASSISTED });
+    const result = await orchestrator.run(goal, input);
     onSaveRun(result); setRunning(false);
   };
+  const decide = async (approved) => { if (!run?.pendingApproval) return; setRunning(true); const result = await orchestrator.resolveApproval(run, input, { approved, token: run.pendingApproval.token }); onSaveRun(result); setCurrentRun(result); setRunning(false); };
   return <>
-    <div className="page-title"><div><h1>SEO Agent — {client.name}</h1><p>Definisci un obiettivo: l’agente pianifica e usa soltanto i dati locali necessari.</p></div><span className="status-badge"><ShieldCheck aria-hidden="true" /> Modalità assistita</span></div>
+    <div className="page-title"><div><h1>SEO Agent — {client.name}</h1><p>Definisci un obiettivo: l’agente pianifica e usa soltanto i dati necessari.</p></div><span className="status-badge"><ShieldCheck aria-hidden="true" /> {mode.replace("_", " ")}</span></div>
     <section className="panel agent-console">
+      <label htmlFor="seo-agent-mode">Modalità</label><select id="seo-agent-mode" value={mode} onChange={(event) => setMode(event.target.value)}><option value={AgentMode.READ_ONLY}>Sola lettura</option><option value={AgentMode.ASSISTED}>Assistita</option><option value={AgentMode.AUTONOMOUS}>Autonoma consentita</option></select>
       <label htmlFor="seo-agent-goal">Cosa vuoi ottenere?</label>
       <textarea id="seo-agent-goal" rows="3" value={goal} onChange={(event) => setGoal(event.target.value)} placeholder="Es. Trova le 10 migliori opportunità SEO" />
       <div className="agent-quick-actions">{quickGoals.map((item) => <button className="secondary" key={item} onClick={() => setGoal(item)}>{item}</button>)}</div>
-      <button className="primary" onClick={start} disabled={running || !goal.trim()}>{running ? <LoaderCircle className="spin" aria-hidden="true" /> : <Play aria-hidden="true" />}{running ? "Analisi…" : "Avvia analisi"}</button>
+      <div className="agent-controls"><button className="primary" onClick={start} disabled={running || !goal.trim()}>{running ? <LoaderCircle className="spin" aria-hidden="true" /> : <Play aria-hidden="true" />}{running ? "Analisi…" : "Avvia analisi"}</button>{running && run?.id && <button className="secondary" onClick={() => orchestrator.cancel(run.id)}>Interrompi</button>}</div>
     </section>
+    {savedRuns.length > 0 && <section className="panel"><div className="panel-head"><div><h2>Cronologia run</h2><p>Conservata per il progetto selezionato.</p></div></div><label htmlFor="agent-history">Esecuzione</label><select id="agent-history" value={selectedRunId} onChange={(event) => { setCurrentRun(null); setSelectedRunId(event.target.value); }}><option value="">Più recente</option>{savedRuns.filter(Boolean).map((item) => <option value={item.id} key={item.id}>{item.startedAt ? new Date(item.startedAt).toLocaleString("it-IT") : "Data sconosciuta"} · {item.status || "sconosciuto"}</option>)}</select>{run?.id && <button className="secondary" onClick={() => { onDeleteRun(run.id); setCurrentRun(null); setSelectedRunId(""); }}>Elimina run</button>}</section>}
     {run && <section className="panel agent-run" aria-live="polite">
       <div className="panel-head"><div><h2>{statusLabel[run.status] || run.status}</h2><p>{run.goal}</p></div><span className={`priority ${run.status === AgentStatus.COMPLETED ? "bassa" : "media"}`}>{run.status}</span></div>
       <ol className="agent-steps">{(run.plan?.steps || []).map((step) => <li key={step.id}>{step.status === "COMPLETED" ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}<span>{step.tool}</span></li>)}</ol>
       {run.errors?.length > 0 && <div className="empty-state"><p>{run.errors.join(" ")}</p></div>}
+      {run.status === AgentStatus.WAITING_APPROVAL && run.pendingApproval && <div className="agent-approval"><h3>Approvazione richiesta</h3><dl><dt>Tool</dt><dd>{run.pendingApproval.tool}</dd><dt>Rischio</dt><dd>{run.pendingApproval.risk || "non disponibile"}</dd><dt>Costo stimato</dt><dd>{run.pendingApproval.estimatedCost || 0}</dd><dt>Anteprima</dt><dd><pre>{JSON.stringify(run.pendingApproval.preview || {}, null, 2)}</pre></dd></dl><div className="agent-controls"><button className="primary" onClick={() => decide(true)}>Approva</button><button className="secondary" onClick={() => decide(false)}>Rifiuta</button></div></div>}
     </section>}
     {run?.recommendations?.length > 0 && <section className="agent-recommendations"><h2>Azioni prioritarie</h2>{run.recommendations.map((item) => <article className="panel agent-recommendation" key={item.id}>
       <div className="panel-head"><div><h3>{item.query || item.page || "Opportunità SEO"}</h3><p>{item.page}</p></div><span className="priority media">{item.priority}</span></div>
-      <p><strong>Evidenza:</strong> {item.evidence.map((entry) => `${entry.metric}: ${entry.value ?? "non disponibile"}`).join(" · ")}</p>
+      <p><strong>Evidenza:</strong> {(Array.isArray(item.evidence) ? item.evidence : []).map((entry) => `${entry?.metric || "dato"}: ${entry?.value ?? "non disponibile"}`).join(" · ") || "non disponibile"}</p>
       <p><strong>Interpretazione:</strong> {item.interpretation}</p><p><strong>Azione:</strong> {item.recommendation}</p>
-      <div className="agent-recommendation-footer"><small>Confidenza {item.confidence}% · Fonti: {item.sources.join(", ")}</small><button className="secondary" onClick={() => onCreateTask({ title: item.recommendation, priority: item.priority === "Quick Win" || item.priority === "Strategic" ? "Alta" : "Media", kind: "seo-agent", targetUrl: item.page, detail: `${item.interpretation}\n\nEvidenza: ${item.evidence.map((entry) => `${entry.metric}: ${entry.value ?? "non disponibile"}`).join(" · ")}\nFonti: ${item.sources.join(", ")}` })}>Crea task</button></div>
+      <div className="agent-recommendation-footer"><small>Confidenza {item.confidence ?? "—"}% · Fonti: {Array.isArray(item.sources) && item.sources.length ? item.sources.join(", ") : "non disponibili"}</small><button className="secondary" onClick={() => onCreateTask({ title: item.recommendation || "Rivedi raccomandazione SEO", priority: item.priority === "Quick Win" || item.priority === "Strategic" ? "Alta" : "Media", kind: "seo-agent", targetUrl: item.page, detail: `${item.interpretation || ""}\n\nEvidenza: ${(Array.isArray(item.evidence) ? item.evidence : []).map((entry) => `${entry?.metric || "dato"}: ${entry?.value ?? "non disponibile"}`).join(" · ")}\nFonti: ${(Array.isArray(item.sources) ? item.sources : []).join(", ")}` })}>Crea task</button></div>
     </article>)}</section>}
   </>;
 }
