@@ -4,12 +4,11 @@ import "./RemediationIntegrity.css";
 const DUPLICATE_TITLE = /title duplic|titolo duplic/i;
 const SHORT_CONTENT = /contenuto breve|short content|content.*parole|parole/i;
 const H1 = /\bh1\b/i;
+let recheckRunning = false;
+let recheckTimer = null;
 
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`;
 
-// Guardrail: un "Title duplicato" SEO riguarda il <title> del frontend e può essere
-// controllato da Rank Math/Yoast. L'adapter REST core modifica invece post.title.
-// Blocchiamo quindi la falsa correzione finché non esiste un adapter SEO-plugin dedicato.
 const originalFetch = window.fetch.bind(window);
 if (!window.fetch.__seogrowSeoTitleGuard) {
   const guardedFetch = async (input, init = {}) => {
@@ -39,10 +38,10 @@ if (!window.fetch.__seogrowSeoTitleGuard) {
 }
 
 async function recheckRecord(record) {
-  if (!record?.sourceUrl || record.status === "Ripristinato") return;
+  if (!record?.sourceUrl || record.status === "Ripristinato") return false;
   const text = issueText(record.issue || { label: record.issueLabel });
   const relevant = DUPLICATE_TITLE.test(text) || SHORT_CONTENT.test(text) || H1.test(text) || (record.fields || []).includes("title");
-  if (!relevant) return;
+  if (!relevant) return false;
   try {
     const response = await window.fetch("/api/wordpress/verify-frontend", {
       method: "POST",
@@ -53,30 +52,32 @@ async function recheckRecord(record) {
     if (!response.ok) throw new Error(data.error || "Verifica frontend non riuscita");
 
     if (DUPLICATE_TITLE.test(text)) {
-      if (data.titleMatchesExpected === false) {
-        await updateCorrection(record.id, {
-          status: "Non applicato al frontend",
-          frontendConfirmed: false,
-          verifiedAt: new Date().toISOString(),
-          verificationNote: `WordPress ha modificato il titolo del contenuto, ma il <title> SEO pubblico è ancora “${data.title || "non rilevato"}”. La correzione del duplicato NON è confermata.`,
-          frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
-        });
-      } else {
-        await updateCorrection(record.id, {
-          status: "Da verificare",
-          frontendConfirmed: true,
-          verifiedAt: new Date().toISOString(),
-          verificationNote: "Il title frontend coincide con il valore inviato, ma il problema di duplicazione richiede comunque un crawl completo del sito.",
-          frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
-        });
-      }
-      return;
+      const patch = data.titleMatchesExpected === false
+        ? {
+            status: "Non applicato al frontend",
+            frontendConfirmed: false,
+            verificationNote: `WordPress ha modificato il titolo del contenuto, ma il <title> SEO pubblico è ancora “${data.title || "non rilevato"}”. La correzione del duplicato NON è confermata.`,
+          }
+        : {
+            status: "Da verificare",
+            frontendConfirmed: true,
+            verificationNote: "Il title frontend coincide con il valore inviato, ma il problema di duplicazione richiede comunque un crawl completo del sito.",
+          };
+      const changed = record.status !== patch.status || record.frontendConfirmed !== patch.frontendConfirmed || record.frontendSnapshot?.title !== data.title;
+      if (changed) await updateCorrection(record.id, {
+        ...patch,
+        verifiedAt: new Date().toISOString(),
+        frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
+      });
+      return changed;
     }
 
     if (SHORT_CONTENT.test(text)) {
       const fixed = data.pageKind === "gdpr" || Number(data.words) >= Number(data.minimumWords || 180);
-      await updateCorrection(record.id, {
-        status: fixed ? "Verificato" : "Non applicato al frontend",
+      const nextStatus = fixed ? "Verificato" : "Non applicato al frontend";
+      const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || Number(record.frontendSnapshot?.words) !== Number(data.words);
+      if (changed) await updateCorrection(record.id, {
+        status: nextStatus,
         frontendConfirmed: fixed,
         verifiedAt: new Date().toISOString(),
         verificationNote: fixed
@@ -84,13 +85,15 @@ async function recheckRecord(record) {
           : `La pagina pubblica contiene ancora ${data.words} parole (soglia ${data.minimumWords}). La correzione non è confermata nel frontend.`,
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
-      return;
+      return changed;
     }
 
     if (H1.test(text)) {
       const fixed = Number(data.h1) === 1;
-      await updateCorrection(record.id, {
-        status: fixed ? "Verificato" : "Non applicato al frontend",
+      const nextStatus = fixed ? "Verificato" : "Non applicato al frontend";
+      const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || Number(record.frontendSnapshot?.h1) !== Number(data.h1);
+      if (changed) await updateCorrection(record.id, {
+        status: nextStatus,
         frontendConfirmed: fixed,
         verifiedAt: new Date().toISOString(),
         verificationNote: fixed
@@ -98,38 +101,53 @@ async function recheckRecord(record) {
           : `Frontend non corretto: risultano ${data.h1} H1.`,
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
-      return;
+      return changed;
     }
 
     if ((record.fields || []).includes("title") && data.titleMatchesExpected === false) {
-      await updateCorrection(record.id, {
+      const changed = record.status !== "Non applicato al frontend" || record.frontendSnapshot?.title !== data.title;
+      if (changed) await updateCorrection(record.id, {
         status: "Non applicato al frontend",
         frontendConfirmed: false,
         verifiedAt: new Date().toISOString(),
         verificationNote: `Il titolo WordPress è stato scritto, ma il <title> pubblico è “${data.title || "non rilevato"}”.`,
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
+      return changed;
     }
+    return false;
   } catch (error) {
-    await updateCorrection(record.id, {
-      status: record.status === "Verificato" ? "Da verificare" : record.status,
-      verificationNote: `Verifica frontend non conclusa: ${error.message}`,
-    });
+    if (record.status === "Verificato") {
+      await updateCorrection(record.id, {
+        status: "Da verificare",
+        verificationNote: `Verifica frontend non conclusa: ${error.message}`,
+      });
+      return true;
+    }
+    return false;
   }
 }
 
 async function recheckCorrections() {
+  if (recheckRunning) return;
+  recheckRunning = true;
   try {
     const rows = await listCorrections();
     for (const record of rows.slice(0, 80)) await recheckRecord(record);
   } catch (error) {
     console.warn("Controllo integrità remediation non eseguito:", error);
+  } finally {
+    recheckRunning = false;
   }
 }
 
-window.addEventListener("load", () => {
-  window.setTimeout(() => void recheckCorrections(), 800);
-}, { once: true });
-window.addEventListener("seogrow-remediation-history", () => {
-  window.setTimeout(() => void recheckCorrections(), 300);
-});
+const scheduleRecheck = (delay = 500) => {
+  if (recheckRunning || recheckTimer) return;
+  recheckTimer = window.setTimeout(() => {
+    recheckTimer = null;
+    void recheckCorrections();
+  }, delay);
+};
+
+window.addEventListener("load", () => scheduleRecheck(800), { once: true });
+window.addEventListener("seogrow-remediation-applied", () => scheduleRecheck(500));
