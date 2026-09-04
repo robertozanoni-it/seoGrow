@@ -1,4 +1,6 @@
 const PATCHED = Symbol.for("seogrow.seoResponseIntegrity");
+const SITE_HISTORY_KEY = "seogrow-analyses-v2";
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v2";
 
 const requestPath = (input) => {
   try {
@@ -59,6 +61,13 @@ const transientTargetSet = (links) =>
       .filter(Boolean),
   );
 
+const issueLooksTransientLink = (issue) => {
+  if (!["broken-link", "broken-external-link"].includes(issue?.type)) return false;
+  const text = `${issue?.label || ""} ${issue?.detail || ""}`;
+  const status = Number(text.match(/\b(?:HTTP\s*)?(\d{3})\b/i)?.[1]);
+  return Number.isFinite(status) && ![404, 410].includes(status);
+};
+
 const normalizeSiteAnalysis = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) return data;
 
@@ -89,11 +98,13 @@ const normalizeSiteAnalysis = (data) => {
   const rawFailures = Array.isArray(data.failures) ? data.failures : [];
   const exclusions = rawFailures.filter(robotsExclusion);
   const operationalFailures = rawFailures.filter((failure) => !robotsExclusion(failure));
+  data.failures = operationalFailures;
   data.pagesFailed = operationalFailures.length;
   data.crawlExclusions = exclusions;
 
   const rawIssues = Array.isArray(data.issues) ? data.issues : [];
   data.issues = rawIssues.filter((issue) => {
+    if (issueLooksTransientLink(issue)) return false;
     const target = normalizeUrl(issue?.targetUrl || "");
     if (issue?.type === "broken-link" && transientInternalTargets.has(target)) return false;
     if (
@@ -112,30 +123,63 @@ const normalizeSiteAnalysis = (data) => {
   return data;
 };
 
-const originalFetch = window.fetch.bind(window);
-if (!window.fetch[PATCHED]) {
-  const integrityFetch = async (input, init = {}) => {
-    const response = await originalFetch(input, init);
-    if (!response.ok || requestPath(input) !== "/api/site-analysis") return response;
-
-    let data;
-    try {
-      data = await response.clone().json();
-    } catch {
-      return response;
+const normalizeStoredHistory = () => {
+  if (typeof window === "undefined") return;
+  try {
+    if (localStorage.getItem(HISTORY_MIGRATION_KEY) === "1") return;
+    const raw = localStorage.getItem(SITE_HISTORY_KEY);
+    if (!raw) {
+      localStorage.setItem(HISTORY_MIGRATION_KEY, "1");
+      return;
     }
+    const history = JSON.parse(raw);
+    if (!history || typeof history !== "object" || Array.isArray(history)) return;
+    const normalized = Object.fromEntries(
+      Object.entries(history).map(([clientId, value]) => [
+        clientId,
+        Array.isArray(value)
+          ? value.map((item) => normalizeSiteAnalysis({ ...item }))
+          : value,
+      ]),
+    );
+    localStorage.setItem(SITE_HISTORY_KEY, JSON.stringify(normalized));
+    localStorage.setItem(HISTORY_MIGRATION_KEY, "1");
+    window.dispatchEvent(new StorageEvent("storage", {
+      key: SITE_HISTORY_KEY,
+      newValue: JSON.stringify(normalized),
+    }));
+  } catch (error) {
+    console.warn("Normalizzazione storico audit non completata:", error);
+  }
+};
 
-    const normalized = normalizeSiteAnalysis(data);
-    const headers = new Headers(response.headers);
-    headers.set("content-type", "application/json; charset=utf-8");
-    return new Response(JSON.stringify(normalized), {
-      status: response.status,
-      statusText: response.statusText,
-      headers,
-    });
-  };
-  integrityFetch[PATCHED] = true;
-  window.fetch = integrityFetch;
+if (typeof window !== "undefined") {
+  normalizeStoredHistory();
+  const originalFetch = window.fetch.bind(window);
+  if (!window.fetch[PATCHED]) {
+    const integrityFetch = async (input, init = {}) => {
+      const response = await originalFetch(input, init);
+      if (!response.ok || requestPath(input) !== "/api/site-analysis") return response;
+
+      let data;
+      try {
+        data = await response.clone().json();
+      } catch {
+        return response;
+      }
+
+      const normalized = normalizeSiteAnalysis(data);
+      const headers = new Headers(response.headers);
+      headers.set("content-type", "application/json; charset=utf-8");
+      return new Response(JSON.stringify(normalized), {
+        status: response.status,
+        statusText: response.statusText,
+        headers,
+      });
+    };
+    integrityFetch[PATCHED] = true;
+    window.fetch = integrityFetch;
+  }
 }
 
 export { normalizeSiteAnalysis };
