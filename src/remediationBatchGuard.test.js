@@ -17,11 +17,11 @@ const extract = (name) => {
   return match[1];
 };
 
-test("il batch guard blocca contenuti WordPress non draft prima della generazione AI", () => {
+test("il batch guard lascia passare contenuti pubblicati verso la remediation in bozza", () => {
   const body = extract("shouldBlockGenerationForStatus");
-  assert.match(body, /normalized !== "draft"/);
-  assert.match(source, /DRAFT_REQUIRED/);
-  assert.match(source, /Remediation automatica bloccata/);
+  assert.match(body, /trash/);
+  assert.doesNotMatch(body, /normalized !== "draft"/);
+  assert.match(source, /UNSAFE_SOURCE_STATUS/);
 });
 
 test("il batch guard ricava il target dal contesto remediation", () => {
