@@ -7,7 +7,7 @@ const HOOKED = Symbol.for("seogrow.wordpressLiveApprovalHook");
 const USE_PATCHED = Symbol.for("seogrow.wordpressLiveApprovalUsePatched");
 const LISTEN_PATCHED = Symbol.for("seogrow.wordpressLiveApprovalListenPatched");
 const APPROVALS = new Map();
-const TTL_MS = 10 * 60_000;
+const TTL_MS = 30 * 60_000;
 const RATE = new Map();
 
 const META_KEYS = new Set([
@@ -157,10 +157,13 @@ function afterState(entity, changes) {
 }
 
 function snapshotHash(entity, changes) {
+  // Lock ottimistico per i soli campi che questa correzione sta per modificare.
+  // Una modifica indipendente (es. canonical) non deve invalidare una seconda anteprima
+  // sulla stessa pagina (es. meta description). Se invece cambia il campo target,
+  // selectedState cambia e la scrittura viene ancora bloccata come stale.
   const payload = {
     id: Number(entity?.id || 0),
     status: String(entity?.status || ""),
-    modified: String(entity?.modified_gmt || entity?.modified || ""),
     selected: selectedState(entity, changes),
   };
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
@@ -266,7 +269,7 @@ function registerRoutes(app) {
       const headers = authHeaders(username, applicationPassword);
       const current = await loadEntity(base, headers, approval.resource, approval.id);
       if (snapshotHash(current, approval.changes) !== approval.snapshotHash)
-        return res.status(409).json({ error: "Il contenuto WordPress è cambiato dopo l'anteprima. Nessuna modifica applicata: rigenera l'anteprima.", code: "STALE_PREVIEW" });
+        return res.status(409).json({ error: "Il campo WordPress da modificare è cambiato dopo l'anteprima. Nessuna modifica applicata: rigenera l'anteprima.", code: "STALE_PREVIEW" });
 
       const update = await json(await wpFetch(endpoint(base, approval.resource, `/${approval.id}`), {
         method: "POST",
