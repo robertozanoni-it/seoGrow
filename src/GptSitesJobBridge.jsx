@@ -60,18 +60,7 @@ const resolvePortalTarget = () => {
     page = "";
   }
   if (page !== "Audit SEO") return null;
-
-  const root = document.querySelector(".audit-enhancer-root");
-  if (!root) return null;
-
-  let slot = root.querySelector(".gptsites-bulk-slot");
-  const issuesPanel = root.querySelector(".audit-issues-list");
-  if (!slot && issuesPanel?.parentNode) {
-    slot = document.createElement("div");
-    slot.className = "gptsites-bulk-slot";
-    issuesPanel.parentNode.insertBefore(slot, issuesPanel);
-  }
-  return slot || root;
+  return document.querySelector(".audit-enhancer-root .gptsites-bulk-slot");
 };
 
 export default function GptSitesJobBridge() {
@@ -83,16 +72,21 @@ export default function GptSitesJobBridge() {
 
   useEffect(() => {
     const sync = () => {
-      const nextTarget = resolvePortalTarget();
-      setTarget(nextTarget);
+      setTarget(resolvePortalTarget());
       setVersion((value) => value + 1);
     };
     sync();
+    const observer = new MutationObserver(() => {
+      const nextTarget = resolvePortalTarget();
+      setTarget((current) => (nextTarget === current ? current : nextTarget));
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("hashchange", sync);
     window.addEventListener("storage", sync);
     window.addEventListener("seogrow-locationchange", sync);
     window.addEventListener("seogrow-remediation-open", sync);
     return () => {
+      observer.disconnect();
       window.removeEventListener("hashchange", sync);
       window.removeEventListener("storage", sync);
       window.removeEventListener("seogrow-locationchange", sync);
@@ -111,11 +105,6 @@ export default function GptSitesJobBridge() {
     () => issueUrl(firstIssue, latest?.item, client),
     [firstIssue, latest?.item, client, version],
   );
-
-  useEffect(() => {
-    const nextTarget = resolvePortalTarget();
-    if (nextTarget && nextTarget !== target) setTarget(nextTarget);
-  }, [target, version]);
 
   if (!target || !client || !latest?.item || !issues.length) return null;
 
