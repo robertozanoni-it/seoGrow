@@ -23,19 +23,6 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Verify package and lockfile version
-        run: |
-          node - <<'NODE'
-          const pkg = require('./package.json');
-          const lock = require('./package-lock.json');
-          const root = lock.packages?.['']?.version;
-          if (lock.version !== pkg.version || root !== pkg.version) {
-            console.error(`Version mismatch: package=${pkg.version}, lock=${lock.version}, lock-root=${root}`);
-            process.exit(1);
-          }
-          console.log(`Version ${pkg.version} is consistent.`);
-          NODE
-
       - name: Install exact dependencies
         run: npm ci --ignore-scripts
 
@@ -62,3 +49,16 @@ jobs:
             echo "$tracked"
             exit 1
           fi
+
+      - name: Verify package and lockfile version
+        run: |
+          node - <<'NODE'
+          const pkg = require('./package.json');
+          const lock = require('./package-lock.json');
+          const root = lock.packages?.['']?.version;
+          if (lock.version !== pkg.version || root !== pkg.version) {
+            console.error(`Version mismatch: package=${pkg.version}, lock=${lock.version}, lock-root=${root}`);
+            process.exit(1);
+          }
+          console.log(`Version ${pkg.version} is consistent.`);
+          NODE
