@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, ExternalLink, Plug, Sparkles, Wrench } from "lucide-react";
 import { apiFetch } from "./api";
@@ -48,18 +48,33 @@ const platformMeta = {
   },
 };
 
-const latestAudit = (clientId) => {
+const auditCandidates = (clientId) => {
   const pages = readJson(PAGE_HISTORY_KEY, {})[clientId] || [];
   const sites = normalizeAnalysisHistory(readJson(SITE_HISTORY_KEY, {})[clientId]);
-  const candidates = [
+  return [
     ...(Array.isArray(pages) ? pages.map((item) => ({ type: "page", item })) : []),
     ...sites.map((item) => ({ type: "site", item })),
-  ];
-  return candidates.toSorted(
+  ].toSorted(
     (a, b) =>
       Date.parse(b.item?.analyzedAt || b.item?.startedAt || 0) -
       Date.parse(a.item?.analyzedAt || a.item?.startedAt || 0),
-  )[0] || null;
+  );
+};
+
+const latestAudit = (clientId) => auditCandidates(clientId)[0] || null;
+
+const requestedAudit = (clientId, request) => {
+  if (!request || Number(request.clientId) !== Number(clientId)) return null;
+  const candidates = auditCandidates(clientId);
+  const wantedTime = String(request.analyzedAt || "");
+  const wantedType = request.auditType;
+  return (
+    candidates.find(
+      ({ type, item }) =>
+        (!wantedType || type === wantedType) &&
+        (!wantedTime || String(item?.analyzedAt || item?.startedAt || "") === wantedTime),
+    ) || candidates.find(({ type }) => !wantedType || type === wantedType) || null
+  );
 };
 
 const inferPlatform = (clientId) => {
@@ -88,18 +103,30 @@ const buildFallbackPrompt = ({ client, issue, auditType, platform }) => {
   return `MODIFICA SEO MIRATA — ${meta.label} — ${client.name}\n\nPagina: ${issueUrl}\nProblema SEO rilevato: ${issue.label || "Problema SEO"}\nDettaglio: ${issue.detail || "Nessun dettaglio aggiuntivo disponibile."}\nSeverità: ${issue.severity || "media"}\nOrigine: audit ${auditType === "page" ? "pagina" : "sito completo"}.\n\nOBIETTIVO\nCorreggi esclusivamente il problema indicato sulla pagina specificata.\n\nREGOLE DESTINAZIONE\n${destinationRules}\n\nVINCOLI\n- Non modificare ciò che non è coinvolto.\n- Non inventare dati, recensioni, credenziali o prove sociali.\n- Non pubblicare automaticamente modifiche strutturali o ad alto rischio.\n- Redirect, canonical, noindex, sitemap, robots e cancellazioni richiedono approvazione esplicita.\n- Mostra sempre cosa intendi cambiare prima dell'applicazione quando la modifica può avere impatto strutturale.\n\nVERIFICA\nDopo la modifica, indica esattamente cosa è cambiato e lascia la pagina pronta per un nuovo audit SeoGrow.`;
 };
 
-function RemediationPanelView({ client, clientId, auditType, audit }) {
+function RemediationPanelView({ client, clientId, auditType, audit, initialIssueIndex = 0, requestNonce = 0 }) {
   const issues = Array.isArray(audit?.issues) ? audit.issues : [];
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  const safeInitialIndex = Math.min(Math.max(Number(initialIssueIndex) || 0, 0), Math.max(issues.length - 1, 0));
+  const [selectedIndex, setSelectedIndex] = useState(safeInitialIndex);
   const [platform, setPlatform] = useState(() => inferPlatform(clientId));
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [verification, setVerification] = useState("");
+  const panelRef = useRef(null);
   const issue = issues[selectedIndex] || null;
   const meta = platformMeta[platform] || platformMeta.manual;
   const wpProfile = readJson(WORDPRESS_PROFILES_KEY, {})[clientId] || null;
   const highRisk = isHighRiskIssue(issue);
+
+  useEffect(() => {
+    const nextIndex = Math.min(Math.max(Number(initialIssueIndex) || 0, 0), Math.max(issues.length - 1, 0));
+    setSelectedIndex(nextIndex);
+    window.setTimeout(() => {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      panelRef.current?.classList.add("remediation-focus");
+      window.setTimeout(() => panelRef.current?.classList.remove("remediation-focus"), 1600);
+    }, 40);
+  }, [initialIssueIndex, requestNonce, issues.length]);
 
   useEffect(() => {
     setPrompt("");
@@ -193,10 +220,6 @@ function RemediationPanelView({ client, clientId, auditType, audit }) {
       );
       return;
     }
-    if (platform === "gptsites") {
-      await copyPrompt();
-      return;
-    }
     await copyPrompt();
   };
 
@@ -229,7 +252,7 @@ function RemediationPanelView({ client, clientId, auditType, audit }) {
   if (!issues.length) return null;
 
   return (
-    <section className="panel remediation-panel">
+    <section ref={panelRef} className="panel remediation-panel">
       <div className="panel-head">
         <div>
           <h2>Correzioni SEO</h2>
@@ -271,16 +294,16 @@ function RemediationPanelView({ client, clientId, auditType, audit }) {
       </div>
 
       <div className="remediation-actions">
-        <button className="primary" onClick={routeAction} disabled={loading}>
+        <button type="button" className="primary" onClick={routeAction} disabled={loading}>
           <Sparkles />{loading ? "Preparazione…" : meta.action}
         </button>
-        <button className="secondary" onClick={prepare} disabled={loading || !issue}>
+        <button type="button" className="secondary" onClick={prepare} disabled={loading || !issue}>
           <Wrench />Prepara patch AI
         </button>
-        <button className="secondary" onClick={copyPrompt} disabled={!issue}>
+        <button type="button" className="secondary" onClick={copyPrompt} disabled={!issue}>
           <Copy />Copia istruzioni
         </button>
-        <button className="secondary" onClick={verify} disabled={!issue}>
+        <button type="button" className="secondary" onClick={verify} disabled={!issue}>
           <Check />Verifica correzione
         </button>
       </div>
@@ -314,6 +337,7 @@ function RemediationPanelView({ client, clientId, auditType, audit }) {
 export default function AuditRemediationPanel() {
   const [target, setTarget] = useState(null);
   const [version, setVersion] = useState(0);
+  const [request, setRequest] = useState(null);
 
   useEffect(() => {
     const sync = () => {
@@ -323,14 +347,21 @@ export default function AuditRemediationPanel() {
       setTarget(page === "Audit SEO" ? root : null);
       setVersion((value) => value + 1);
     };
+    const openRequested = (event) => {
+      const detail = event.detail || {};
+      setRequest({ ...detail, nonce: Date.now() });
+      sync();
+    };
     sync();
     window.addEventListener("hashchange", sync);
     window.addEventListener("storage", sync);
     window.addEventListener("seogrow-locationchange", sync);
+    window.addEventListener("seogrow-remediation-open", openRequested);
     return () => {
       window.removeEventListener("hashchange", sync);
       window.removeEventListener("storage", sync);
       window.removeEventListener("seogrow-locationchange", sync);
+      window.removeEventListener("seogrow-remediation-open", openRequested);
     };
   }, []);
 
@@ -338,16 +369,20 @@ export default function AuditRemediationPanel() {
   const clients = readJson(CLIENTS_KEY, []);
   const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, clients[0]?.id));
   const client = clients.find((item) => item.id === selectedClientId) || clients[0];
-  const latest = client ? latestAudit(selectedClientId) : null;
-  if (!client || !latest?.item) return null;
+  const selectedAudit = client
+    ? requestedAudit(selectedClientId, request) || latestAudit(selectedClientId)
+    : null;
+  if (!client || !selectedAudit?.item) return null;
 
   return createPortal(
     <RemediationPanelView
-      key={`${selectedClientId}-${latest.item.analyzedAt || latest.item.startedAt}-${version}`}
+      key={`${selectedClientId}-${selectedAudit.item.analyzedAt || selectedAudit.item.startedAt}-${version}-${request?.nonce || 0}`}
       client={client}
       clientId={selectedClientId}
-      auditType={latest.type}
-      audit={latest.item}
+      auditType={selectedAudit.type}
+      audit={selectedAudit.item}
+      initialIssueIndex={request?.issueIndex || 0}
+      requestNonce={request?.nonce || 0}
     />,
     target,
   );
