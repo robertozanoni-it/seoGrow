@@ -1,6 +1,7 @@
 const DB_NAME = "seogrow-remediation";
 const DB_VERSION = 1;
 const STORE_NAME = "corrections";
+const CLIENTS_KEY = "seogrow-clients";
 
 export const REMEDIATION_INDEX_KEY = "seogrow-remediation-history-v1";
 export const REMEDIATION_LAST_BATCH_KEY = "seogrow-remediation-last-batch-v1";
@@ -94,6 +95,16 @@ const replaceIndex = (records) => {
   window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { restored: true } }));
 };
 
+const activeClientIds = () => {
+  const clients = readJson(CLIENTS_KEY, []);
+  if (!Array.isArray(clients) || !clients.length) return null;
+  return new Set(
+    clients
+      .map((client) => Number(client?.id))
+      .filter((id) => Number.isSafeInteger(id) && id > 0),
+  );
+};
+
 export const remediationIndex = () => readJson(REMEDIATION_INDEX_KEY, []);
 
 export async function saveCorrection(record) {
@@ -124,8 +135,10 @@ export async function updateCorrection(id, patch) {
   return next;
 }
 
-export async function listCorrections({ clientId, batchId } = {}) {
+export async function listCorrections({ clientId, batchId, includeOrphans = false } = {}) {
+  const validClients = includeOrphans ? null : activeClientIds();
   const index = remediationIndex().filter((item) =>
+    (validClients == null || validClients.has(Number(item.clientId))) &&
     (clientId == null || Number(item.clientId) === Number(clientId)) &&
     (!batchId || item.batchId === batchId),
   );
