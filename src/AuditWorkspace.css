@@ -96,6 +96,46 @@
 
 .audit-persistent-results {
   scroll-margin-top: 88px;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: stretch;
+}
+
+.audit-persistent-results > .score-panel,
+.audit-persistent-results > .gptsites-bulk-slot,
+.audit-persistent-results > .audit-issues-list,
+.audit-persistent-results > .audit-details {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.audit-persistent-results > .score-panel {
+  min-height: 0;
+  padding: 18px 22px;
+  border-radius: 14px;
+  background: linear-gradient(90deg, rgba(22,160,93,.055), rgba(36,119,238,.025));
+  border: 1px solid rgba(22,160,93,.16);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.audit-persistent-results > .score-panel .score-ring {
+  flex: 0 0 auto;
+}
+
+.audit-persistent-results > .score-panel > div:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.audit-persistent-results > .score-panel h2,
+.audit-persistent-results > .score-panel p {
+  margin: 0;
+}
+
+.audit-persistent-results > .gptsites-bulk-slot {
+  display: block;
 }
 
 .audit-issues-list > div:not(.panel-head):not(.success) {
@@ -127,6 +167,11 @@
 @media (max-width: 760px) {
   .audit-mode-grid {
     grid-template-columns: 1fr;
+  }
+
+  .audit-persistent-results > .score-panel {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .audit-issues-list > div:not(.panel-head):not(.success) {
