@@ -24,6 +24,8 @@ const resolveTarget = () =>
     ? null
     : document.querySelector(".audit-unified-remediation");
 
+const auditTimestamp = (entry) => entry?.item?.analyzedAt || entry?.item?.startedAt || "";
+
 const candidates = (clientId) => {
   const pages = readJson(PAGE_HISTORY_KEY, {})[clientId] || [];
   const sites = normalizeAnalysisHistory(readJson(SITE_HISTORY_KEY, {})[clientId]);
@@ -31,15 +33,27 @@ const candidates = (clientId) => {
     ...(Array.isArray(pages) ? pages.map((item) => ({ type: "page", item })) : []),
     ...sites.map((item) => ({ type: "site", item })),
   ].toSorted(
-    (a, b) => Date.parse(b.item?.analyzedAt || b.item?.startedAt || 0) - Date.parse(a.item?.analyzedAt || a.item?.startedAt || 0),
+    (a, b) => Date.parse(auditTimestamp(b) || 0) - Date.parse(auditTimestamp(a) || 0),
   );
+};
+
+const selectAudit = (clientId, requested) => {
+  const list = candidates(clientId);
+  if (!requested || Number(requested.clientId) !== Number(clientId)) return list[0] || null;
+  return list.find((entry) =>
+    entry.type === requested.auditType &&
+    String(auditTimestamp(entry)) === String(requested.analyzedAt || ""),
+  ) || list[0] || null;
 };
 
 const issueUrl = (issue, audit, client) =>
   issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
 
+const issueText = (issue) =>
+  `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+
 const classifyIssue = (issue) => {
-  const text = `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+  const text = issueText(issue);
   if (/meta description/.test(text)) return "meta_description";
   if (/canonical/.test(text)) return "canonical";
   if (/noindex/.test(text)) return "noindex";
@@ -131,7 +145,7 @@ async function inspectWordPress(targetUrl, credentials) {
 }
 
 async function verifyCoreOwnership(kind, targetUrl, inspected) {
-  if (!["title", "content", "h1"].includes(kind)) return { ok: true };
+  if (!["title", "content", "h1"].includes(kind)) return { ok: true, frontend: null };
   const entity = inspected.entity || {};
   const expected = kind === "title"
     ? { title: entity.title?.raw || entity.title?.rendered || "" }
@@ -143,13 +157,40 @@ async function verifyCoreOwnership(kind, targetUrl, inspected) {
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Controllo ownership frontend non riuscito.");
-  if (kind === "title") return { ok: data.titleMatchesExpected === true };
+  if (kind === "title") return { ok: data.titleMatchesExpected === true, frontend: data };
   if (kind === "h1") {
     const coreH1 = countH1(entity.content?.raw || entity.content?.rendered || "");
-    return { ok: data.contentProbeVisible === true && Number(data.h1) === coreH1 };
+    const frontendH1 = Number(data.h1);
+    return {
+      ok: data.contentProbeVisible === true && frontendH1 === coreH1,
+      frontend: data,
+      coreH1,
+      frontendH1,
+    };
   }
-  return { ok: data.contentProbeVisible === true };
+  return { ok: data.contentProbeVisible === true, frontend: data };
 }
+
+const alreadyResolvedReason = (kind, issue, ownership) => {
+  const frontend = ownership?.frontend;
+  if (!frontend) return "";
+  if (kind === "h1") {
+    const label = String(issue?.label || "");
+    const claimedMissing = /\b0\s*H1\b/i.test(label);
+    const claimedMultiple = /\b(?:[2-9]|[1-9]\d+)\s*H1\b/i.test(label);
+    if ((claimedMissing || claimedMultiple) && Number(frontend.h1) === 1) {
+      return "Il problema H1 dell’audit non è più presente: il frontend corrente contiene esattamente 1 H1. Esegui un nuovo audit per aggiornare il report.";
+    }
+  }
+  if (kind === "content" && /brev|parole|word/.test(issueText(issue))) {
+    const words = Number(frontend.words);
+    const minimumWords = Number(frontend.minimumWords);
+    if (Number.isFinite(words) && Number.isFinite(minimumWords) && minimumWords > 0 && words >= minimumWords) {
+      return `Il problema di contenuto breve non è più presente: il frontend corrente contiene ${words} parole (soglia ${minimumWords}). Esegui un nuovo audit per aggiornare il report.`;
+    }
+  }
+  return "";
+};
 
 async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride) {
   const response = await apiFetch("/api/wordpress/generate-patch", {
@@ -232,6 +273,8 @@ async function buildPlan(kind, issue, inspected, targetUrl) {
 
   if (["content", "h1", "title"].includes(kind)) {
     const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
+    const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
+    if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
     if (ownership.ok) {
       return {
         adapter: "WordPress core",
@@ -267,7 +310,7 @@ async function buildPlan(kind, issue, inspected, targetUrl) {
   if (kind === "canonical") {
     const plugin = metaKey(entity, kind);
     if (!plugin) throw new Error("Rank Math/Yoast non espongono la canonical come campo REST scrivibile per questa pagina.");
-    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: targetUrl } } };
+    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: targetUrl } };
   }
 
   if (kind === "noindex") {
@@ -294,12 +337,43 @@ const flattenState = (state, fields) => {
   return flat;
 };
 
+const compactPreviewValue = (value) => {
+  if (Array.isArray(value)) return value;
+  if (value && typeof value === "object") return value;
+  const text = String(value ?? "");
+  if (text.length <= 1400) return text || "(vuoto)";
+  return `${text.slice(0, 900)}\n…\n${text.slice(-420)}`;
+};
+
+const localPreview = (entity, changes) => {
+  const before = {};
+  const after = {};
+  for (const key of ["title", "content", "excerpt"]) {
+    if (changes?.[key] === undefined) continue;
+    before[key] = compactPreviewValue(entity?.[key]?.raw ?? entity?.[key]?.rendered ?? "");
+    after[key] = compactPreviewValue(changes[key]);
+  }
+  if (changes?.meta) {
+    before.meta = {};
+    after.meta = {};
+    for (const [key, value] of Object.entries(changes.meta)) {
+      before.meta[key] = compactPreviewValue(entity?.meta?.[key] ?? "");
+      after.meta[key] = compactPreviewValue(value);
+    }
+  }
+  return { before, after };
+};
+
+const hasUsefulPreview = (value) => value && typeof value === "object" && Object.keys(value).length > 0;
+const previewText = (value) => JSON.stringify(value, null, 2) || "(anteprima non disponibile)";
+
 export default function WordPressLiveRemediationControl() {
   const [target, setTarget] = useState(() => resolveTarget());
   const [running, setRunning] = useState(false);
   const [applying, setApplying] = useState(false);
   const [results, setResults] = useState([]);
   const [message, setMessage] = useState("");
+  const [requestedAudit, setRequestedAudit] = useState(null);
 
   useEffect(() => {
     const sync = () => setTarget((current) => {
@@ -313,6 +387,20 @@ export default function WordPressLiveRemediationControl() {
       window.clearTimeout(timer);
       observer.disconnect();
     };
+  }, []);
+
+  useEffect(() => {
+    const open = (event) => {
+      const detail = event?.detail || {};
+      setRequestedAudit({
+        clientId: Number(detail.clientId),
+        issueIndex: Number(detail.issueIndex || 0),
+        auditType: detail.auditType || "page",
+        analyzedAt: detail.analyzedAt || "",
+      });
+    };
+    window.addEventListener("seogrow-remediation-open", open);
+    return () => window.removeEventListener("seogrow-remediation-open", open);
   }, []);
 
   useEffect(() => {
@@ -342,9 +430,9 @@ export default function WordPressLiveRemediationControl() {
     const clients = readJson(CLIENTS_KEY, []);
     const clientId = Number(readJson(SELECTED_CLIENT_KEY, clients[0]?.id));
     const client = clients.find((item) => Number(item.id) === clientId) || clients[0];
-    const latest = client ? candidates(clientId)[0] : null;
-    const issues = Array.isArray(latest?.item?.issues) ? latest.item.issues : [];
-    return { clientId, client, latest, issues };
+    const audit = client ? selectAudit(clientId, requestedAudit) : null;
+    const issues = Array.isArray(audit?.item?.issues) ? audit.item.issues : [];
+    return { clientId, client, audit, issues };
   };
 
   const prepare = async (all) => {
@@ -354,12 +442,15 @@ export default function WordPressLiveRemediationControl() {
       return;
     }
     const context = currentContext();
-    if (!context.client || !context.latest || !context.issues.length) {
+    if (!context.client || !context.audit || !context.issues.length) {
       setMessage("Nessun audit con problemi disponibile per il cliente corrente.");
       return;
     }
-    const selectedIndex = Number(document.querySelector(".audit-issue-select select")?.value || 0);
-    const selected = all ? context.issues : [context.issues[selectedIndex]].filter(Boolean);
+    const domIndex = Number(document.querySelector(".audit-issue-select select")?.value || 0);
+    const requestedIndex = requestedAudit && Number(requestedAudit.clientId) === Number(context.clientId)
+      ? Number(requestedAudit.issueIndex || 0)
+      : domIndex;
+    const selected = all ? context.issues : [context.issues[requestedIndex]].filter(Boolean);
     setRunning(true);
     setResults([]);
     const next = [];
@@ -369,9 +460,14 @@ export default function WordPressLiveRemediationControl() {
       try {
         const kind = classifyIssue(currentIssue);
         if (!kind) throw new Error("Questo problema non dispone ancora di un adapter WordPress applicabile.");
-        const targetUrl = issueUrl(currentIssue, context.latest.item, context.client);
+        const targetUrl = issueUrl(currentIssue, context.audit.item, context.client);
         const inspected = await inspectWordPress(targetUrl, credentials);
         const plan = await buildPlan(kind, currentIssue, inspected, targetUrl);
+        if (plan.alreadyResolved) {
+          next.push({ status: "resolved", issue: currentIssue, targetUrl, reason: plan.reason });
+          setResults([...next]);
+          continue;
+        }
         const response = await apiFetch("/api/wordpress/live-preview", {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -389,6 +485,9 @@ export default function WordPressLiveRemediationControl() {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Anteprima WordPress non riuscita.");
+        const fallback = localPreview(inspected.entity || {}, plan.changes || {});
+        if (!hasUsefulPreview(data.previewBefore)) data.previewBefore = fallback.before;
+        if (!hasUsefulPreview(data.previewAfter)) data.previewAfter = fallback.after;
         next.push({ status: "preview", issue: currentIssue, targetUrl, plan, data });
       } catch (error) {
         next.push({
@@ -400,11 +499,12 @@ export default function WordPressLiveRemediationControl() {
       setResults([...next]);
     }
     const ready = next.filter((item) => item.status === "preview").length;
-    const skipped = next.length - ready;
+    const resolved = next.filter((item) => item.status === "resolved").length;
+    const skipped = next.length - ready - resolved;
     setMessage(
       ready > 0
-        ? `Anteprima pronta: ${ready} modifiche applicabili, ${skipped} non applicabili. Nessuna modifica live è stata ancora eseguita.`
-        : `Nessuna modifica applicabile preparata. ${skipped} problemi richiedono un adapter o un campo REST disponibile.`,
+        ? `Anteprima pronta: ${ready} modifiche applicabili, ${resolved} problemi già risolti nel frontend corrente, ${skipped} non applicabili. Nessuna modifica live è stata ancora eseguita.`
+        : `Nessuna modifica da applicare: ${resolved} problemi risultano già risolti nel frontend corrente, ${skipped} richiedono un adapter o un campo REST disponibile.`,
     );
     setRunning(false);
   };
@@ -495,7 +595,7 @@ export default function WordPressLiveRemediationControl() {
         <div>
           <span><ShieldCheck /> Modalità live controllata</span>
           <h3>Anteprima → approvazione → applicazione → riverifica</h3>
-          <p>SeoGrow non scrive più una copia inutile in bozza: prepara la modifica sul campo che alimenta davvero il frontend e la applica al contenuto reale soltanto dopo la tua approvazione esplicita.</p>
+          <p>SeoGrow prepara la modifica sul campo che alimenta davvero il frontend, riconosce gli errori di audit già risolti e applica il cambiamento al contenuto reale soltanto dopo la tua approvazione esplicita.</p>
         </div>
       </div>
 
@@ -516,18 +616,30 @@ export default function WordPressLiveRemediationControl() {
           {results.map((item, index) => (
             <article key={`${item.issue?.label || "issue"}-${index}`} className={`wp-live-preview-row ${item.status}`}>
               <div className="wp-live-preview-title">
-                {item.status === "applied" ? <CheckCircle2 /> : <AlertTriangle />}
+                {item.status === "applied" || item.status === "resolved" ? <CheckCircle2 /> : <AlertTriangle />}
                 <div>
                   <strong>{item.issue?.label || "Problema SEO"}</strong>
-                  <small>{item.status === "preview" ? `${item.data.adapter} · anteprima pronta` : item.status === "applied" ? `${item.data.apply?.adapter || item.plan?.adapter} · applicato live` : item.reason}</small>
+                  <small>
+                    {item.status === "preview"
+                      ? `${item.data.adapter} · anteprima pronta`
+                      : item.status === "applied"
+                        ? `${item.data.apply?.adapter || item.plan?.adapter} · applicato live`
+                        : item.status === "resolved"
+                          ? `Già risolto · ${item.reason}`
+                          : item.reason}
+                  </small>
+                  {item.targetUrl && <small>{item.targetUrl}</small>}
+                  {item.status === "preview" && Array.isArray(item.data.changed) && item.data.changed.length > 0 && (
+                    <small>Campi interessati: {item.data.changed.join(", ")}</small>
+                  )}
                 </div>
               </div>
               {item.status === "preview" && (
                 <details>
                   <summary>Vedi cosa cambierà</summary>
                   <div className="wp-live-diff">
-                    <section><strong>Prima</strong><pre>{JSON.stringify(item.data.previewBefore, null, 2)}</pre></section>
-                    <section><strong>Dopo</strong><pre>{JSON.stringify(item.data.previewAfter, null, 2)}</pre></section>
+                    <section><strong>Prima</strong><pre>{previewText(item.data.previewBefore)}</pre></section>
+                    <section><strong>Dopo</strong><pre>{previewText(item.data.previewAfter)}</pre></section>
                   </div>
                 </details>
               )}
