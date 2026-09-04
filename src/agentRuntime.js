@@ -12,6 +12,10 @@ const stable = (value) => {
   if (value && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stable(value[key])}`).join(",")}}`;
   return JSON.stringify(value);
 };
+const approvalLedgerKey = "seogrow-agent-approval-ledger-v1";
+const memoryApprovalLedger = new Set();
+function approvalLedger() { if (!globalThis.localStorage) return memoryApprovalLedger; try { return new Set(JSON.parse(globalThis.localStorage.getItem(approvalLedgerKey) || "[]")); } catch { return memoryApprovalLedger; } }
+function consumeApprovalToken(token) { const ledger = approvalLedger(); if (ledger.has(token)) return false; ledger.add(token); memoryApprovalLedger.add(token); try { globalThis.localStorage?.setItem(approvalLedgerKey, JSON.stringify([...ledger].slice(-500))); } catch { /* memoria in-process come fallback */ } return true; }
 export const toolFingerprint = (tool, input, projectId, dataVersion = "") => `${tool}|${projectId || ""}|${dataVersion}|${stable(input || {})}`.toLowerCase();
 export class AgentError extends Error { constructor(code, message, details) { super(message); this.code = code; this.details = details; } }
 export function validateSchema(schema, value, path = "value") {
@@ -48,6 +52,9 @@ export class AgentBudget {
     if (!used || this.used[used] + amount > this.limits[limit]) throw Object.assign(new Error(`BUDGET_EXCEEDED:${kind}`), { code: "BUDGET_EXCEEDED" });
     this.used[used] += amount;
   }
+  reserveCost(amount = 0) { if (amount <= 0) return 0; if (this.used.cost + this.used.reservedCost + amount > this.limits.maxCost) throw new AgentError("BUDGET_EXCEEDED", "BUDGET_EXCEEDED:cost"); this.used.reservedCost += amount; return amount; }
+  settleCost(reserved = 0, actual = reserved) { this.used.reservedCost = Math.max(0, this.used.reservedCost - reserved); this.used.cost += Number(actual || 0); }
+  releaseCost(reserved = 0) { this.used.reservedCost = Math.max(0, this.used.reservedCost - reserved); }
 }
 
 export class AgentPolicy {
@@ -80,14 +87,14 @@ export class ToolRegistry {
     if (calls.has(fingerprint)) return { ...clone(calls.get(fingerprint)), reused: true };
     const cached = this.cache.get(fingerprint);
     if (cached && tool.freshnessMs > 0 && this.clock() - cached.at <= tool.freshnessMs) { calls.set(fingerprint, cached.result); return { ...clone(cached.result), reused: true, cached: true }; }
-    if (tool.source === "DATAFORSEO") context.budget.consume("dataforseo");
-    if (tool.source === "OPENAI") context.budget.consume("openai");
     const flightKey = `${context.runId}:${fingerprint}`; if (this.inFlight.has(flightKey)) return this.inFlight.get(flightKey);
+    const reservedCost = context.budget.reserveCost(Number(tool.estimatedCost || 0));
+    try { if (tool.source === "DATAFORSEO") context.budget.consume("dataforseo"); if (tool.source === "OPENAI") context.budget.consume("openai"); } catch (error) { context.budget.releaseCost(reservedCost); throw error; }
     const execution = (async () => {
       const controller = new AbortController(); const abort = () => controller.abort(context.signal?.reason || new AgentError("CANCELLED", "Run interrotto.")); context.signal?.addEventListener("abort", abort, { once: true });
       const timer = setTimeout(() => controller.abort(new AgentError("TOOL_TIMEOUT", `Timeout: ${name}`)), tool.timeoutMs); const started = this.clock();
-      try { const aborted = new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true })); const data = await Promise.race([Promise.resolve(tool.execute(input, { ...context, signal: controller.signal })), aborted]); validateSchema(tool.outputSchema, data, "output"); const result = { data, source: tool.source, freshness: cached ? "reused" : "live", observedAt: new Date().toISOString(), durationMs: this.clock() - started, estimatedCost: tool.estimatedCost || 0, fingerprint }; calls.set(fingerprint, result); this.cache.set(fingerprint, { at: this.clock(), result }); while (this.cache.size > this.maxCacheEntries) this.cache.delete(this.cache.keys().next().value); return clone(result); }
-      catch (error) { if (controller.signal.aborted) throw controller.signal.reason instanceof Error ? controller.signal.reason : new AgentError("CANCELLED", "Run interrotto."); throw error; }
+      try { const aborted = new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true })); const data = await Promise.race([Promise.resolve(tool.execute(input, { ...context, signal: controller.signal })), aborted]); validateSchema(tool.outputSchema, data, "output"); context.budget.settleCost(reservedCost, Number(data?.cost ?? tool.estimatedCost ?? 0)); const result = { data, source: tool.source, freshness: "live", observedAt: new Date().toISOString(), durationMs: this.clock() - started, estimatedCost: tool.estimatedCost || 0, actualCost: Number(data?.cost ?? 0), fingerprint }; calls.set(fingerprint, result); this.cache.set(fingerprint, { at: this.clock(), result }); while (this.cache.size > this.maxCacheEntries) this.cache.delete(this.cache.keys().next().value); return clone(result); }
+      catch (error) { context.budget.releaseCost(reservedCost); if (controller.signal.aborted) throw controller.signal.reason instanceof Error ? controller.signal.reason : new AgentError("CANCELLED", "Run interrotto."); throw error; }
       finally { clearTimeout(timer); context.signal?.removeEventListener("abort", abort); }
     })().finally(() => this.inFlight.delete(flightKey)); this.inFlight.set(flightKey, execution); return execution;
   }
@@ -107,14 +114,14 @@ export class SeoAgentPlanner {
     if (!String(goal || "").trim()) throw new Error("Inserisci un obiettivo SEO.");
     const workflow = this.workflow(goal);
     const templates = {
-      TOP_OPPORTUNITIES: ["data.gsc", "data.analysis", "seo.opportunities"],
-      TRAFFIC_DROP: ["data.gsc", "seo.trafficDrop"],
-      TOP_10_PUSH: ["data.gsc", "seo.opportunities", "data.rankings"],
-      CONTENT_DECAY: ["data.gsc", "data.analysis", "seo.contentDecay"],
-      INTERNAL_LINKING: ["data.analysis", "seo.internalLinks"],
+      TOP_OPPORTUNITIES: [["data.gsc", true], ["data.analysis", false], ["seo.opportunities", true]],
+      TRAFFIC_DROP: [["data.gsc", true], ["seo.trafficDrop", true]],
+      TOP_10_PUSH: [["data.gsc", true], ["seo.opportunities", true], ["data.rankings", true]],
+      CONTENT_DECAY: [["data.gsc", true], ["data.analysis", false], ["seo.contentDecay", true]],
+      INTERNAL_LINKING: [["data.analysis", true], ["seo.internalLinks", true]],
     };
     const requested = Number(String(goal).match(/(?:dammi|trova|mostra)?\s*(?:le|i)?\s*(\d+)\s+(?:migliori\s+)?(?:opportunit|risultat|pagin)/i)?.[1] || 10);
-    return { id: identifier("plan"), goal: String(goal).trim(), workflow, parameters: { maxResults: Math.min(50, Math.max(1, requested)) }, version: 1, editable: true, steps: templates[workflow].map((tool) => ({ id: identifier("step"), tool, input: {}, status: "PENDING" })) };
+    return { id: identifier("plan"), goal: String(goal).trim(), workflow, parameters: { maxResults: Math.min(50, Math.max(1, requested)) }, version: 1, editable: true, steps: templates[workflow].map(([tool, required]) => ({ id: identifier("step"), tool, required, input: {}, status: "PENDING" })) };
   }
   replan(plan, steps) { return { ...clone(plan), version: plan.version + 1, replannedAt: new Date().toISOString(), steps: steps.map((step) => ({ id: identifier("step"), input: {}, status: "PENDING", ...step })) }; }
 }
@@ -129,8 +136,9 @@ const evidenceRecommendation = (item) => {
 };
 
 function recommendationsFor(workflow, observations, maxResults = 10) {
-  const output = Object.fromEntries(observations.filter((item) => item.status === "COMPLETED").map((item) => [item.tool, item.result.data]));
-  const rankingRows = (output["data.rankings"] || []).flatMap((entry) => entry?.rows || entry?.results || (entry?.keyword ? [entry] : []));
+  const usableStates = new Set(["COMPLETED", "CACHED"]);
+  const output = Object.fromEntries(observations.filter((item) => usableStates.has(item.status) && item.usable).map((item) => [item.tool, item.result.data]));
+  const rankingRows = (output["data.rankings"] || []).flatMap((entry) => entry?.rankings || entry?.rows || entry?.results || (entry?.keyword ? [entry] : []));
   const rankingByKeyword = new Map(rankingRows.map((row) => [String(row.keyword || row.query || "").toLocaleLowerCase("it"), row]));
   const opportunities = (output["seo.opportunities"] || []).map((row) => { const ranking = rankingByKeyword.get(String(row.dimension || row.query || "").toLocaleLowerCase("it")); return ranking ? { ...row, position: ranking.position ?? row.position, rankingSource: "DataForSEO" } : row; });
   let candidates = [];
@@ -138,13 +146,14 @@ function recommendationsFor(workflow, observations, maxResults = 10) {
   if (workflow === "TRAFFIC_DROP") candidates = (output["seo.trafficDrop"] || []).map((row) => ({ page: row.page || "", query: row.query || row.dimension || "", evidence: [{ metric: "click_delta", value: row.clickDelta }, { metric: "position_delta", value: row.positionDelta }], interpretation: "La query ha perso clic o posizione rispetto al periodo precedente compatibile.", recommendation: "Verifica intento, pagina associata e cambiamenti tecnici prima di modificare il contenuto.", sources: ["Confronto storico Search Console"], confidence: 82, scoring: { impact: 80, effort: 45, confidence: 82, risk: 15 } }));
   if (workflow === "CONTENT_DECAY") candidates = (output["seo.contentDecay"] || []).map((row) => ({ page: row.url || row.page || "", query: row.title || row.query || "", evidence: [{ metric: "observed_change", value: row.reason || row.detail || "calo rilevato" }], interpretation: "Il dato storico o tecnico indica un contenuto da riesaminare.", recommendation: "Revisiona accuratezza, copertura e data di aggiornamento conservando URL e segnali validi.", sources: [row.source || "Search Console / audit"], confidence: 76, scoring: { impact: 72, effort: 50, confidence: 76, risk: 18 } }));
   if (workflow === "INTERNAL_LINKING") candidates = (output["seo.internalLinks"] || []).map((row) => ({ page: row.targetUrl || row.target || "", query: row.anchor || "", evidence: [{ metric: "source_page", value: row.sourceUrl || row.source }, { metric: "target_page", value: row.targetUrl || row.target }], interpretation: row.reason || "Il crawl ha individuato una relazione interna utile.", recommendation: `Prepara un link contestuale${row.anchor ? ` con anchor “${row.anchor}”` : ""}.`, sources: ["Audit link interni"], confidence: 80, scoring: { impact: 68, effort: 25, confidence: 80, risk: 10 } }));
-  return candidates.map((item) => evidenceRecommendation({ ...item, observationIds: observations.filter((entry) => entry.status === "COMPLETED").map((entry) => entry.id) })).filter(Boolean).sort((a, b) => b.priorityScore - a.priorityScore).filter((item, index, all) => all.findIndex((other) => other.fingerprint === item.fingerprint) === index).slice(0, maxResults);
+  return candidates.map((item) => evidenceRecommendation({ ...item, observationIds: observations.filter((entry) => usableStates.has(entry.status) && entry.usable).map((entry) => entry.id) })).filter(Boolean).sort((a, b) => b.priorityScore - a.priorityScore).filter((item, index, all) => all.findIndex((other) => other.fingerprint === item.fingerprint) === index).slice(0, maxResults);
 }
 
 export class SeoAgentOrchestrator {
   constructor({ registry, planner = new SeoAgentPlanner(), assessor = () => ({ decision: AgentDecision.CONTINUE }), onUpdate = () => {}, sleep = (ms, signal) => new Promise((resolve, reject) => { const timer = setTimeout(resolve, ms); signal?.addEventListener("abort", () => { clearTimeout(timer); reject(new AgentError("CANCELLED", "Run interrotto.")); }, { once: true }); }) }) { this.registry = registry; this.planner = planner; this.assessor = assessor; this.onUpdate = onUpdate; this.sleep = sleep; this.active = new Map(); this.usedApprovalTokens = new Set(); }
   cancel(runId) { const active = this.active.get(runId); if (active) active.controller.abort(new AgentError("CANCELLED", "Run interrotto dall’utente.")); }
   transient(error) { return ["TOOL_TIMEOUT", "RATE_LIMIT", "HTTP_429", "HTTP_502", "HTTP_503", "HTTP_504", "NETWORK_ERROR"].includes(error.code); }
+  async preview(tool, step, input, controller, remainingMs) { const timeout = Math.max(1, Math.min(tool.timeoutMs, remainingMs)); const timer = setTimeout(() => controller.abort(new AgentError("TOOL_TIMEOUT", `Timeout anteprima: ${tool.name}`)), timeout); try { const aborted = new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true })); return await Promise.race([Promise.resolve(tool.preview ? tool.preview(step.input, { input, signal: controller.signal }) : { input: step.input }), aborted]); } finally { clearTimeout(timer); } }
   async run(goal, input = {}) {
     const run = { id: identifier("agent-run"), projectId: input.projectId, goal: String(goal || "").trim(), mode: input.mode || AgentMode.ASSISTED, status: AgentStatus.PLANNING, decision: AgentDecision.CONTINUE, observations: [], recommendations: [], approvalHistory: [], errors: [], startedAt: new Date().toISOString() };
     const budget = new AgentBudget(input.budget), policy = new AgentPolicy(run.mode), controller = new AbortController(), started = Date.now(), planFingerprints = new Set(); this.active.set(run.id, { controller }); this.onUpdate(clone(run));
@@ -158,9 +167,9 @@ export class SeoAgentOrchestrator {
         while (true) {
           try { const result = await this.registry.execute(step.tool, step.input, { runId: run.id, projectId: run.projectId, dataVersion: input.dataVersion, budget, policy, input, observations: run.observations, signal: controller.signal }); const usable = hasUsableEvidence(tool, result.data, { projectId: run.projectId }); step.status = result.cached ? "CACHED" : usable ? "COMPLETED" : "EMPTY"; run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, usable, result }); break; }
           catch (error) {
-            if (error.code === "APPROVAL_REQUIRED") { step.status = "WAITING_APPROVAL"; run.status = AgentStatus.WAITING_APPROVAL; run.pendingApproval = { id: identifier("approval"), token: identifier("token"), tool: step.tool, stepIndex: cursor, risk: tool?.risk, estimatedCost: tool?.estimatedCost || 0, preview: tool?.preview ? await tool.preview(step.input, { input }) : { input: step.input }, requestedAt: new Date().toISOString() }; break; }
+            if (error.code === "APPROVAL_REQUIRED") { const preview = await this.preview(tool, step, input, controller, budget.limits.maxDurationMs - (Date.now() - started)); if (controller.signal.aborted) throw controller.signal.reason; const inputFingerprint = toolFingerprint(step.tool, step.input, run.projectId, input.dataVersion); step.status = "WAITING_APPROVAL"; run.status = AgentStatus.WAITING_APPROVAL; run.cursor = cursor; run.pendingApproval = { id: identifier("approval"), token: identifier("token"), nonce: identifier("nonce"), projectId: run.projectId, tool: step.tool, stepIndex: cursor, inputFingerprint, previewHash: stable(preview), risk: tool?.risk, estimatedCost: tool?.estimatedCost || 0, preview, requestedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 15 * 60_000).toISOString() }; break; }
             if (tool?.idempotent && this.transient(error) && attempts < budget.limits.maxRetries) { budget.consume("retry"); attempts += 1; const retryAfter = Number(error.retryAfterMs || 0); await this.sleep(retryAfter || Math.min(2_000, 100 * 2 ** attempts + Math.floor(Math.random() * 50)), controller.signal); continue; }
-            step.status = error.code === "CANCELLED" ? "CANCELLED" : "FAILED"; run.errors.push(error.message); run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, error: error.message }); if (error.code === "BUDGET_EXCEEDED") run.status = AgentStatus.PARTIAL; if (error.code === "CANCELLED") run.status = AgentStatus.CANCELLED; break;
+            step.status = error.code === "CANCELLED" ? "CANCELLED" : "FAILED"; run.errors.push(error.message); run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, error: error.message }); if (step.required && error.code !== "CANCELLED") run.requiredFailure = true; if (error.code === "BUDGET_EXCEEDED") run.status = AgentStatus.PARTIAL; if (error.code === "CANCELLED") run.status = AgentStatus.CANCELLED; break;
           }
         }
         this.onUpdate(clone(run)); if ([AgentStatus.PARTIAL, AgentStatus.CANCELLED, AgentStatus.WAITING_APPROVAL].includes(run.status)) break;
@@ -169,20 +178,29 @@ export class SeoAgentOrchestrator {
         if (assessment.decision === AgentDecision.BLOCKED) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; break; }
         if (assessment.decision === AgentDecision.COMPLETE) break; cursor += 1;
       }
-      if (run.status === AgentStatus.RUNNING) { run.recommendations = recommendationsFor(run.plan.workflow, run.observations, run.plan.parameters?.maxResults || 10); const hasEvidence = run.observations.some((item) => item.usable); if (!hasEvidence) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; run.errors.push("Dati reali insufficienti per questo workflow."); } else if (!run.recommendations.length) { run.status = AgentStatus.PARTIAL; run.decision = AgentDecision.COMPLETE; run.errors.push("I dati disponibili non supportano raccomandazioni sufficientemente solide."); } else { run.status = AgentStatus.COMPLETED; run.decision = AgentDecision.COMPLETE; } }
-    } catch (error) { run.status = error.code === "CANCELLED" ? AgentStatus.CANCELLED : error.code === "BUDGET_EXCEEDED" ? AgentStatus.PARTIAL : AgentStatus.FAILED; run.decision = AgentDecision.BLOCKED; run.errors.push(error.message); }
+      if (run.status === AgentStatus.RUNNING) { run.recommendations = recommendationsFor(run.plan.workflow, run.observations, run.plan.parameters?.maxResults || 10); const hasEvidence = run.observations.some((item) => item.usable); if (!hasEvidence) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; run.errors.push("Dati reali insufficienti per questo workflow."); } else if (run.requiredFailure || !run.recommendations.length) { run.status = AgentStatus.PARTIAL; run.decision = AgentDecision.COMPLETE; if (!run.recommendations.length) run.errors.push("I dati disponibili non supportano raccomandazioni sufficientemente solide."); } else { run.status = AgentStatus.COMPLETED; run.decision = AgentDecision.COMPLETE; } }
+    } catch (error) { run.status = error.code === "CANCELLED" ? AgentStatus.CANCELLED : ["BUDGET_EXCEEDED", "TOOL_TIMEOUT"].includes(error.code) ? AgentStatus.PARTIAL : AgentStatus.FAILED; run.decision = AgentDecision.BLOCKED; run.errors.push(error.message); }
     run.budget = clone(budget); if (run.status !== AgentStatus.WAITING_APPROVAL) { run.completedAt = new Date().toISOString(); this.active.delete(run.id); this.registry.cleanupRun(run.id); } this.onUpdate(clone(run)); return clone(run);
   }
   async resolveApproval(savedRun, input, { approved, token, operator = "utente" }) {
     const run = clone(savedRun), request = run.pendingApproval;
     if (run.status !== AgentStatus.WAITING_APPROVAL || !request) throw new AgentError("APPROVAL_INVALID", "Il run non attende un’approvazione.");
-    if (!token || token !== request.token || this.usedApprovalTokens.has(token)) throw new AgentError("APPROVAL_INVALID", "Token di approvazione non valido o già utilizzato.");
-    this.usedApprovalTokens.add(token); run.approvalHistory = Array.isArray(run.approvalHistory) ? run.approvalHistory : [];
+    const step = run.plan?.steps?.[request.stepIndex], expectedFingerprint = step && toolFingerprint(step.tool, step.input, run.projectId, input.dataVersion);
+    if (String(input.projectId) !== String(run.projectId) || request.projectId !== run.projectId || request.tool !== step?.tool || request.inputFingerprint !== expectedFingerprint || request.previewHash !== stable(request.preview)) throw new AgentError("APPROVAL_CONTEXT_MISMATCH", "L’approvazione non corrisponde più al progetto o all’azione originale.");
+    if (Date.parse(request.expiresAt) <= Date.now()) throw new AgentError("APPROVAL_EXPIRED", "La richiesta di approvazione è scaduta.");
+    if (!token || token !== request.token || !consumeApprovalToken(token)) throw new AgentError("APPROVAL_INVALID", "Token di approvazione non valido o già utilizzato.");
+    run.approvalHistory = Array.isArray(run.approvalHistory) ? run.approvalHistory : [];
     run.approvalHistory.push({ approvalId: request.id, projectId: run.projectId, tool: request.tool, operator, decision: approved ? "APPROVED" : "REJECTED", decidedAt: new Date().toISOString() }); delete run.pendingApproval;
     if (!approved) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; run.completedAt = new Date().toISOString(); run.errors.push("Azione rifiutata dall’utente."); this.registry.cleanupRun(run.id); this.active.delete(run.id); this.onUpdate(clone(run)); return run; }
-    const step = run.plan.steps[request.stepIndex], budget = new AgentBudget(run.budget?.limits), policy = new AgentPolicy(run.mode), controller = new AbortController(); this.active.set(run.id, { controller }); run.status = AgentStatus.RUNNING; step.status = "RUNNING"; this.onUpdate(clone(run));
-    try { budget.used = { ...budget.used, ...(run.budget?.used || {}) }; budget.consume("iteration"); budget.consume("step"); const result = await this.registry.execute(step.tool, step.input, { runId: run.id, projectId: run.projectId, dataVersion: input.dataVersion, budget, policy, input, observations: run.observations, signal: controller.signal, approvalGranted: true }); step.status = "COMPLETED"; run.observations.push({ id: identifier("observation"), tool: step.tool, status: "COMPLETED", usable: hasUsableEvidence(this.registry.tools.get(step.tool), result.data, { projectId: run.projectId }), result }); run.status = AgentStatus.COMPLETED; run.decision = AgentDecision.COMPLETE; }
-    catch (error) { run.status = error.code === "CANCELLED" ? AgentStatus.CANCELLED : AgentStatus.FAILED; run.errors.push(error.message); }
+    const budget = new AgentBudget(run.budget?.limits), policy = new AgentPolicy(run.mode), controller = new AbortController(); budget.used = { ...budget.used, ...(run.budget?.used || {}) }; this.active.set(run.id, { controller }); run.status = AgentStatus.RUNNING; this.onUpdate(clone(run));
+    try {
+      for (let cursor = request.stepIndex; cursor < run.plan.steps.length; cursor += 1) {
+        const current = run.plan.steps[cursor], tool = this.registry.tools.get(current.tool); budget.consume("iteration"); if (cursor !== request.stepIndex) budget.consume("step"); current.status = "RUNNING";
+        const result = await this.registry.execute(current.tool, current.input, { runId: run.id, projectId: run.projectId, dataVersion: input.dataVersion, budget, policy, input, observations: run.observations, signal: controller.signal, approvalGranted: cursor === request.stepIndex });
+        const usable = hasUsableEvidence(tool, result.data, { projectId: run.projectId }); current.status = result.cached ? "CACHED" : usable ? "COMPLETED" : "EMPTY"; run.observations.push({ id: identifier("observation"), tool: current.tool, status: current.status, usable, result }); run.cursor = cursor + 1; this.onUpdate(clone(run));
+      }
+      run.recommendations = recommendationsFor(run.plan.workflow, run.observations, run.plan.parameters?.maxResults || 10); run.status = run.requiredFailure || !run.recommendations.length ? AgentStatus.PARTIAL : AgentStatus.COMPLETED; run.decision = AgentDecision.COMPLETE;
+    } catch (error) { run.status = error.code === "CANCELLED" ? AgentStatus.CANCELLED : error.code === "BUDGET_EXCEEDED" ? AgentStatus.PARTIAL : AgentStatus.FAILED; run.errors.push(error.message); }
     run.budget = clone(budget); run.completedAt = new Date().toISOString(); this.registry.cleanupRun(run.id); this.active.delete(run.id); this.onUpdate(clone(run)); return clone(run);
   }
 }

@@ -75,6 +75,11 @@ test("rifiuta backup con memoria Agent malformata", async () => {
   const file = { size: 100, text: async () => JSON.stringify(data) };
   await assert.rejects(() => readWorkspaceBackup(file), /memoria SEO Agent non valida/);
 });
+test("rifiuta memoria Agent attribuita a un progetto inesistente", async () => {
+  const run = { id: "run", projectId: 2, goal: "test", observations: [], recommendations: [], approvalHistory: [], plan: { steps: [] } };
+  const data = { schemaVersion: 3, clients: [{ id: 1, name: "Test", url: "https://example.com" }], tasks: [], gscData: {}, agentRuns: { 999: [run] } };
+  await assert.rejects(() => readWorkspaceBackup({ size: 100, text: async () => JSON.stringify(data) }), /memoria SEO Agent non valida/);
+});
 
 test("interpreta correttamente numeri italiani e internazionali", () => {
   assert.equal(numberValue("18,77"), 18.77);

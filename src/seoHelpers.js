@@ -242,10 +242,11 @@ export function normalizeAgentRuns(value, fallback = {}) {
   return normalized;
 }
 
-function validAgentRuns(value) {
+function validAgentRuns(value, clients = []) {
   if (value == null) return true;
   if (typeof value !== "object" || Array.isArray(value)) return false;
-  return Object.entries(value).every(([projectId, runs]) => /^\d+$/.test(projectId) && Array.isArray(runs) && runs.every((run) => run && typeof run.id === "string" && typeof run.goal === "string" && Array.isArray(run.observations) && Array.isArray(run.recommendations) && Array.isArray(run.approvalHistory) && (!run.plan || Array.isArray(run.plan.steps)) && run.recommendations.every((item) => item && Array.isArray(item.evidence) && Array.isArray(item.sources))));
+  const clientIds = new Set(clients.map((client) => String(client.id)));
+  return Object.entries(value).every(([projectId, runs]) => clientIds.has(projectId) && Array.isArray(runs) && runs.every((run) => run && String(run.projectId) === projectId && typeof run.id === "string" && typeof run.goal === "string" && Array.isArray(run.observations) && Array.isArray(run.recommendations) && Array.isArray(run.approvalHistory) && (!run.plan || Array.isArray(run.plan.steps)) && run.recommendations.every((item) => item && Array.isArray(item.evidence) && Array.isArray(item.sources))));
 }
 
 export async function readWorkspaceBackup(file, passphrase = "") {
@@ -344,7 +345,7 @@ export async function readWorkspaceBackup(file, passphrase = "") {
         throw new Error("Il backup contiene un profilo WordPress non valido.");
     }
   }
-  if (!validAgentRuns(data.agentRuns))
+  if (!validAgentRuns(data.agentRuns, data.clients))
     throw new Error("Il backup contiene una memoria SEO Agent non valida.");
   const jsonSize = JSON.stringify(data).length;
   if (jsonSize > 25 * 1024 * 1024)
