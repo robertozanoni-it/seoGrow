@@ -33,7 +33,16 @@ const latestAudit = (clientId) => {
   )[0] || null;
 };
 
-const buildJob = ({ client, issue, auditType, issueUrl }) => `JOB AGENTICO GPTSITES — VERIFICA E CORREGGI\n\nPROGETTO\n${client.name}\n${client.url}\n\nPAGINA DA VERIFICARE\n${issueUrl}\n\nPROBLEMA RILEVATO DA SEOGROW\n${issue?.label || "Problema SEO"}\n${issue?.detail || "Nessun dettaglio aggiuntivo disponibile."}\nSeverità: ${issue?.severity || "media"}\nOrigine: audit ${auditType === "page" ? "pagina" : "sito completo"}.\n\nESEGUI TUTTO IL FLUSSO\n1. Apri il Site collegato e verifica direttamente se il problema indicato è ancora presente sulla pagina specificata.\n2. Se il problema non è più presente, non modificare nulla e restituisci esito VERIFICATO / GIÀ RISOLTO.\n3. Se il problema è presente, analizza solo gli elementi necessari per correggerlo.\n4. Applica la modifica direttamente nel Site in preview, preservando URL, struttura, integrazioni, tracciamenti e contenuti non coinvolti.\n5. Non inventare dati, recensioni, credenziali o prove sociali.\n6. Non pubblicare automaticamente modifiche strutturali o ad alto rischio. Redirect, canonical, noindex, sitemap, robots, cancellazioni e pubblicazione richiedono approvazione esplicita.\n7. Dopo la modifica controlla nuovamente la pagina nel Site.\n8. Restituisci un report sintetico con: problema verificato, modifica effettuata, elementi modificati, elementi lasciati invariati, eventuale approvazione richiesta e stato finale.\n9. Lascia la pagina pronta perché SeoGrow possa eseguire il nuovo audit di conferma.\n\nOBIETTIVO\nL'utente non deve eseguire controlli o modifiche manuali: GPTSites deve verificare, correggere quando necessario e documentare l'esito.`;
+const governance = `GOVERNANCE AUTONOMA\n- Livello 1 — automatico: title, meta description, H1, ALT, internal linking, microcopy e correzioni on-page chiaramente determinabili. Verifica e applica direttamente in preview.\n- Livello 2 — automatico con controllo preliminare obbligatorio: redirect, canonical, noindex, robots, sitemap, cambi URL, cancellazioni e modifiche strutturali. Prima di intervenire verifica stato attuale, intento della pagina, dipendenze, link interni, redirect/canonical collegati, sitemap/robots, rischio di regressione e reversibilità. Se la soluzione è inequivocabile e sicura, applicala in preview senza chiedere approvazione.\n- Livello 3 — eccezione: fermati solo se il caso resta ambiguo, conflittuale, non verificabile o non reversibile con sufficiente sicurezza. In quel caso non modificare e descrivi esattamente cosa impedisce una decisione autonoma.\n- Non chiedere approvazione quando puoi verificare autonomamente la correttezza della modifica.\n- Non inventare dati, recensioni, credenziali, fonti o prove sociali.\n- Preserva integrazioni, tracciamenti, URL e contenuti non coinvolti, salvo quando uno di questi elementi è precisamente l'oggetto della correzione.`;
+
+const buildJob = ({ client, issue, auditType, issueUrl }) => `JOB AGENTICO GPTSITES — VERIFICA E CORREGGI\n\nPROGETTO\n${client.name}\n${client.url}\n\nPAGINA DA VERIFICARE\n${issueUrl}\n\nPROBLEMA RILEVATO DA SEOGROW\n${issue?.label || "Problema SEO"}\n${issue?.detail || "Nessun dettaglio aggiuntivo disponibile."}\nSeverità: ${issue?.severity || "media"}\nOrigine: audit ${auditType === "page" ? "pagina" : "sito completo"}.\n\nESEGUI TUTTO IL FLUSSO\n1. Apri il Site collegato e verifica direttamente se il problema indicato è ancora presente sulla pagina specificata.\n2. Se il problema non è più presente, non modificare nulla e restituisci esito VERIFICATO / GIÀ RISOLTO.\n3. Se il problema è presente, classificalo secondo la governance seguente.\n\n${governance}\n\n4. Applica la correzione minima necessaria in preview.\n5. Dopo la modifica ricontrolla la pagina e le dipendenze coinvolte.\n6. Restituisci un report sintetico con: problema verificato, controllo preliminare eseguito, modifica effettuata, elementi modificati, elementi lasciati invariati, eventuale eccezione non risolta e stato finale.\n7. Lascia la pagina pronta perché SeoGrow possa eseguire il nuovo audit di conferma.\n\nOBIETTIVO\nL'utente non deve eseguire controlli o modifiche manuali: GPTSites deve verificare, decidere, correggere quando la soluzione è sufficientemente certa e documentare l'esito.`;
+
+const issueLine = (issue, index, fallbackUrl) => {
+  const url = issue?.targetUrl || issue?.url || fallbackUrl || "";
+  return `${index + 1}. [${issue?.severity || "media"}] ${issue?.label || "Problema SEO"}\n   URL: ${url}\n   Dettaglio: ${issue?.detail || "Nessun dettaglio aggiuntivo."}`;
+};
+
+const buildBulkJob = ({ client, issues, auditType, auditUrl }) => `JOB AGENTICO GPTSITES — BULK REMEDIATION COMPLETA\n\nPROGETTO\n${client.name}\n${client.url}\n\nORIGINE\nAudit ${auditType === "page" ? "pagina" : "sito completo"}\nURL audit: ${auditUrl || client.url}\nProblemi rilevati: ${issues.length}\n\nPROBLEMI DA GESTIRE\n${issues.map((item, index) => issueLine(item, index, auditUrl || client.url)).join("\n\n")}\n\nOBIETTIVO\nGestisci autonomamente tutti i problemi rilevati. Raggruppali per pagina, elimina duplicati, verifica ogni problema prima di modificarlo e applica soltanto correzioni ancora necessarie.\n\n${governance}\n\nWORKFLOW BULK OBBLIGATORIO\n1. Raggruppa i problemi per URL e per dipendenza tecnica.\n2. Verifica che ogni problema sia ancora presente; marca come GIÀ RISOLTO ciò che non richiede più intervento.\n3. Individua conflitti tra correzioni prima di applicarle.\n4. Per gli interventi di Livello 2 esegui sempre controllo preliminare completo e verifica di reversibilità.\n5. Applica in preview tutte le correzioni Livello 1 e tutte le Livello 2 che risultano inequivocabili e sicure.\n6. Non fermare l'intero batch per una singola eccezione: continua con gli altri problemi e isola solo i casi ambigui.\n7. Dopo ogni gruppo di modifiche ricontrolla pagina, link, canonical/redirect, indicizzabilità e dipendenze pertinenti.\n8. Esegui un controllo finale complessivo del Site per intercettare regressioni introdotte dal batch.\n9. Restituisci un report finale con conteggi: ANALIZZATI, CORRETTI, GIÀ RISOLTI, ECCEZIONI, NON CORREGGIBILI; poi dettaglio pagina per pagina con prima/dopo e motivazione delle eccezioni.\n10. Lascia il Site pronto per il successivo audit completo di SeoGrow.\n\nREGOLA CENTRALE\nNon chiedere approvazione se la correttezza può essere determinata autonomamente con controllo preliminare sufficiente. Fermati solo sul singolo intervento che resta realmente ambiguo o non verificabile.`;
 
 export default function GptSitesJobBridge() {
   const [target, setTarget] = useState(null);
@@ -69,7 +78,7 @@ export default function GptSitesJobBridge() {
   const client = clients.find((item) => item.id === selectedClientId) || clients[0];
   const platform = readJson(CMS_ROUTER_KEY, {})[selectedClientId]?.platform || "manual";
   const latest = client ? latestAudit(selectedClientId) : null;
-  const issues = latest?.item?.issues || [];
+  const issues = Array.isArray(latest?.item?.issues) ? latest.item.issues : [];
   const issue = issues[0] || null;
   const issueUrl = useMemo(
     () => issue?.targetUrl || issue?.url || latest?.item?.url || client?.url || "",
@@ -83,14 +92,30 @@ export default function GptSitesJobBridge() {
 
   if (!target || platform !== "gptsites" || !client || !latest?.item || !issue) return null;
 
-  const copyJob = async () => {
-    const text = job || buildJob({ client, issue, auditType: latest.type, issueUrl });
+  const copyText = async (text, successMessage) => {
     try {
       await navigator.clipboard.writeText(text);
-      setMessage("Job GPTSites copiato. È pronto per essere eseguito nel Site collegato.");
+      setJob(text);
+      setMessage(successMessage);
     } catch {
+      setJob(text);
       setMessage("Copia automatica non riuscita: copia manualmente il job visualizzato.");
     }
+  };
+
+  const copyJob = async () => {
+    const text = buildJob({ client, issue, auditType: latest.type, issueUrl });
+    await copyText(text, "Job GPTSites copiato. È pronto per essere eseguito nel Site collegato.");
+  };
+
+  const copyBulkJob = async () => {
+    const text = buildBulkJob({
+      client,
+      issues,
+      auditType: latest.type,
+      auditUrl: latest.item.url || client.url,
+    });
+    await copyText(text, `Job bulk GPTSites copiato: ${issues.length} problemi inclusi, con controllo preliminare autonomo.`);
   };
 
   const verifySeoGrow = async () => {
@@ -126,7 +151,7 @@ export default function GptSitesJobBridge() {
       <div className="panel-head">
         <div>
           <h2>GPTSites — verifica e correggi</h2>
-          <p>Un unico job: GPTSites verifica il problema, lo corregge se necessario e lascia la pagina pronta per il controllo finale SeoGrow.</p>
+          <p>GPTSites verifica, decide e corregge autonomamente. Gli interventi tecnici sensibili vengono eseguiti dopo controllo preliminare, non bloccati a priori.</p>
         </div>
         <span className="gptsites-job-badge"><Sparkles />Job agentico</span>
       </div>
@@ -141,10 +166,13 @@ export default function GptSitesJobBridge() {
 
       <div className="gptsites-job-actions">
         <button type="button" className="primary" onClick={copyJob}>
-          <Sparkles />Verifica e correggi con GPTSites
+          <Sparkles />Verifica e correggi questo problema
         </button>
-        <button type="button" className="secondary" onClick={copyJob}>
-          <Copy />Copia job
+        <button type="button" className="primary" onClick={copyBulkJob}>
+          <Sparkles />Correggi tutti i problemi con GPTSites ({issues.length})
+        </button>
+        <button type="button" className="secondary" onClick={() => copyText(job, "Job copiato.")}>
+          <Copy />Copia job visualizzato
         </button>
         <button type="button" className="secondary" onClick={verifySeoGrow} disabled={verifying}>
           <Check />{verifying ? "Verifica…" : "Verifica risultato con SeoGrow"}
@@ -157,8 +185,13 @@ export default function GptSitesJobBridge() {
       </label>
 
       <div className="gptsites-job-note">
+        <strong>Governance autonoma</strong>
+        <span>Redirect, canonical, noindex, robots, sitemap, cambi URL e interventi strutturali non vengono più bloccati automaticamente: GPTSites deve prima verificarne correttezza, dipendenze, regressioni e reversibilità. Solo i casi realmente ambigui restano come eccezioni.</span>
+      </div>
+
+      <div className="gptsites-job-note">
         <strong>Automazione disponibile oggi</strong>
-        <span>SeoGrow prepara il job completo e verifica il risultato. L'esecuzione materiale nel Site richiede ancora il canale di modifica di ChatGPT Sites; quando sarà disponibile un adapter esterno di scrittura, questo stesso job potrà essere inviato senza passaggio manuale.</span>
+        <span>SeoGrow prepara il job completo e verifica il risultato. L'esecuzione materiale nel Site richiede ancora il canale di modifica di ChatGPT Sites; quando sarà disponibile un adapter esterno di scrittura, lo stesso job potrà essere inviato senza passaggio manuale.</span>
       </div>
 
       {message && <p className={message.includes("non risulta più") ? "success" : "integration-result"}>{message}</p>}
