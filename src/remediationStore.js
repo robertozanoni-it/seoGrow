@@ -85,6 +85,15 @@ const syncIndex = (record) => {
   window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: record.id } }));
 };
 
+const replaceIndex = (records) => {
+  const index = records
+    .map(metadataOf)
+    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))
+    .slice(0, 500);
+  writeJson(REMEDIATION_INDEX_KEY, index);
+  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { restored: true } }));
+};
+
 export const remediationIndex = () => readJson(REMEDIATION_INDEX_KEY, []);
 
 export async function saveCorrection(record) {
@@ -122,6 +131,16 @@ export async function listCorrections({ clientId, batchId } = {}) {
   );
   const rows = await Promise.all(index.map((item) => readCorrection(item.id)));
   return rows.filter(Boolean).toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
+}
+
+export async function replaceCorrections(records) {
+  const safeRecords = Array.isArray(records) ? records.filter((record) => record && typeof record.id === "string") : [];
+  await withStore("readwrite", (store) => {
+    store.clear();
+    for (const record of safeRecords) store.put(record);
+  });
+  replaceIndex(safeRecords);
+  return safeRecords;
 }
 
 export function setLastBatch(batchId) {
