@@ -1,6 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, ExternalLink, Plug, Sparkles, Wrench } from "lucide-react";
+import {
+  Check,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  ListChecks,
+  Plug,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Target,
+  Wrench,
+} from "lucide-react";
 import { apiFetch } from "./api";
 import { normalizeAnalysisHistory } from "./platform";
 import "./AuditUnifiedRemediation.css";
@@ -220,18 +232,69 @@ export default function AuditUnifiedRemediation() {
   const risk = isHighImpact(issue);
   return createPortal(
     <section className="panel audit-unified-remediation">
-      <div className="panel-head"><div><h2>Correzione automatica</h2><p>Audit → controllo preliminare → correzione → verifica. Il batch continua anche se un caso non è supportato.</p></div><span className="audit-unified-badge"><Wrench />{issues.length} problemi</span></div>
-      <div className="audit-unified-platforms" role="group" aria-label="Piattaforma del progetto">
-        {[["gptsites", "GPTSites"], ["wordpress", "WordPress + Elementor"], ["manual", "Manuale"]].map(([value, label]) => <button key={value} type="button" className={platform === value ? "active" : ""} onClick={() => savePlatform(value)}>{label}</button>)}
+      <div className="audit-remediation-head">
+        <div>
+          <span className="audit-remediation-kicker"><Sparkles /> Remediation guidata</span>
+          <h2>Correzione automatica</h2>
+          <p>Segui il flusso da sinistra a destra: scegli la piattaforma, verifica il problema, applica la correzione e controlla il risultato.</p>
+        </div>
+        <span className="audit-unified-badge"><Wrench />{issues.length} problemi</span>
       </div>
-      {platform === "wordpress" && <div className="audit-unified-credentials"><div><strong>Connessione WordPress per questa esecuzione</strong><span>La password applicativa viene usata solo in memoria e non viene salvata.</span></div><div className="audit-unified-credential-grid"><label>URL<input value={wpUrl} onChange={(e) => setWpUrl(e.target.value)} placeholder="https://example.com" autoComplete="url" /></label><label>Utente<input value={wpUsername} onChange={(e) => setWpUsername(e.target.value)} placeholder="utente WordPress" autoComplete="username" /></label><label>Password applicativa<input type="password" value={wpPassword} onChange={(e) => setWpPassword(e.target.value)} placeholder="xxxx xxxx xxxx xxxx" autoComplete="new-password" /></label></div></div>}
-      <div className="audit-unified-grid"><label>Problema da correggere<select value={selectedIndex} onChange={(e) => setSelectedIndex(Number(e.target.value))}>{issues.map((item, i) => <option key={`${item.label}-${i}`} value={i}>{i + 1}. {item.label || "Problema SEO"}</option>)}</select></label><div className="audit-unified-summary"><strong>{platformLabel(platform)}</strong><span>{profile && platform === "wordpress" ? `Profilo WordPress: ${profile.username || "connesso"}` : platform === "wordpress" ? "Credenziali richieste per l'esecuzione" : ""}</span></div></div>
-      <div className="audit-unified-issue"><div><strong>{issue?.label}</strong><small>{issue?.detail || "Nessun dettaglio aggiuntivo."}</small>{risk && <small className="risk">Controllo preliminare obbligatorio. L'adapter non applica automaticamente questo tipo di modifica.</small>}</div>{url && <a href={url} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>}</div>
-      <div className="audit-unified-actions"><button type="button" className="primary" onClick={() => runRemediation(true)} disabled={running || platform !== "wordpress"}><Wrench />{running ? "Correzione in corso…" : `Correggi tutti (${issues.length})`}</button><button type="button" className="secondary" onClick={() => runRemediation(false)} disabled={running || platform !== "wordpress"}><Sparkles />Correggi questo problema</button><button type="button" className="secondary" onClick={verify} disabled={verifying || running}><Check />{verifying ? "Verifica…" : "Verifica con SeoGrow"}</button><button type="button" className="secondary" onClick={() => prepare(false)} disabled={running}><Copy />Prepara job</button>{platform === "wordpress" && !profile && <button type="button" className="secondary" onClick={() => { localStorage.setItem("seogrow-selected-page-v1", JSON.stringify("Integrazioni")); window.location.hash = encodeURIComponent("Integrazioni"); }}><Plug />Configura WordPress</button>}</div>
+
+      <div className="audit-unified-platforms" role="group" aria-label="Piattaforma del progetto">
+        {[["gptsites", "GPTSites"], ["wordpress", "WordPress + Elementor"], ["manual", "Manuale"]].map(([value, label]) => (
+          <button key={value} type="button" className={platform === value ? "active" : ""} onClick={() => savePlatform(value)}>{label}</button>
+        ))}
+      </div>
+
+      {platform === "wordpress" && (
+        <section className="audit-unified-credentials">
+          <div className="audit-card-title"><ShieldCheck /><div><strong>Connessione WordPress</strong><span>Credenziali usate solo per questa esecuzione. La password applicativa non viene salvata.</span></div></div>
+          <div className="audit-unified-credential-grid">
+            <label>URL del sito<input value={wpUrl} onChange={(e) => setWpUrl(e.target.value)} placeholder="https://example.com" autoComplete="url" /></label>
+            <label>Utente WordPress<input value={wpUsername} onChange={(e) => setWpUsername(e.target.value)} placeholder="utente WordPress" autoComplete="username" /></label>
+            <label>Password applicativa<input type="password" value={wpPassword} onChange={(e) => setWpPassword(e.target.value)} placeholder="xxxx xxxx xxxx xxxx" autoComplete="new-password" /></label>
+          </div>
+        </section>
+      )}
+
+      <div className="audit-unified-actions">
+        <button type="button" className="primary" onClick={() => runRemediation(true)} disabled={running || platform !== "wordpress"}><Wrench />{running ? "Correzione in corso…" : `Correggi tutti (${issues.length})`}</button>
+        <button type="button" className="secondary" onClick={() => runRemediation(false)} disabled={running || platform !== "wordpress"}><Sparkles />Correggi questo problema</button>
+        <button type="button" className="secondary" onClick={verify} disabled={verifying || running}><Check />{verifying ? "Verifica…" : "Verifica con SeoGrow"}</button>
+        <button type="button" className="secondary" onClick={() => prepare(false)} disabled={running}><Copy />Prepara job</button>
+        {platform === "wordpress" && !profile && <button type="button" className="secondary" onClick={() => { localStorage.setItem("seogrow-selected-page-v1", JSON.stringify("Integrazioni")); window.location.hash = encodeURIComponent("Integrazioni"); }}><Plug />Configura WordPress</button>}
+      </div>
+
+      <div className="audit-unified-note"><strong>Limiti controllati</strong><span>WordPress: modifica reale di title, contenuto, excerpt e H1 tramite REST. Elementor _elementor_data, meta description dei plugin SEO, redirect, canonical, noindex, robots, sitemap e cambi URL restano fuori dall'adapter finché non esiste un'integrazione dedicata.</span></div>
+
+      <div className="audit-remediation-context-row">
+        <section className="audit-context-card issue-select-card">
+          <div className="audit-card-title purple"><ListChecks /><strong>Problema da correggere</strong></div>
+          <label className="audit-issue-select"><select value={selectedIndex} onChange={(e) => setSelectedIndex(Number(e.target.value))}>{issues.map((item, i) => <option key={`${item.label}-${i}`} value={i}>{i + 1}. {item.label || "Problema SEO"}</option>)}</select></label>
+        </section>
+
+        <section className="audit-context-card issue-detail-card">
+          <div className="audit-card-title violet"><Search /><strong>Dettaglio problema</strong></div>
+          <div className="audit-unified-issue"><div><strong>{issue?.label}</strong><small>{issue?.detail || "Nessun dettaglio aggiuntivo."}</small>{risk && <small className="risk">Controllo preliminare obbligatorio. L'adapter non applica automaticamente questo tipo di modifica.</small>}</div>{url && <a href={url} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>}</div>
+        </section>
+
+        <section className="audit-context-card target-card">
+          <div className="audit-card-title green"><Target /><strong>Target {platformLabel(platform)}</strong></div>
+          <div className="audit-unified-summary"><span>Profilo in uso</span><strong>{profile && platform === "wordpress" ? profile.username || "WordPress connesso" : platform === "wordpress" ? "Credenziali richieste" : platformLabel(platform)}</strong></div>
+        </section>
+      </div>
+
+      <div className="audit-workflow" aria-label="Flusso di remediation">
+        <section className="audit-step audit-step-blue"><div className="audit-step-head"><span>1</span><Search /><strong>Audit</strong></div><p>Analisi del problema e raccolta dei dati necessari.</p><small><CheckCircle2 /> Rilevazione automatica</small><small><CheckCircle2 /> Dati pagina e contesto</small></section>
+        <section className="audit-step audit-step-amber"><div className="audit-step-head"><span>2</span><ShieldCheck /><strong>Controllo preliminare</strong></div><p>Verifica fattibilità, impatto e sicurezza della modifica.</p><small><CheckCircle2 /> Controllo permessi</small><small><CheckCircle2 /> Verifica reversibilità</small></section>
+        <section className="audit-step audit-step-green"><div className="audit-step-head"><span>3</span><Wrench /><strong>Correzione</strong></div><p>Applicazione della modifica minima necessaria.</p><small><CheckCircle2 /> Scrittura tramite adapter</small><small><CheckCircle2 /> Conferma esecuzione</small></section>
+        <section className="audit-step audit-step-violet"><div className="audit-step-head"><span>4</span><Check /><strong>Verifica</strong></div><p>Ricontrollo e validazione del risultato finale.</p><small><CheckCircle2 /> Nuovo controllo SeoGrow</small><small><CheckCircle2 /> Aggiornamento esito</small></section>
+      </div>
+
       {report.length > 0 && <div className="audit-unified-report"><strong>Report remediation</strong>{report.map((item, index) => <div key={`${item.issue?.label}-${index}`}><span>{item.status === "corrected" ? "✓" : "!"} {item.issue?.label || "Problema"}</span><small>{item.status === "corrected" ? `Corretto: ${(item.changes || []).join(", ")}` : item.reason}</small></div>)}</div>}
       {job && <label className="audit-unified-job">Job operativo<textarea value={job} onChange={(e) => setJob(e.target.value)} /><button type="button" className="secondary" onClick={() => navigator.clipboard.writeText(job).then(() => setMessage("Job copiato.")).catch(() => setMessage("Copia non riuscita."))}><Copy />Copia job</button></label>}
-      <div className="audit-unified-note"><strong>Limiti controllati</strong><span>WordPress: modifica reale di title, contenuto, excerpt e H1 tramite REST. Elementor _elementor_data, meta description dei plugin SEO, redirect, canonical, noindex, robots, sitemap e cambi URL restano esplicitamente fuori dall'adapter finché non esiste un'integrazione dedicata.</span></div>
-      {message && <p className="integration-result">{message}</p>}
+      {message && <p className="integration-result audit-remediation-message">{message}</p>}
     </section>, target,
   );
 }
