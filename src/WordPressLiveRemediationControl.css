@@ -1,0 +1,150 @@
+.wp-live-remediation {
+  margin-top: 18px;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+.wp-live-remediation-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+.wp-live-remediation-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.wp-live-remediation-head span svg,
+.wp-live-remediation-actions svg,
+.wp-live-preview-title svg {
+  width: 16px;
+  height: 16px;
+}
+
+.wp-live-remediation-head h3 {
+  margin: 7px 0 5px;
+  font-size: 20px;
+}
+
+.wp-live-remediation-head p {
+  margin: 0;
+  max-width: 980px;
+  line-height: 1.55;
+}
+
+.wp-live-remediation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wp-live-remediation-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.wp-live-remediation-actions .danger {
+  border: 1px solid rgba(220, 38, 38, .35);
+  background: rgba(220, 38, 38, .1);
+  color: inherit;
+  font-weight: 800;
+}
+
+.wp-live-remediation-actions .danger:not(:disabled):hover {
+  background: rgba(220, 38, 38, .16);
+}
+
+.wp-live-preview-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.wp-live-preview-row {
+  border: 1px solid var(--border, rgba(148, 163, 184, .28));
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, .02);
+}
+
+.wp-live-preview-row.preview {
+  border-color: rgba(245, 158, 11, .3);
+}
+
+.wp-live-preview-row.applied {
+  border-color: rgba(34, 197, 94, .32);
+}
+
+.wp-live-preview-row.error,
+.wp-live-preview-row.unsupported {
+  border-color: rgba(239, 68, 68, .25);
+}
+
+.wp-live-preview-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.wp-live-preview-title div {
+  display: grid;
+  gap: 3px;
+}
+
+.wp-live-preview-title small {
+  line-height: 1.4;
+}
+
+.wp-live-preview-row details {
+  margin-top: 10px;
+}
+
+.wp-live-preview-row summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.wp-live-diff {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.wp-live-diff section {
+  min-width: 0;
+  border: 1px solid var(--border, rgba(148, 163, 184, .25));
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.wp-live-diff pre {
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.wp-live-remediation-message {
+  margin-top: 14px;
+}
+
+@media (max-width: 800px) {
+  .wp-live-diff {
+    grid-template-columns: 1fr;
+  }
+
+  .wp-live-remediation-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
