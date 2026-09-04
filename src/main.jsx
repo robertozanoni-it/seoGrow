@@ -2,6 +2,7 @@ import './gdprSeoMigration';
 import './remediationVerificationMigration';
 import './remediationIntegrity';
 import './locationEvents';
+import './liveRollbackRouter';
 import './seoResponseIntegrity';
 import './remediationReportUx';
 import React from 'react';
