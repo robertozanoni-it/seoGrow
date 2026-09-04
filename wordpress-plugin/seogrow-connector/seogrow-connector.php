@@ -64,16 +64,6 @@ function seogrow_connector_register_elementor_meta($post_type) {
         'type' => 'string',
         'show_in_rest' => true,
         'auth_callback' => 'seogrow_connector_can_edit_meta',
-        'sanitize_callback' => static function ($value) {
-            if (!is_string($value)) {
-                return '';
-            }
-            $decoded = json_decode($value, true);
-            if (!is_array($decoded) && $decoded !== array()) {
-                return new WP_Error('seogrow_invalid_elementor_json', 'I dati Elementor non contengono JSON valido.');
-            }
-            return $value;
-        },
     ));
 }
 
