@@ -16,8 +16,8 @@ import { downloadCsv } from "./platform";
 import { apiFetch } from "./api";
 
 const fetch = apiFetch;
-
 const unique = (values) => [...new Set(values.filter(Boolean))];
+const nowIso = () => new Date().toISOString();
 
 function suggestedQuestions(dataset, topicalMap, clientName) {
   const searchQuestions = (dataset?.queries || []).slice(0, 8).map((row) => {
@@ -79,10 +79,11 @@ export default function GeoPage({
     [client.name, dataset, topicalMap],
   );
   const initialQuestionsText = initialQuestions.join("\n");
-  const [questionsText, setQuestionsText] = useState(
-    (Array.isArray(saved?.questions) ? saved.questions : []).join("\n") ||
-      initialQuestionsText,
-  );
+  const savedQuestionsText = Array.isArray(saved?.questions)
+    ? saved.questions.join("\n")
+    : "";
+  const [questionsOverride, setQuestionsOverride] = useState(null);
+  const questionsText = questionsOverride ?? (savedQuestionsText || initialQuestionsText);
   const [audit, setAudit] = useState(
     saved?.audit && typeof saved.audit === "object" ? saved.audit : null,
   );
@@ -96,7 +97,7 @@ export default function GeoPage({
   const [error, setError] = useState("");
   const auditControllerRef = useRef(null);
   const simulationControllerRef = useRef(null);
-  const previousSuggestionsRef = useRef(initialQuestionsText);
+
   useEffect(
     () => () => {
       auditControllerRef.current?.abort();
@@ -104,15 +105,6 @@ export default function GeoPage({
     },
     [],
   );
-  useEffect(() => {
-    const previous = previousSuggestionsRef.current;
-    if (
-      !Array.isArray(saved?.questions) &&
-      (!questionsText.trim() || questionsText === previous)
-    )
-      setQuestionsText(initialQuestionsText);
-    previousSuggestionsRef.current = initialQuestionsText;
-  }, [initialQuestionsText, questionsText, saved?.questions]);
 
   const questions = unique(
     questionsText
@@ -126,7 +118,7 @@ export default function GeoPage({
       questions,
       audit,
       simulation,
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso(),
       ...next,
     };
     onSave(value);
@@ -256,9 +248,7 @@ export default function GeoPage({
       <div className="page-title geo-title">
         <div>
           <h1>GEO AI — {client.name}</h1>
-          <p>
-            Prepara il sito a essere compreso e citato dai motori generativi.
-          </p>
+          <p>Prepara il sito a essere compreso e citato dai motori generativi.</p>
         </div>
         <div className="geo-title-actions">
           <button
@@ -418,20 +408,20 @@ export default function GeoPage({
           </div>
           <label className="geo-question-label">
             <span className="sr-only">Domande GEO da monitorare, una per riga</span>
-          <textarea
-            aria-label="Domande GEO da monitorare"
-            value={questionsText}
-            onChange={(event) => setQuestionsText(event.target.value)}
-            onBlur={() => persist({ questions })}
-            placeholder="Es. Qual è il miglior servizio per…?"
-          />
+            <textarea
+              aria-label="Domande GEO da monitorare"
+              value={questionsText}
+              onChange={(event) => setQuestionsOverride(event.target.value)}
+              onBlur={() => persist({ questions })}
+              placeholder="Es. Qual è il miglior servizio per…?"
+            />
           </label>
           <div className="geo-question-actions">
             <span>{questions.length}/20 domande</span>
             <button
               className="secondary"
               onClick={() => {
-                setQuestionsText(initialQuestionsText);
+                setQuestionsOverride(initialQuestionsText);
                 persist({ questions: initialQuestions });
               }}
             >
@@ -458,18 +448,9 @@ export default function GeoPage({
           </div>
           {simulation ? (
             <div className="geo-sim-metrics">
-              <div>
-                <strong>{simulation.summary?.covered || 0}</strong>
-                <span>Coperte</span>
-              </div>
-              <div>
-                <strong>{simulation.summary?.partial || 0}</strong>
-                <span>Parziali</span>
-              </div>
-              <div>
-                <strong>{simulation.summary?.missing || 0}</strong>
-                <span>Scoperte</span>
-              </div>
+              <div><strong>{simulation.summary?.covered || 0}</strong><span>Coperte</span></div>
+              <div><strong>{simulation.summary?.partial || 0}</strong><span>Parziali</span></div>
+              <div><strong>{simulation.summary?.missing || 0}</strong><span>Scoperte</span></div>
             </div>
           ) : (
             <div className="geo-placeholder">
