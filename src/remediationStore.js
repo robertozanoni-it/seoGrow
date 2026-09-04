@@ -105,6 +105,16 @@ const activeClientIds = () => {
   );
 };
 
+const normalizedUrl = (value) => {
+  try {
+    const url = new URL(value);
+    url.hash = "";
+    return `${url.origin}${url.pathname.replace(/\/+$/, "") || "/"}${url.search}`;
+  } catch {
+    return String(value || "").replace(/\/+$/, "");
+  }
+};
+
 export const remediationIndex = () => readJson(REMEDIATION_INDEX_KEY, []);
 
 export async function saveCorrection(record) {
@@ -156,6 +166,25 @@ export async function replaceCorrections(records) {
   return safeRecords;
 }
 
+export async function purgeOrphanCorrections() {
+  const validClients = activeClientIds();
+  if (!validClients) return 0;
+  const index = remediationIndex();
+  const orphanIds = index
+    .filter((item) => !validClients.has(Number(item.clientId)))
+    .map((item) => item.id);
+  if (!orphanIds.length) return 0;
+  await withStore("readwrite", (store) => {
+    for (const id of orphanIds) store.delete(id);
+  });
+  const retained = index.filter((item) => !orphanIds.includes(item.id));
+  writeJson(REMEDIATION_INDEX_KEY, retained);
+  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", {
+    detail: { purgedOrphans: orphanIds.length },
+  }));
+  return orphanIds.length;
+}
+
 export function setLastBatch(batchId) {
   writeJson(REMEDIATION_LAST_BATCH_KEY, batchId || "");
 }
@@ -166,22 +195,13 @@ export function lastBatch() {
 
 export function removeVerifiedTask(record) {
   const tasks = readJson(TASKS_KEY, []);
-  const normalizeUrl = (value) => {
-    try {
-      const url = new URL(value);
-      url.hash = "";
-      return `${url.origin}${url.pathname.replace(/\/+$/, "") || "/"}${url.search}`;
-    } catch {
-      return String(value || "").replace(/\/+$/, "");
-    }
-  };
-  const targetUrl = normalizeUrl(record.sourceUrl);
+  const targetUrl = normalizedUrl(record.sourceUrl);
   const title = String(record.issueLabel || "").trim().toLocaleLowerCase("it");
   const next = tasks.filter((task) => {
     if (Number(task.sourceClientId) !== Number(record.clientId)) return true;
     if (task.status === "Completato") return true;
     const taskTitle = String(task.title || "").trim().toLocaleLowerCase("it");
-    const taskUrl = normalizeUrl(task.sourceUrl || task.targetUrl || "");
+    const taskUrl = normalizedUrl(task.sourceUrl || task.targetUrl || "");
     return !(taskTitle === title && taskUrl === targetUrl);
   });
   if (next.length !== tasks.length) writeJson(TASKS_KEY, next);
@@ -189,11 +209,12 @@ export function removeVerifiedTask(record) {
 
 export function reopenTask(record) {
   const tasks = readJson(TASKS_KEY, []);
+  const recordUrl = normalizedUrl(record.sourceUrl);
   const exists = tasks.some((task) =>
     Number(task.sourceClientId) === Number(record.clientId) &&
     task.status !== "Completato" &&
     String(task.title || "").trim().toLocaleLowerCase("it") === String(record.issueLabel || "").trim().toLocaleLowerCase("it") &&
-    String(task.sourceUrl || task.targetUrl || "").replace(/\/+$/, "") === String(record.sourceUrl || "").replace(/\/+$/, ""),
+    normalizedUrl(task.sourceUrl || task.targetUrl || "") === recordUrl,
   );
   if (exists) return;
   const priority = ["alta", "high", "critical", "critica"].includes(String(record.severity || "").toLowerCase())
@@ -217,4 +238,14 @@ export function reopenTask(record) {
     notes: "",
     createdAt: new Date().toISOString(),
   }, ...tasks]);
+}
+
+if (typeof window !== "undefined") {
+  const cleanupAfterClientSave = (event) => {
+    if (event?.detail?.key !== CLIENTS_KEY) return;
+    void purgeOrphanCorrections().catch((error) =>
+      console.warn("Pulizia storico remediation non completata:", error),
+    );
+  };
+  window.addEventListener("seogrow-storage-ok", cleanupAfterClientSave);
 }
