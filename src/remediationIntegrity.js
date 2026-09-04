@@ -52,18 +52,21 @@ async function recheckRecord(record) {
     if (!response.ok) throw new Error(data.error || "Verifica frontend non riuscita");
 
     if (DUPLICATE_TITLE.test(text)) {
-      const patch = data.titleMatchesExpected === false
+      const failedFrontend = data.titleMatchesExpected === false;
+      const patch = failedFrontend
         ? {
-            status: "Non applicato al frontend",
+            status: "Da verificare",
             frontendConfirmed: false,
+            frontendFailure: true,
             verificationNote: `WordPress ha modificato il titolo del contenuto, ma il <title> SEO pubblico è ancora “${data.title || "non rilevato"}”. La correzione del duplicato NON è confermata.`,
           }
         : {
             status: "Da verificare",
             frontendConfirmed: true,
+            frontendFailure: false,
             verificationNote: "Il title frontend coincide con il valore inviato, ma il problema di duplicazione richiede comunque un crawl completo del sito.",
           };
-      const changed = record.status !== patch.status || record.frontendConfirmed !== patch.frontendConfirmed || record.frontendSnapshot?.title !== data.title;
+      const changed = record.status !== patch.status || record.frontendConfirmed !== patch.frontendConfirmed || record.frontendFailure !== patch.frontendFailure || record.frontendSnapshot?.title !== data.title;
       if (changed) await updateCorrection(record.id, {
         ...patch,
         verifiedAt: new Date().toISOString(),
@@ -74,11 +77,12 @@ async function recheckRecord(record) {
 
     if (SHORT_CONTENT.test(text)) {
       const fixed = data.pageKind === "gdpr" || Number(data.words) >= Number(data.minimumWords || 180);
-      const nextStatus = fixed ? "Verificato" : "Non applicato al frontend";
-      const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || Number(record.frontendSnapshot?.words) !== Number(data.words);
+      const nextStatus = fixed ? "Verificato" : "Da verificare";
+      const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || record.frontendFailure !== !fixed || Number(record.frontendSnapshot?.words) !== Number(data.words);
       if (changed) await updateCorrection(record.id, {
         status: nextStatus,
         frontendConfirmed: fixed,
+        frontendFailure: !fixed,
         verifiedAt: new Date().toISOString(),
         verificationNote: fixed
           ? `Frontend verificato: ${data.words} parole, soglia ${data.minimumWords}.`
@@ -90,11 +94,12 @@ async function recheckRecord(record) {
 
     if (H1.test(text)) {
       const fixed = Number(data.h1) === 1;
-      const nextStatus = fixed ? "Verificato" : "Non applicato al frontend";
-      const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || Number(record.frontendSnapshot?.h1) !== Number(data.h1);
+      const nextStatus = fixed ? "Verificato" : "Da verificare";
+      const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || record.frontendFailure !== !fixed || Number(record.frontendSnapshot?.h1) !== Number(data.h1);
       if (changed) await updateCorrection(record.id, {
         status: nextStatus,
         frontendConfirmed: fixed,
+        frontendFailure: !fixed,
         verifiedAt: new Date().toISOString(),
         verificationNote: fixed
           ? "Frontend verificato: è presente esattamente un H1."
@@ -105,10 +110,11 @@ async function recheckRecord(record) {
     }
 
     if ((record.fields || []).includes("title") && data.titleMatchesExpected === false) {
-      const changed = record.status !== "Non applicato al frontend" || record.frontendSnapshot?.title !== data.title;
+      const changed = record.status !== "Da verificare" || record.frontendFailure !== true || record.frontendSnapshot?.title !== data.title;
       if (changed) await updateCorrection(record.id, {
-        status: "Non applicato al frontend",
+        status: "Da verificare",
         frontendConfirmed: false,
+        frontendFailure: true,
         verifiedAt: new Date().toISOString(),
         verificationNote: `Il titolo WordPress è stato scritto, ma il <title> pubblico è “${data.title || "non rilevato"}”.`,
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
@@ -120,6 +126,8 @@ async function recheckRecord(record) {
     if (record.status === "Verificato") {
       await updateCorrection(record.id, {
         status: "Da verificare",
+        frontendConfirmed: false,
+        frontendFailure: false,
         verificationNote: `Verifica frontend non conclusa: ${error.message}`,
       });
       return true;
