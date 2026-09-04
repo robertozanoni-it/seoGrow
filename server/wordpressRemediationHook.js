@@ -266,8 +266,8 @@ function registerRoutes(app) {
   app.get("/api/wordpress/remediation-capabilities", (_req, res) => {
     res.json({
       ok: true,
-      supports: ["inspect", "title", "content", "excerpt", "h1", "static_homepage"],
-      unsupported: ["elementor_data", "seo_plugin_meta", "redirect", "canonical", "noindex", "robots", "sitemap", "url_change", "posts_homepage"],
+      supports: ["inspect", "title", "content", "excerpt", "h1", "static_homepage", "draft_remediation"],
+      unsupported: ["published_content_write", "elementor_data", "seo_plugin_meta", "redirect", "canonical", "noindex", "robots", "sitemap", "url_change", "posts_homepage"],
     });
   });
 
@@ -334,14 +334,28 @@ function registerRoutes(app) {
         );
       }
 
+      const rollback = String(req.get("x-seogrow-rollback") || "") === "1";
+      const currentStatus = String(current?.status || "").toLowerCase();
+      if (!rollback && currentStatus !== "draft") {
+        return res.status(409).json({
+          error: "Remediation automatica bloccata: il contenuto WordPress è pubblicato o non è una bozza. SeoGrow non modifica contenuti live durante il QA. Crea o usa una bozza e applica lì la correzione.",
+          code: "DRAFT_REQUIRED",
+          currentStatus: currentStatus || "unknown",
+        });
+      }
+
       const patch = allowedChanges(changes);
+      const payload = rollback ? patch : { ...patch, status: "draft" };
       const update = await json(
         await wpFetch(endpoint(base, entityResource, `/${entityId}`), {
           method: "POST",
           headers,
-          body: JSON.stringify(patch),
+          body: JSON.stringify(payload),
         }),
       );
+
+      if (!rollback && String(update?.status || "").toLowerCase() !== "draft")
+        throw new Error("WordPress non ha confermato lo stato bozza dopo la remediation.");
 
       return res.json({
         ok: true,
@@ -357,7 +371,10 @@ function registerRoutes(app) {
           title: update?.title?.rendered || update?.title?.raw || "",
           slug: update?.slug || "",
         },
-        message: "Modifica applicata e confermata da WordPress.",
+        status: update?.status || current?.status || "",
+        message: rollback
+          ? "Versione precedente ripristinata e confermata da WordPress."
+          : "Modifica applicata a una bozza WordPress e confermata senza pubblicazione.",
       });
     } catch (error) {
       return res.status(400).json({
