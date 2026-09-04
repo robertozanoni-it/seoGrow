@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, Copy, ExternalLink, Sparkles, Wrench } from "lucide-react";
+import { Check, Copy, ExternalLink, Plug, Sparkles, Wrench } from "lucide-react";
 import { apiFetch } from "./api";
 import { normalizeAnalysisHistory } from "./platform";
 import "./AuditRemediationPanel.css";
@@ -10,6 +10,8 @@ const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const CLIENTS_KEY = "seogrow-clients";
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
+const WORDPRESS_PROFILES_KEY = "seogrow-wordpress-profiles-v1";
+const CMS_ROUTER_KEY = "seogrow-cms-router-v1";
 
 const readJson = (key, fallback) => {
   try {
@@ -17,6 +19,33 @@ const readJson = (key, fallback) => {
   } catch {
     return fallback;
   }
+};
+
+const writeJson = (key, value) => {
+  const serialized = JSON.stringify(value);
+  localStorage.setItem(key, serialized);
+  window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
+};
+
+const platformMeta = {
+  gptsites: {
+    label: "GPTSites",
+    action: "Correggi con GPTSites",
+    promptType: "istruzioni operative per GPTSites",
+    note: "SeoGrow prepara l'intervento e la verifica. L'applicazione avviene nel Site con preview prima della pubblicazione.",
+  },
+  wordpress: {
+    label: "WordPress + Elementor",
+    action: "Correggi su WordPress",
+    promptType: "istruzioni operative per WordPress ed Elementor",
+    note: "SeoGrow usa il profilo WordPress del progetto. Le modifiche Elementor strutturali richiedono preview/approvazione; metadati, testi, ALT e link possono essere preparati come patch mirate.",
+  },
+  manual: {
+    label: "Manuale / altro CMS",
+    action: "Prepara correzione",
+    promptType: "istruzioni operative SEO",
+    note: "Nessun canale di scrittura è configurato: SeoGrow prepara una correzione verificabile da applicare nel CMS disponibile.",
+  },
 };
 
 const latestAudit = (clientId) => {
@@ -33,77 +62,142 @@ const latestAudit = (clientId) => {
   )[0] || null;
 };
 
-const buildFallbackPrompt = ({ client, issue, auditType }) => {
-  const issueUrl = issue.targetUrl || issue.url || client.url;
-  return `MODIFICA MIRATA GPTSITES — ${client.name}\n\nPagina: ${issueUrl}\nProblema SEO rilevato: ${issue.label || "Problema SEO"}\nDettaglio: ${issue.detail || "Nessun dettaglio aggiuntivo disponibile."}\nSeverità: ${issue.severity || "media"}\nOrigine: audit ${auditType === "page" ? "pagina" : "sito completo"}.\n\nOBIETTIVO\nCorreggi esclusivamente il problema indicato sulla pagina specificata.\n\nVINCOLI\n- Non pubblicare automaticamente.\n- Non modificare URL, canonical, redirect, sitemap, noindex, tracciamenti o integrazioni se non sono l'oggetto esplicito della correzione.\n- Mantieni layout, stile, contenuti e funzionalità non coinvolti.\n- Non inventare dati, recensioni, credenziali o prove sociali.\n- Prima applica la modifica in preview, poi mostra esattamente cosa è cambiato.\n- Se la correzione richiede una scelta editoriale o strutturale non determinabile dai dati disponibili, fermati e chiedi approvazione.\n\nVERIFICA\nDopo la modifica, salva una nuova versione non pubblicata e indica come verificare che il problema SEO sia risolto.`;
+const inferPlatform = (clientId) => {
+  const saved = readJson(CMS_ROUTER_KEY, {});
+  if (saved[clientId]?.platform && platformMeta[saved[clientId].platform])
+    return saved[clientId].platform;
+  const wpProfiles = readJson(WORDPRESS_PROFILES_KEY, {});
+  if (wpProfiles[clientId]) return "wordpress";
+  return "manual";
 };
 
-function RemediationPanelView({ client, auditType, audit }) {
+const isHighRiskIssue = (issue) => {
+  const text = `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+  return ["redirect", "canonical", "noindex", "sitemap", "robots", "elimina", "delete", "publish", "pubblica"].some((term) => text.includes(term));
+};
+
+const buildFallbackPrompt = ({ client, issue, auditType, platform }) => {
+  const issueUrl = issue.targetUrl || issue.url || client.url;
+  const meta = platformMeta[platform] || platformMeta.manual;
+  const destinationRules =
+    platform === "wordpress"
+      ? "- Il sito usa WordPress + Elementor. Per H1, testi o sezioni Elementor modifica solo i widget necessari, senza ricostruire la pagina. Per title/meta usa il canale SEO disponibile. Per ALT/link usa le risorse WordPress pertinenti.\n- Non sovrascrivere _elementor_data in blocco se non è strettamente necessario."
+      : platform === "gptsites"
+        ? "- Lavora nel Site collegato in preview. Mantieni tutte le sezioni, integrazioni e URL esistenti non coinvolti."
+        : "- Prepara una modifica CMS-agnostica, indicando esattamente campo, valore corrente se noto e valore proposto.";
+  return `MODIFICA SEO MIRATA — ${meta.label} — ${client.name}\n\nPagina: ${issueUrl}\nProblema SEO rilevato: ${issue.label || "Problema SEO"}\nDettaglio: ${issue.detail || "Nessun dettaglio aggiuntivo disponibile."}\nSeverità: ${issue.severity || "media"}\nOrigine: audit ${auditType === "page" ? "pagina" : "sito completo"}.\n\nOBIETTIVO\nCorreggi esclusivamente il problema indicato sulla pagina specificata.\n\nREGOLE DESTINAZIONE\n${destinationRules}\n\nVINCOLI\n- Non modificare ciò che non è coinvolto.\n- Non inventare dati, recensioni, credenziali o prove sociali.\n- Non pubblicare automaticamente modifiche strutturali o ad alto rischio.\n- Redirect, canonical, noindex, sitemap, robots e cancellazioni richiedono approvazione esplicita.\n- Mostra sempre cosa intendi cambiare prima dell'applicazione quando la modifica può avere impatto strutturale.\n\nVERIFICA\nDopo la modifica, indica esattamente cosa è cambiato e lascia la pagina pronta per un nuovo audit SeoGrow.`;
+};
+
+function RemediationPanelView({ client, clientId, auditType, audit }) {
   const issues = Array.isArray(audit?.issues) ? audit.issues : [];
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [platform, setPlatform] = useState(() => inferPlatform(clientId));
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [verification, setVerification] = useState("");
   const issue = issues[selectedIndex] || null;
+  const meta = platformMeta[platform] || platformMeta.manual;
+  const wpProfile = readJson(WORDPRESS_PROFILES_KEY, {})[clientId] || null;
+  const highRisk = isHighRiskIssue(issue);
 
   useEffect(() => {
     setPrompt("");
     setMessage("");
     setVerification("");
-  }, [selectedIndex, audit?.analyzedAt]);
+  }, [selectedIndex, audit?.analyzedAt, platform]);
 
   const issueUrl = useMemo(
     () => issue?.targetUrl || issue?.url || audit?.url || client.url,
     [issue, audit?.url, client.url],
   );
 
+  const savePlatform = (nextPlatform) => {
+    setPlatform(nextPlatform);
+    const current = readJson(CMS_ROUTER_KEY, {});
+    writeJson(CMS_ROUTER_KEY, {
+      ...current,
+      [clientId]: {
+        platform: nextPlatform,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+  };
+
   const prepare = async () => {
     if (!issue) return;
     setLoading(true);
     setMessage("");
-    const fallback = buildFallbackPrompt({ client, issue, auditType });
+    const fallback = buildFallbackPrompt({ client, issue, auditType, platform });
     try {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           topic: `Correzione SEO: ${issue.label || "problema audit"}`,
-          type: "istruzioni operative per GPTSites",
+          type: meta.promptType,
           context: JSON.stringify({
             progetto: client.name,
             sito: client.url,
+            piattaforma: meta.label,
             pagina: issueUrl,
             audit: auditType,
             problema: issue.label,
             dettaglio: issue.detail,
             severita: issue.severity,
+            wordpressProfile: platform === "wordpress" && wpProfile
+              ? { url: wpProfile.url, username: wpProfile.username, name: wpProfile.name }
+              : null,
+            rischioAlto: highRisk,
             istruzione:
-              "Genera un prompt operativo per ChatGPT Sites. Correggi solo il problema indicato. Non pubblicare. Preserva tutto ciò che non è coinvolto. Richiedi preview e verifica finale. Non inventare dati.",
+              "Genera una patch operativa mirata alla piattaforma indicata. Correggi solo il problema. Preserva tutto il resto. Non pubblicare modifiche strutturali. Per WordPress + Elementor evita riscritture massive. Per modifiche ad alto rischio richiedi approvazione esplicita. Prevedi verifica finale con nuovo audit.",
           }),
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Generazione non riuscita");
       setPrompt(String(data.content || "").trim() || fallback);
-      setMessage(data.demo ? "Prompt preparato in modalità locale." : "Prompt di correzione preparato con AI.");
+      setMessage(data.demo ? "Correzione preparata in modalità locale." : `Correzione preparata per ${meta.label}.`);
     } catch {
       setPrompt(fallback);
-      setMessage("Prompt operativo preparato localmente.");
+      setMessage(`Correzione operativa preparata localmente per ${meta.label}.`);
     } finally {
       setLoading(false);
     }
   };
 
   const copyPrompt = async () => {
-    if (!prompt) await prepare();
-    const text = prompt || buildFallbackPrompt({ client, issue, auditType });
+    const text = prompt || buildFallbackPrompt({ client, issue, auditType, platform });
     try {
       await navigator.clipboard.writeText(text);
-      setMessage("Prompt copiato: incollalo nel Site collegato in ChatGPT Sites.");
+      setMessage(`Istruzioni copiate per ${meta.label}.`);
     } catch {
       setMessage("Copia automatica non riuscita: seleziona il testo e copialo manualmente.");
     }
+  };
+
+  const routeAction = async () => {
+    if (!issue) return;
+    if (!prompt) await prepare();
+    if (platform === "wordpress") {
+      if (!wpProfile) {
+        setMessage("WordPress non è ancora configurato per questo progetto. Apro Integrazioni.");
+        localStorage.setItem("seogrow-selected-page-v1", JSON.stringify("Integrazioni"));
+        window.location.hash = encodeURIComponent("Integrazioni");
+        return;
+      }
+      setMessage(
+        highRisk
+          ? "Correzione WordPress preparata. Questo intervento richiede approvazione prima dell'applicazione."
+          : "Correzione WordPress/Elementor preparata. Verifica la connessione in Integrazioni prima dell'applicazione.",
+      );
+      return;
+    }
+    if (platform === "gptsites") {
+      await copyPrompt();
+      return;
+    }
+    await copyPrompt();
   };
 
   const verify = async () => {
@@ -139,9 +233,21 @@ function RemediationPanelView({ client, auditType, audit }) {
       <div className="panel-head">
         <div>
           <h2>Correzioni SEO</h2>
-          <p>Prepara la correzione, passala a GPTSites e ricontrolla il risultato.</p>
+          <p>SeoGrow instrada ogni intervento verso la piattaforma corretta del progetto.</p>
         </div>
         <span className="remediation-badge"><Wrench />{issues.length} problemi</span>
+      </div>
+
+      <div className="cms-router-card">
+        <div>
+          <strong>Piattaforma del progetto</strong>
+          <small>La scelta viene ricordata per {client.name}.</small>
+        </div>
+        <select value={platform} onChange={(event) => savePlatform(event.target.value)}>
+          <option value="gptsites">GPTSites</option>
+          <option value="wordpress">WordPress + Elementor</option>
+          <option value="manual">Manuale / altro CMS</option>
+        </select>
       </div>
 
       <label className="remediation-select">
@@ -159,23 +265,20 @@ function RemediationPanelView({ client, auditType, audit }) {
         <div>
           <strong>{issue?.label}</strong>
           <small>{issue?.detail || "Nessun dettaglio aggiuntivo."}</small>
+          {highRisk && <small className="risk-note">Intervento ad alto rischio: richiede approvazione prima dell'applicazione.</small>}
         </div>
         <a href={issueUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>
       </div>
 
       <div className="remediation-actions">
-        <button className="primary" onClick={prepare} disabled={loading}>
-          <Sparkles />{loading ? "Preparazione…" : "Correggi con AI"}
+        <button className="primary" onClick={routeAction} disabled={loading}>
+          <Sparkles />{loading ? "Preparazione…" : meta.action}
+        </button>
+        <button className="secondary" onClick={prepare} disabled={loading || !issue}>
+          <Wrench />Prepara patch AI
         </button>
         <button className="secondary" onClick={copyPrompt} disabled={!issue}>
-          <Copy />Copia per GPTSites
-        </button>
-        <button
-          className="secondary"
-          disabled
-          title="Non disponibile: ChatGPT Sites non espone attualmente un'API esterna documentata per la scrittura diretta da SeoGrow."
-        >
-          Applica automaticamente
+          <Copy />Copia istruzioni
         </button>
         <button className="secondary" onClick={verify} disabled={!issue}>
           <Check />Verifica correzione
@@ -183,15 +286,18 @@ function RemediationPanelView({ client, auditType, audit }) {
       </div>
 
       <div className="remediation-note">
-        <strong>GPTSites collegato</strong>
-        <span>
-          Il flusso automatico completo sarà attivabile appena sarà disponibile un adapter di scrittura. Oggi SeoGrow prepara la correzione e la verifica; l'applicazione avviene dentro ChatGPT Sites con preview prima della pubblicazione.
-        </span>
+        <strong>{meta.label}</strong>
+        <span>{meta.note}</span>
+        {platform === "wordpress" && (
+          <span className={wpProfile ? "cms-connected" : "cms-missing"}>
+            <Plug />{wpProfile ? `Profilo WordPress rilevato${wpProfile.name ? `: ${wpProfile.name}` : ""}.` : "Profilo WordPress non ancora configurato."}
+          </span>
+        )}
       </div>
 
       {prompt && (
         <label className="remediation-prompt">
-          Prompt pronto per GPTSites
+          Patch / istruzioni pronte
           <textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} />
         </label>
       )}
@@ -220,11 +326,11 @@ export default function AuditRemediationPanel() {
     sync();
     window.addEventListener("hashchange", sync);
     window.addEventListener("storage", sync);
-    const timer = window.setInterval(sync, 1200);
+    window.addEventListener("seogrow-locationchange", sync);
     return () => {
       window.removeEventListener("hashchange", sync);
       window.removeEventListener("storage", sync);
-      window.clearInterval(timer);
+      window.removeEventListener("seogrow-locationchange", sync);
     };
   }, []);
 
@@ -239,6 +345,7 @@ export default function AuditRemediationPanel() {
     <RemediationPanelView
       key={`${selectedClientId}-${latest.item.analyzedAt || latest.item.startedAt}-${version}`}
       client={client}
+      clientId={selectedClientId}
       auditType={latest.type}
       audit={latest.item}
     />,
