@@ -1,4 +1,9 @@
-import { listCorrections, updateCorrection } from "./remediationStore";
+import {
+  listCorrections,
+  removeVerifiedTask,
+  reopenTask,
+  updateCorrection,
+} from "./remediationStore";
 import "./RemediationIntegrity.css";
 
 const DUPLICATE_TITLE = /title duplic|titolo duplic/i;
@@ -37,6 +42,23 @@ if (!window.fetch.__seogrowSeoTitleGuard) {
   window.fetch = guardedFetch;
 }
 
+const syncTaskWithVerification = (before, after) => {
+  if (!after) return;
+  if (after.status === "Verificato") {
+    removeVerifiedTask(after);
+    return;
+  }
+  if (before?.status === "Verificato" && after.status !== "Verificato") {
+    reopenTask(after);
+  }
+};
+
+async function updateAndSync(record, patch) {
+  const updated = await updateCorrection(record.id, patch);
+  syncTaskWithVerification(record, updated);
+  return updated;
+}
+
 async function recheckRecord(record) {
   if (!record?.sourceUrl || record.status === "Ripristinato") return false;
   const text = issueText(record.issue || { label: record.issueLabel });
@@ -67,7 +89,7 @@ async function recheckRecord(record) {
             verificationNote: "Il title frontend coincide con il valore inviato, ma il problema di duplicazione richiede comunque un crawl completo del sito.",
           };
       const changed = record.status !== patch.status || record.frontendConfirmed !== patch.frontendConfirmed || record.frontendFailure !== patch.frontendFailure || record.frontendSnapshot?.title !== data.title;
-      if (changed) await updateCorrection(record.id, {
+      if (changed) await updateAndSync(record, {
         ...patch,
         verifiedAt: new Date().toISOString(),
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
@@ -79,7 +101,7 @@ async function recheckRecord(record) {
       const fixed = data.pageKind === "gdpr" || Number(data.words) >= Number(data.minimumWords || 180);
       const nextStatus = fixed ? "Verificato" : "Da verificare";
       const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || record.frontendFailure !== !fixed || Number(record.frontendSnapshot?.words) !== Number(data.words);
-      if (changed) await updateCorrection(record.id, {
+      if (changed) await updateAndSync(record, {
         status: nextStatus,
         frontendConfirmed: fixed,
         frontendFailure: !fixed,
@@ -96,7 +118,7 @@ async function recheckRecord(record) {
       const fixed = Number(data.h1) === 1;
       const nextStatus = fixed ? "Verificato" : "Da verificare";
       const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || record.frontendFailure !== !fixed || Number(record.frontendSnapshot?.h1) !== Number(data.h1);
-      if (changed) await updateCorrection(record.id, {
+      if (changed) await updateAndSync(record, {
         status: nextStatus,
         frontendConfirmed: fixed,
         frontendFailure: !fixed,
@@ -111,7 +133,7 @@ async function recheckRecord(record) {
 
     if ((record.fields || []).includes("title") && data.titleMatchesExpected === false) {
       const changed = record.status !== "Da verificare" || record.frontendFailure !== true || record.frontendSnapshot?.title !== data.title;
-      if (changed) await updateCorrection(record.id, {
+      if (changed) await updateAndSync(record, {
         status: "Da verificare",
         frontendConfirmed: false,
         frontendFailure: true,
@@ -124,7 +146,7 @@ async function recheckRecord(record) {
     return false;
   } catch (error) {
     if (record.status === "Verificato") {
-      await updateCorrection(record.id, {
+      await updateAndSync(record, {
         status: "Da verificare",
         frontendConfirmed: false,
         frontendFailure: false,
