@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import AuditWorkspace from './AuditWorkspace';
+import AuditRemediationPanel from './AuditRemediationPanel';
 import './styles.css';
 
 class AppErrorBoundary extends React.Component {
@@ -32,6 +33,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AppErrorBoundary>
       <App />
       <AuditWorkspace />
+      <AuditRemediationPanel />
     </AppErrorBoundary>
   </React.StrictMode>,
 );
