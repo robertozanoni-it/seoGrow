@@ -37,6 +37,17 @@ const severityPriority = (severity) => {
   return "Media";
 };
 
+const createManualTaskId = () =>
+  `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+const currentPage = () => {
+  try {
+    return decodeURIComponent(window.location.hash.slice(1));
+  } catch {
+    return "";
+  }
+};
+
 function AuditWorkspaceView({ client, clientId, refresh }) {
   const pageStore = readJson(PAGE_HISTORY_KEY, {});
   const siteStore = readJson(SITE_HISTORY_KEY, {});
@@ -116,7 +127,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
     );
     if (duplicate) return;
     const task = {
-      id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: createManualTaskId(),
       title,
       client: client.name,
       sourceClientId: clientId,
@@ -365,8 +376,7 @@ export default function AuditWorkspace() {
 
   useEffect(() => {
     const sync = () => {
-      let page = "";
-      try { page = decodeURIComponent(window.location.hash.slice(1)); } catch { page = ""; }
+      const page = currentPage();
       const main = document.querySelector(".workspace main");
       setActive(page === "Audit SEO" && Boolean(main));
       setTarget(main);
