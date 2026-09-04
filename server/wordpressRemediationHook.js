@@ -30,6 +30,11 @@ async function safeBase(input) {
   const addresses = await dns.lookup(url.hostname, { all: true });
   if (!addresses.length || addresses.some((item) => privateAddress(item.address)))
     throw new Error("Indirizzo WordPress non pubblico.");
+  // L'audit può passare un permalink interno. L'API REST va invece risolta
+  // dalla root del sito, altrimenti si genera /pagina/wp-json/... e WordPress
+  // risponde 404.
+  url.pathname = "/";
+  url.search = "";
   url.hash = "";
   return url;
 }
@@ -65,6 +70,8 @@ async function json(response) {
   try {
     data = text ? JSON.parse(text) : {};
   } catch {
+    if (response.status === 404)
+      throw new Error("WordPress REST API non trovata alla root del sito (HTTP 404). Verifica che /wp-json/ sia disponibile.");
     throw new Error(`Risposta WordPress non valida (HTTP ${response.status}).`);
   }
   if (!response.ok) {
