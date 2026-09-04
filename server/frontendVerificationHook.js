@@ -170,7 +170,8 @@ async function inspect(url) {
 }
 
 function publicResult(result) {
-  const { _visibleText: _ignored, ...safe } = result;
+  const safe = { ...result };
+  delete safe._visibleText;
   return safe;
 }
 
