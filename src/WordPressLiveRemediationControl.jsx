@@ -310,7 +310,7 @@ async function buildPlan(kind, issue, inspected, targetUrl) {
   if (kind === "canonical") {
     const plugin = metaKey(entity, kind);
     if (!plugin) throw new Error("Rank Math/Yoast non espongono la canonical come campo REST scrivibile per questa pagina.");
-    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: targetUrl } };
+    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: targetUrl } } };
   }
 
   if (kind === "noindex") {
