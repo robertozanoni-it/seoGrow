@@ -33,13 +33,48 @@ if (typeof window !== "undefined" && !window.__seogrowProjectAbortInstalled) {
   });
 }
 
-const trimGenerateContext = (body) => {
+const compactStructuredRemediationContext = (context) => {
+  try {
+    const parsed = JSON.parse(context);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const page = parsed.page && typeof parsed.page === "object" ? parsed.page : {};
+    const compact = (value, max) => {
+      const text = String(value ?? "");
+      if (text.length <= max) return text;
+      const head = Math.floor(max * 0.72);
+      const tail = max - head;
+      return `${text.slice(0, head)}\n[...contenuto ridotto automaticamente da SeoGrow...]\n${text.slice(-tail)}`;
+    };
+    return JSON.stringify({
+      ...parsed,
+      page: {
+        ...page,
+        title: compact(page.title, 1000),
+        excerpt: compact(page.excerpt, 1600),
+        content: compact(page.content, 7000),
+      },
+    });
+  } catch {
+    return null;
+  }
+};
+
+export const trimGenerateContext = (body) => {
   if (typeof body !== "string") return body;
   try {
     const payload = JSON.parse(body);
     if (!payload || typeof payload !== "object" || typeof payload.context !== "string") return body;
     const maxContext = 10_500;
     if (payload.context.length <= maxContext) return body;
+
+    if (/^Remediation WordPress\s+(?:title|content|excerpt|h1)$/i.test(String(payload.topic || ""))) {
+      const compactContext = compactStructuredRemediationContext(payload.context);
+      if (compactContext) {
+        payload.context = compactContext;
+        return JSON.stringify(payload);
+      }
+    }
+
     const headLength = 8_500;
     const tailLength = 1_500;
     payload.context = `${payload.context.slice(0, headLength)}\n\n[...contenuto ridotto automaticamente da SeoGrow per rispettare il limite AI...]\n\n${payload.context.slice(-tailLength)}`;
