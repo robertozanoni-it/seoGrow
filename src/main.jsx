@@ -1,4 +1,5 @@
 import './gdprSeoMigration';
+import './remediationVerificationMigration';
 import './locationEvents';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
