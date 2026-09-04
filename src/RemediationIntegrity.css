@@ -1,0 +1,1 @@
+.correction-status.non-applicato-al-frontend{background:#fff0f0;color:#b42318;border:1px solid #f4c7c3}.correction-card:has(.correction-status.non-applicato-al-frontend){border-color:#f2c3bf}.correction-card:has(.correction-status.non-applicato-al-frontend) .correction-footer{background:#fff8f7;border-radius:10px;padding:12px 14px;margin-top:14px}
