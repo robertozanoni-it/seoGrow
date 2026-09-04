@@ -21,6 +21,12 @@ const readJson = (key, fallback) => {
   }
 };
 
+const writeJson = (key, value) => {
+  const serialized = JSON.stringify(value);
+  localStorage.setItem(key, serialized);
+  window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
+};
+
 const latestAudit = (clientId) => {
   const pages = readJson(PAGE_HISTORY_KEY, {})[clientId] || [];
   const sites = normalizeAnalysisHistory(readJson(SITE_HISTORY_KEY, {})[clientId]);
@@ -59,9 +65,7 @@ const resolvePortalTarget = () => {
     page = "";
   }
   if (page !== "Audit SEO") return null;
-  const root = document.querySelector(".audit-enhancer-root");
-  if (!root) return null;
-  return root.querySelector(".gptsites-bulk-slot") || null;
+  return document.querySelector(".audit-enhancer-root .gptsites-bulk-slot");
 };
 
 export default function WordPressJobBridge() {
@@ -77,23 +81,31 @@ export default function WordPressJobBridge() {
       setVersion((value) => value + 1);
     };
     sync();
-    const timer = window.setInterval(sync, 300);
+    const observer = new MutationObserver(sync);
+    observer.observe(document.body, { childList: true, subtree: true });
     window.addEventListener("hashchange", sync);
     window.addEventListener("storage", sync);
     window.addEventListener("seogrow-locationchange", sync);
+    window.addEventListener("seogrow-remediation-open", sync);
     return () => {
-      window.clearInterval(timer);
+      observer.disconnect();
       window.removeEventListener("hashchange", sync);
       window.removeEventListener("storage", sync);
       window.removeEventListener("seogrow-locationchange", sync);
+      window.removeEventListener("seogrow-remediation-open", sync);
     };
   }, []);
 
   const clients = readJson(CLIENTS_KEY, []);
   const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, clients[0]?.id));
   const client = clients.find((item) => item.id === selectedClientId) || clients[0];
-  const platform = readJson(CMS_ROUTER_KEY, {})[selectedClientId]?.platform || "manual";
   const profile = readJson(WORDPRESS_PROFILES_KEY, {})[selectedClientId] || null;
+  const savedPlatform = readJson(CMS_ROUTER_KEY, {})[selectedClientId]?.platform || "";
+  const platform = savedPlatform === "gptsites"
+    ? "gptsites"
+    : savedPlatform === "wordpress" || profile
+      ? "wordpress"
+      : "manual";
   const latest = client ? latestAudit(selectedClientId) : null;
   const issues = Array.isArray(latest?.item?.issues) ? latest.item.issues : [];
   const firstIssue = issues[0] || null;
@@ -102,8 +114,23 @@ export default function WordPressJobBridge() {
     [firstIssue, latest?.item, client, version],
   );
 
-  if (!target || platform !== "wordpress" || !client || !latest?.item || !issues.length)
+  if (!target || platform === "gptsites" || !client || !latest?.item || !issues.length)
     return null;
+
+  const setAsWordPress = () => {
+    const current = readJson(CMS_ROUTER_KEY, {});
+    writeJson(CMS_ROUTER_KEY, {
+      ...current,
+      [selectedClientId]: {
+        platform: "wordpress",
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    setMessage(profile
+      ? "Progetto impostato su WordPress + Elementor. La remediation bulk è disponibile."
+      : "Progetto impostato su WordPress + Elementor. Completa ora la connessione in Integrazioni.");
+    setVersion((value) => value + 1);
+  };
 
   const copyText = async (text, success) => {
     setJob(text);
@@ -166,9 +193,17 @@ export default function WordPressJobBridge() {
         <span className="wordpress-job-badge"><Plug />{issues.length} problemi</span>
       </div>
 
-      {!profile ? (
+      {platform !== "wordpress" ? (
         <div className="wordpress-job-note">
-          <strong>WordPress non è ancora configurato per questo progetto</strong>
+          <strong>Questo progetto può essere gestito con WordPress + Elementor</strong>
+          <span>Attiva WordPress per mostrare i comandi di remediation direttamente nel Site Audit.</span>
+          <button type="button" className="primary" onClick={setAsWordPress}>
+            <Plug />Usa WordPress + Elementor per questo progetto
+          </button>
+        </div>
+      ) : !profile ? (
+        <div className="wordpress-job-note">
+          <strong>WordPress selezionato, connessione da completare</strong>
           <span>Collega URL, utente e password applicativa in Integrazioni prima della remediation.</span>
           <button type="button" className="primary" onClick={openIntegrations}>
             <Plug />Apri Integrazioni WordPress
@@ -210,7 +245,7 @@ export default function WordPressJobBridge() {
       <div className="wordpress-job-note">
         <strong>Stato automazione</strong>
         <span>
-          SeoGrow ha già il canale WordPress per autenticazione e bozze. Per applicare automaticamente in produzione fix su pagine esistenti, Elementor e metadati SEO plugin-specifici serve ancora un adapter di remediation dedicato; il pannello non dichiara una modifica come eseguita finché quel canale non esiste.
+          SeoGrow ha già il canale WordPress per autenticazione e bozze. Per applicare automaticamente fix su pagine esistenti, Elementor e metadati SEO plugin-specifici serve ancora l’adapter di remediation dedicato; SeoGrow non segna una modifica come eseguita finché il canale necessario non esiste.
         </span>
       </div>
 
