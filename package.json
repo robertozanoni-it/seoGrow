@@ -7,9 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "cross-env APP_ORIGIN=http://localhost:5176 concurrently --kill-others-on-fail \"vite --port 5176 --strictPort\" \"node server/index.js\"",
+    "dev": "cross-env APP_ORIGIN=http://localhost:5176 NODE_OPTIONS=--import=./server/wordpressRemediationHook.js\ --import=./server/frontendVerificationHook.js concurrently --kill-others-on-fail \"vite --port 5176 --strictPort\" \"node server/index.js\"",
     "build": "vite build",
-    "start": "cross-env APP_ORIGIN=http://localhost:5176 concurrently --kill-others-on-fail \"vite preview --host 127.0.0.1 --port 5176 --strictPort\" \"node server/index.js\"",
+    "start": "cross-env APP_ORIGIN=http://localhost:5176 NODE_OPTIONS=--import=./server/wordpressRemediationHook.js\ --import=./server/frontendVerificationHook.js concurrently --kill-others-on-fail \"vite preview --host 127.0.0.1 --port 5176 --strictPort\" \"node server/index.js\"",
     "preview": "vite preview --host 127.0.0.1 --port 5176 --strictPort",
     "lint": "eslint .",
     "test": "node --test src/*.test.js",
