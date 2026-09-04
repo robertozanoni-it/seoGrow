@@ -27,4 +27,5 @@ await import("./wordpressSeoAdapterHook.js");
 await import("./wordpressDraftCopyHook.js");
 await import("./wordpressRemediationHook.js");
 await import("./frontendVerificationHook.js");
+await import("./wordpressInspectFastHook.js");
 await import("./wordpressPatchV2Hook.js");
