@@ -1,0 +1,140 @@
+.remediation-panel {
+  display: grid;
+  gap: 16px;
+}
+
+.remediation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(124, 58, 237, .1);
+  color: #6d28d9;
+}
+
+.remediation-badge svg {
+  width: 15px;
+  height: 15px;
+}
+
+.remediation-select {
+  display: grid;
+  gap: 7px;
+  font-weight: 700;
+}
+
+.remediation-select select,
+.remediation-prompt textarea {
+  width: 100%;
+}
+
+.remediation-issue {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border, #dce3ee);
+  border-radius: 14px;
+}
+
+.remediation-issue > div {
+  display: grid;
+  gap: 5px;
+}
+
+.remediation-issue small {
+  opacity: .72;
+  line-height: 1.45;
+}
+
+.remediation-issue a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.remediation-issue a svg {
+  width: 15px;
+  height: 15px;
+}
+
+.remediation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.remediation-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.remediation-actions button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.remediation-actions button:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.remediation-note {
+  display: grid;
+  gap: 5px;
+  padding: 13px 15px;
+  border-radius: 12px;
+  background: rgba(36, 119, 238, .07);
+  border: 1px solid rgba(36, 119, 238, .14);
+}
+
+.remediation-note span {
+  font-size: 13px;
+  line-height: 1.5;
+  opacity: .8;
+}
+
+.remediation-prompt {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.remediation-prompt textarea {
+  min-height: 260px;
+  resize: vertical;
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.remediation-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.remediation-status svg {
+  width: 17px;
+  height: 17px;
+}
+
+@media (max-width: 760px) {
+  .remediation-issue {
+    flex-direction: column;
+  }
+
+  .remediation-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .remediation-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
