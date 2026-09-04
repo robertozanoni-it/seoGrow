@@ -140,12 +140,12 @@ if (typeof window !== "undefined" && !window.fetch[PATCHED]) {
 
     if (info.pathname === "/api/wordpress/generate-patch" && info.method === "POST") {
       effectiveInput = "/api/wordpress/generate-patch-v2";
-      info.pathname = "/api/wordpress/generate-patch-v2";
     }
 
     if (info.pathname === "/api/wordpress/inspect" && info.method === "POST") {
       const request = parseBody(init?.body, {});
       if (isNonEditableWordPressUrl(request?.url)) return archiveResponse();
+      effectiveInput = "/api/wordpress/inspect-fast";
     }
 
     const cacheable = info.method === "POST" && [
