@@ -60,6 +60,14 @@ const readJson = (key, fallback) => {
   }
 };
 
+const parseJson = (value, fallback = {}) => {
+  try {
+    return JSON.parse(String(value ?? ""));
+  } catch {
+    return fallback;
+  }
+};
+
 const normalizeUrl = (value) => {
   try {
     const url = new URL(value);
@@ -144,8 +152,7 @@ const scoreWithoutExcludedIssues = (data, issues) => {
 
 const filterGdprFromSeoResponse = async (response, requestUrl, init) => {
   if (!response.ok || !["/api/site-analysis", "/api/audit"].includes(requestUrl)) return response;
-  let body = {};
-  try { body = JSON.parse(String(init?.body || "{}")); } catch { body = {}; }
+  const body = parseJson(init?.body || "{}", {});
   let data;
   try { data = await response.clone().json(); } catch { return response; }
 
@@ -278,8 +285,7 @@ if (!window.fetch.__seogrowRemediationPatched) {
       try {
         const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
         if (/^Remediation WordPress\s+(?:title|content|excerpt|h1)$/i.test(String(body?.topic || ""))) {
-          let context = {};
-          try { context = JSON.parse(String(body?.context || "{}")); } catch { context = {}; }
+          const context = parseJson(body?.context || "{}", {});
           const response = await originalFetch("/api/wordpress/generate-patch", init);
           if (response.ok) {
             try {
@@ -303,8 +309,7 @@ if (!window.fetch.__seogrowRemediationPatched) {
 
     if (url === "/api/wordpress/remediate" && method === "POST") {
       const rollbackHeader = new Headers(init.headers || {}).get("x-seogrow-rollback") === "1";
-      let requestBody = {};
-      try { requestBody = JSON.parse(String(init.body || "{}")); } catch { requestBody = {}; }
+      const requestBody = parseJson(init.body || "{}", {});
       const generation = rollbackHeader ? null : pendingGenerations.shift() || null;
       const response = await originalFetch(input, init);
       if (response.ok && !rollbackHeader) {
