@@ -21,6 +21,8 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
   globalThis.fetch = guardedFetch;
 }
 
+await import("./wordpressLiveApprovalHook.js");
+await import("./wordpressSeoAdapterHook.js");
 await import("./wordpressDraftCopyHook.js");
 await import("./wordpressRemediationHook.js");
 await import("./frontendVerificationHook.js");
