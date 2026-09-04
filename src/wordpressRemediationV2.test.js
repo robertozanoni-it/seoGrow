@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./wordpressRemediationRuntimePatch.js", import.meta.url), "utf8");
+const liveControl = await readFile(new URL("./WordPressLiveRemediationControl.jsx", import.meta.url), "utf8");
 const connector = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url), "utf8");
 
 const extractFunction = (source, name) => {
@@ -25,6 +26,12 @@ test("gli H1 vengono corretti deterministicamente senza chiamare OpenAI", () => 
   assert.match(patchServer, /replace\(\/\^<h1\/i, "<h2"\)/);
   assert.match(patchServer, /if \(kind === "h1"\)/);
   assert.match(patchServer, /deterministicH1Patch/);
+});
+
+test("la remediation H1 usa WordPress core solo se il numero H1 coincide con il frontend", () => {
+  assert.match(liveControl, /const countH1 =/);
+  assert.match(liveControl, /const coreH1 = countH1\(entity\.content\?\.raw \|\| entity\.content\?\.rendered \|\| ""\)/);
+  assert.match(liveControl, /data\.contentProbeVisible === true && Number\(data\.h1\) === coreH1/);
 });
 
 test("la cache runtime non include mai la password applicativa", () => {
