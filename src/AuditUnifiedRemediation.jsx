@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Check,
@@ -25,26 +25,47 @@ const PAGE_HISTORY_KEY = "seogrow-page-audit-history-v2";
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 
 const readJson = (key, fallback) => {
-  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
 };
+
 const writeJson = (key, value) => {
   const serialized = JSON.stringify(value);
   localStorage.setItem(key, serialized);
   window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
 };
+
 const candidates = (clientId) => {
   const pages = readJson(PAGE_HISTORY_KEY, {})[clientId] || [];
   const sites = normalizeAnalysisHistory(readJson(SITE_HISTORY_KEY, {})[clientId]);
   return [
     ...(Array.isArray(pages) ? pages.map((item) => ({ type: "page", item })) : []),
     ...sites.map((item) => ({ type: "site", item })),
-  ].toSorted((a, b) => Date.parse(b.item?.analyzedAt || b.item?.startedAt || 0) - Date.parse(a.item?.analyzedAt || a.item?.startedAt || 0));
+  ].toSorted(
+    (a, b) =>
+      Date.parse(b.item?.analyzedAt || b.item?.startedAt || 0) -
+      Date.parse(a.item?.analyzedAt || a.item?.startedAt || 0),
+  );
 };
-const issueUrl = (issue, audit, client) => issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
-const platformLabel = (platform) => platform === "wordpress" ? "WordPress + Elementor" : platform === "gptsites" ? "GPTSites" : "Manuale / altro CMS";
+
+const issueUrl = (issue, audit, client) =>
+  issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
+
+const platformLabel = (platform) =>
+  platform === "wordpress"
+    ? "WordPress + Elementor"
+    : platform === "gptsites"
+      ? "GPTSites"
+      : "Manuale / altro CMS";
+
 const isHighImpact = (issue) => {
   const text = `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
-  return ["redirect", "canonical", "noindex", "robots", "sitemap", "elimina", "delete"].some((term) => text.includes(term));
+  return ["redirect", "canonical", "noindex", "robots", "sitemap", "elimina", "delete"].some(
+    (term) => text.includes(term),
+  );
 };
 
 const classifyIssue = (issue) => {
@@ -58,43 +79,65 @@ const classifyIssue = (issue) => {
 };
 
 const buildJob = ({ platform, client, auditType, audit, issues }) => {
-  const rows = issues.map((issue, i) => `${i + 1}. ${issue.label || "Problema SEO"}\n   URL: ${issueUrl(issue, audit, client)}\n   Severità: ${issue.severity || "media"}\n   Dettaglio: ${issue.detail || "Nessun dettaglio aggiuntivo."}`).join("\n\n");
+  const rows = issues
+    .map(
+      (issue, index) =>
+        `${index + 1}. ${issue.label || "Problema SEO"}\n   URL: ${issueUrl(issue, audit, client)}\n   Severità: ${issue.severity || "media"}\n   Dettaglio: ${issue.detail || "Nessun dettaglio aggiuntivo."}`,
+    )
+    .join("\n\n");
   const destination = platformLabel(platform).toUpperCase();
-  const rules = platform === "wordpress"
-    ? "Usa l'adapter WordPress reale. Prima verifica che il problema sia ancora presente e che il campo WordPress controlli realmente il frontend. Applica solo title, contenuto, excerpt o altre proprietà esplicitamente supportate. Non sovrascrivere _elementor_data e non toccare redirect/canonical/noindex/robots/URL senza un adapter dedicato."
-    : platform === "gptsites"
-      ? "Lavora nel Site collegato. Verifica ogni problema prima di modificarlo e applica la modifica minima necessaria."
-      : "Prepara istruzioni CMS-agnostiche e non dichiarare applicata alcuna modifica.";
+  const rules =
+    platform === "wordpress"
+      ? "Usa l'adapter WordPress reale. Prima verifica che il problema sia ancora presente e che il campo WordPress controlli realmente il frontend. Applica solo title, contenuto, excerpt o altre proprietà esplicitamente supportate. Non sovrascrivere _elementor_data e non toccare redirect/canonical/noindex/robots/URL senza un adapter dedicato."
+      : platform === "gptsites"
+        ? "Lavora nel Site collegato. Verifica ogni problema prima di modificarlo e applica la modifica minima necessaria."
+        : "Prepara istruzioni CMS-agnostiche e non dichiarare applicata alcuna modifica.";
   return `JOB AGENTICO ${destination} — ${issues.length === 1 ? "VERIFICA E CORREGGI" : "BULK REMEDIATION"}\n\nPROGETTO\n${client.name}\n${client.url}\n\nORIGINE\nAudit ${auditType === "page" ? "pagina" : "sito completo"}.\n\nPROBLEMI\n${rows}\n\nCONTROLLO PRELIMINARE\nVerifica che ogni problema sia ancora presente e che la correzione non introduca regressioni.\n\nESECUZIONE\n${rules}\nNon fermare l'intero batch per un singolo caso ambiguo o non supportato: registralo e continua.\n\nREPORT FINALE\nRestituisci analizzati, applicati, già risolti, eccezioni, non correggibili, pagine modificate e dettagli delle modifiche. Poi esegui un controllo finale SeoGrow.`;
 };
+
 const resolveTarget = () => {
-  try { if (decodeURIComponent(window.location.hash.slice(1)) !== "Audit SEO") return null; } catch { return null; }
+  try {
+    if (decodeURIComponent(window.location.hash.slice(1)) !== "Audit SEO") return null;
+  } catch {
+    return null;
+  }
   return document.querySelector(".audit-enhancer-root .gptsites-bulk-slot");
 };
 
 function extractJson(text) {
-  const source = String(text || "").trim().replace(/^```(?:json)?/i, "").replace(/```$/i, "").trim();
-  try { return JSON.parse(source); } catch { /* continua */ }
+  const source = String(text || "")
+    .trim()
+    .replace(/^```(?:json)?/i, "")
+    .replace(/```$/i, "")
+    .trim();
+  try {
+    return JSON.parse(source);
+  } catch {
+    /* continua */
+  }
   const start = source.indexOf("{");
   const end = source.lastIndexOf("}");
   if (start >= 0 && end > start) {
-    try { return JSON.parse(source.slice(start, end + 1)); } catch { return null; }
+    try {
+      return JSON.parse(source.slice(start, end + 1));
+    } catch {
+      return null;
+    }
   }
   return null;
 }
 
 export default function AuditUnifiedRemediation() {
-  const [target, setTarget] = useState(null);
-  const [tick, setTick] = useState(0);
+  const [target, setTarget] = useState(() => resolveTarget());
+  const [, setRevision] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [platform, setPlatform] = useState("manual");
+  const [platformChoice, setPlatformChoice] = useState({ clientId: null, value: "" });
   const [job, setJob] = useState("");
   const [message, setMessage] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [running, setRunning] = useState(false);
-  const [wpPassword, setWpPassword] = useState("");
-  const [wpUsername, setWpUsername] = useState("");
-  const [wpUrl, setWpUrl] = useState("");
+  const [wpDraft, setWpDraft] = useState({ clientId: null, username: "", url: "" });
+  const [passwordDraft, setPasswordDraft] = useState({ clientId: null, value: "" });
   const [report, setReport] = useState([]);
 
   const clients = readJson(CLIENTS_KEY, []);
@@ -103,41 +146,62 @@ export default function AuditUnifiedRemediation() {
   const profile = readJson(WORDPRESS_PROFILES_KEY, {})[clientId] || null;
   const saved = readJson(CMS_ROUTER_KEY, {})[clientId]?.platform;
   const inferred = saved || (profile ? "wordpress" : "manual");
+  const platform =
+    platformChoice.clientId === clientId && platformChoice.value
+      ? platformChoice.value
+      : inferred;
   const latest = client ? candidates(clientId)[0] : null;
   const issues = Array.isArray(latest?.item?.issues) ? latest.item.issues : [];
-  const issue = issues[selectedIndex] || issues[0] || null;
-  const url = useMemo(() => issueUrl(issue, latest?.item, client), [issue, latest?.item, client, tick]);
+  const activeIndex = Math.min(Math.max(Number(selectedIndex) || 0, 0), Math.max(issues.length - 1, 0));
+  const issue = issues[activeIndex] || null;
+  const url = issueUrl(issue, latest?.item, client);
 
-  useEffect(() => { setPlatform(inferred); }, [inferred, clientId, tick]);
-  useEffect(() => {
-    if (profile) {
-      setWpUsername((value) => value || profile.username || "");
-      setWpUrl((value) => value || profile.url || client?.url || "");
-    } else if (client?.url) setWpUrl((value) => value || client.url);
-  }, [profile, client?.url]);
+  const wpUsername =
+    wpDraft.clientId === clientId ? wpDraft.username : profile?.username || "";
+  const wpUrl =
+    wpDraft.clientId === clientId ? wpDraft.url : profile?.url || client?.url || "";
+  const wpPassword = passwordDraft.clientId === clientId ? passwordDraft.value : "";
+
+  const updateWpDraft = (field, value) => {
+    setWpDraft((current) => ({
+      clientId,
+      username:
+        current.clientId === clientId ? current.username : profile?.username || "",
+      url: current.clientId === clientId ? current.url : profile?.url || client?.url || "",
+      [field]: value,
+    }));
+  };
+
   useEffect(() => {
     const syncTarget = () => {
       const next = resolveTarget();
-      setTarget((previous) => previous === next ? previous : next);
+      setTarget((previous) => (previous === next ? previous : next));
     };
     const refresh = () => {
       syncTarget();
-      setTick((value) => value + 1);
+      setRevision((value) => value + 1);
     };
-    syncTarget();
+    const deferredSync = window.setTimeout(syncTarget, 0);
     const observer = new MutationObserver(syncTarget);
     observer.observe(document.body, { childList: true, subtree: true });
     const open = (event) => {
       const request = event.detail || {};
       if (Number(request.clientId) !== clientId) return;
       if (request.issueIndex != null) setSelectedIndex(Number(request.issueIndex));
-      setTimeout(() => document.querySelector(".audit-unified-remediation")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+      window.setTimeout(
+        () =>
+          document
+            .querySelector(".audit-unified-remediation")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        60,
+      );
     };
     window.addEventListener("seogrow-remediation-open", open);
     window.addEventListener("hashchange", refresh);
     window.addEventListener("seogrow-locationchange", refresh);
     window.addEventListener("storage", refresh);
     return () => {
+      window.clearTimeout(deferredSync);
       observer.disconnect();
       window.removeEventListener("seogrow-remediation-open", open);
       window.removeEventListener("hashchange", refresh);
@@ -149,111 +213,242 @@ export default function AuditUnifiedRemediation() {
   if (!target || !client || !latest?.item || !issues.length) return null;
 
   const savePlatform = (next) => {
-    setPlatform(next); setJob(""); setMessage("");
-    writeJson(CMS_ROUTER_KEY, { ...readJson(CMS_ROUTER_KEY, {}), [clientId]: { platform: next, updatedAt: new Date().toISOString() } });
+    setPlatformChoice({ clientId, value: next });
+    setJob("");
+    setMessage("");
+    writeJson(CMS_ROUTER_KEY, {
+      ...readJson(CMS_ROUTER_KEY, {}),
+      [clientId]: { platform: next, updatedAt: new Date().toISOString() },
+    });
   };
+
   const inspectWordPress = async (targetUrl = url) => {
-    if (!wpUrl || !wpUsername || !wpPassword) throw new Error("Inserisci URL WordPress, utente e password applicativa.");
-    const response = await fetch("/api/wordpress/inspect", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: targetUrl || wpUrl, username: wpUsername, applicationPassword: wpPassword }) });
+    if (!wpUrl || !wpUsername || !wpPassword)
+      throw new Error("Inserisci URL WordPress, utente e password applicativa.");
+    const response = await fetch("/api/wordpress/inspect", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        url: targetUrl || wpUrl,
+        username: wpUsername,
+        applicationPassword: wpPassword,
+      }),
+    });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Connessione WordPress non riuscita");
     return data;
   };
+
   const verifyWordPressFieldOwnsFrontend = async (kind, targetUrl, inspected) => {
     if (!["title", "content", "h1"].includes(kind)) return { ok: true };
     const entity = inspected.entity || {};
-    const expected = kind === "title"
-      ? { title: entity.title?.raw || entity.title?.rendered || "" }
-      : { content: entity.content?.raw || entity.content?.rendered || "" };
+    const expected =
+      kind === "title"
+        ? { title: entity.title?.raw || entity.title?.rendered || "" }
+        : { content: entity.content?.raw || entity.content?.rendered || "" };
     const response = await fetch("/api/wordpress/verify-frontend", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ url: targetUrl, expected }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Controllo frontend preliminare non riuscito");
+    if (!response.ok)
+      throw new Error(data.error || "Controllo frontend preliminare non riuscito");
     if (kind === "title" && data.titleMatchesExpected !== true)
-      return { ok: false, reason: "Il <title> SEO pubblico non coincide con il titolo WordPress: probabilmente è gestito da Rank Math, Yoast o da un template. L'adapter core non modifica questo problema per evitare falsi positivi." };
+      return {
+        ok: false,
+        reason:
+          "Il <title> SEO pubblico non coincide con il titolo WordPress: probabilmente è gestito da Rank Math, Yoast o da un template. L'adapter core non modifica questo problema per evitare falsi positivi.",
+      };
     if (["content", "h1"].includes(kind) && data.contentProbeVisible !== true)
-      return { ok: false, reason: "Il contenuto WordPress core non coincide con il contenuto pubblico: la pagina può essere gestita da Elementor o da un template. Nessuna modifica automatica viene applicata al campo sbagliato." };
+      return {
+        ok: false,
+        reason:
+          "Il contenuto WordPress core non coincide con il contenuto pubblico: la pagina può essere gestita da Elementor o da un template. Nessuna modifica automatica viene applicata al campo sbagliato.",
+      };
     return { ok: true };
   };
+
   const generatePatch = async (issueToFix, inspected) => {
     const kind = classifyIssue(issueToFix);
     if (!kind) return null;
     const current = inspected.entity || {};
-    const context = JSON.stringify({ issue: issueToFix, page: { title: current.title?.raw || current.title?.rendered || "", content: current.content?.raw || current.content?.rendered || "", excerpt: current.excerpt?.raw || current.excerpt?.rendered || "" } });
-    const instruction = kind === "title"
-      ? "Genera un nuovo titolo WordPress naturale, specifico per la pagina e coerente con l'intento. Restituisci SOLO JSON: {\"changes\":{\"title\":\"...\"}}. Non usare clickbait."
-      : kind === "excerpt"
-        ? "Genera un excerpt utile e naturale di circa 20-40 parole. Restituisci SOLO JSON: {\"changes\":{\"excerpt\":\"...\"}}."
-        : kind === "h1"
-          ? "Correggi il problema H1 senza riscrivere inutilmente il contenuto. Se manca un H1, inseriscine uno coerente all'inizio del contenuto. Restituisci SOLO JSON: {\"changes\":{\"content\":\"...\"}}."
-          : "Migliora il contenuto esistente per risolvere il problema di contenuto breve. Mantieni informazioni e link utili, amplia in modo naturale e non inventare fatti. Restituisci SOLO JSON: {\"changes\":{\"content\":\"...\"}}.";
-    const response = await fetch("/api/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ topic: `Remediation WordPress ${kind}`, type: instruction, context }) });
+    const context = JSON.stringify({
+      issue: issueToFix,
+      page: {
+        title: current.title?.raw || current.title?.rendered || "",
+        content: current.content?.raw || current.content?.rendered || "",
+        excerpt: current.excerpt?.raw || current.excerpt?.rendered || "",
+      },
+    });
+    const instruction =
+      kind === "title"
+        ? 'Genera un nuovo titolo WordPress naturale, specifico per la pagina e coerente con l\'intento. Restituisci SOLO JSON: {"changes":{"title":"..."}}. Non usare clickbait.'
+        : kind === "excerpt"
+          ? 'Genera un excerpt utile e naturale di circa 20-40 parole. Restituisci SOLO JSON: {"changes":{"excerpt":"..."}}.'
+          : kind === "h1"
+            ? 'Correggi il problema H1 senza riscrivere inutilmente il contenuto. Se manca un H1, inseriscine uno coerente all\'inizio del contenuto. Restituisci SOLO JSON: {"changes":{"content":"..."}}.'
+            : 'Migliora il contenuto esistente per risolvere il problema di contenuto breve. Mantieni informazioni e link utili, amplia in modo naturale e non inventare fatti. Restituisci SOLO JSON: {"changes":{"content":"..."}}.';
+    const response = await fetch("/api/generate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        topic: `Remediation WordPress ${kind}`,
+        type: instruction,
+        context,
+      }),
+    });
     const data = await response.json();
-    if (!response.ok || !data.content) throw new Error(data.error || "Generazione patch non riuscita");
+    if (!response.ok || !data.content)
+      throw new Error(data.error || "Generazione patch non riuscita");
     const parsed = extractJson(data.content);
-    if (!parsed?.changes || typeof parsed.changes !== "object") throw new Error("L'AI non ha restituito una patch strutturata valida.");
+    if (!parsed?.changes || typeof parsed.changes !== "object")
+      throw new Error("L'AI non ha restituito una patch strutturata valida.");
     return parsed.changes;
   };
+
   const applyIssue = async (issueToFix) => {
     const targetUrl = issueUrl(issueToFix, latest.item, client);
     const kind = classifyIssue(issueToFix);
-    if (!kind) return { status: "unsupported", issue: issueToFix, reason: "Questo tipo di problema non è ancora supportato dall'adapter WordPress reale." };
+    if (!kind)
+      return {
+        status: "unsupported",
+        issue: issueToFix,
+        reason: "Questo tipo di problema non è ancora supportato dall'adapter WordPress reale.",
+      };
     const inspected = await inspectWordPress(targetUrl);
     const ownership = await verifyWordPressFieldOwnsFrontend(kind, targetUrl, inspected);
-    if (!ownership.ok) return { status: "unsupported", issue: issueToFix, reason: ownership.reason };
+    if (!ownership.ok)
+      return { status: "unsupported", issue: issueToFix, reason: ownership.reason };
     const changes = await generatePatch(issueToFix, inspected);
-    if (!changes || !Object.keys(changes).length) return { status: "unsupported", issue: issueToFix, reason: "Nessuna patch applicabile generata." };
-    const response = await fetch("/api/wordpress/remediate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: targetUrl, username: wpUsername, applicationPassword: wpPassword, resource: inspected.resource, id: inspected.entity.id, changes }) });
+    if (!changes || !Object.keys(changes).length)
+      return {
+        status: "unsupported",
+        issue: issueToFix,
+        reason: "Nessuna patch applicabile generata.",
+      };
+    const response = await fetch("/api/wordpress/remediate", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        url: targetUrl,
+        username: wpUsername,
+        applicationPassword: wpPassword,
+        resource: inspected.resource,
+        id: inspected.entity.id,
+        changes,
+      }),
+    });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "WordPress non ha applicato la modifica");
-    return { status: "corrected", issue: issueToFix, changes: data.changed || Object.keys(changes), url: data.link || targetUrl };
+    return {
+      status: "corrected",
+      issue: issueToFix,
+      changes: data.changed || Object.keys(changes),
+      url: data.link || targetUrl,
+    };
   };
+
   const runRemediation = async (all) => {
-    if (platform !== "wordpress") { setMessage("Per l'applicazione automatica seleziona WordPress + Elementor."); return; }
-    if (!wpPassword) { setMessage("Inserisci la password applicativa WordPress. Non viene salvata da SeoGrow."); return; }
+    if (platform !== "wordpress") {
+      setMessage("Per l'applicazione automatica seleziona WordPress + Elementor.");
+      return;
+    }
+    if (!wpPassword) {
+      setMessage("Inserisci la password applicativa WordPress. Non viene salvata da SeoGrow.");
+      return;
+    }
     const selected = all ? issues : [issue];
-    setRunning(true); setReport([]); setMessage(all ? `Avvio remediation di ${selected.length} problemi…` : "Avvio remediation del problema selezionato…");
+    setRunning(true);
+    setReport([]);
+    setMessage(
+      all
+        ? `Avvio remediation di ${selected.length} problemi…`
+        : "Avvio remediation del problema selezionato…",
+    );
     const results = [];
     for (const currentIssue of selected) {
-      try { results.push(await applyIssue(currentIssue)); }
-      catch (error) { results.push({ status: "exception", issue: currentIssue, reason: error.message }); }
+      try {
+        results.push(await applyIssue(currentIssue));
+      } catch (error) {
+        results.push({ status: "exception", issue: currentIssue, reason: error.message });
+      }
       setReport([...results]);
     }
     const applied = results.filter((item) => item.status === "corrected").length;
     const unsupported = results.filter((item) => item.status === "unsupported").length;
     const exceptions = results.filter((item) => item.status === "exception").length;
-    setMessage(`Remediation completata: ${applied} applicati a WordPress, ${unsupported} non supportati, ${exceptions} eccezioni. La conferma SEO definitiva è visibile nella sezione Correzioni.`);
+    setMessage(
+      `Remediation completata: ${applied} applicati a WordPress, ${unsupported} non supportati, ${exceptions} eccezioni. La conferma SEO definitiva è visibile nella sezione Correzioni.`,
+    );
     setRunning(false);
   };
+
   const prepare = async (all = false) => {
     const selectedIssues = all ? issues : [issue];
     if (!selectedIssues.length) return;
-    const fallback = buildJob({ platform, client, auditType: latest.type, audit: latest.item, issues: selectedIssues });
+    const fallback = buildJob({
+      platform,
+      client,
+      auditType: latest.type,
+      audit: latest.item,
+      issues: selectedIssues,
+    });
     setJob(fallback);
     try {
-      const response = await fetch("/api/generate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ topic: `Remediation SEO ${platformLabel(platform)}`, type: "job agentico di correzione SEO", context: fallback }) });
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          topic: `Remediation SEO ${platformLabel(platform)}`,
+          type: "job agentico di correzione SEO",
+          context: fallback,
+        }),
+      });
       const data = await response.json();
       if (response.ok && data.content) setJob(String(data.content).trim());
-    } catch { /* fallback */ }
-    try { await navigator.clipboard.writeText(fallback); setMessage(`Job ${platformLabel(platform)} preparato e copiato.`); } catch { setMessage(`Job ${platformLabel(platform)} preparato.`); }
+    } catch {
+      /* fallback */
+    }
+    try {
+      await navigator.clipboard.writeText(fallback);
+      setMessage(`Job ${platformLabel(platform)} preparato e copiato.`);
+    } catch {
+      setMessage(`Job ${platformLabel(platform)} preparato.`);
+    }
   };
+
   const verify = async () => {
     if (!url) return;
-    setVerifying(true); setMessage("Verifica SeoGrow in corso…");
+    setVerifying(true);
+    setMessage("Verifica SeoGrow in corso…");
     try {
-      const response = await fetch("/api/audit", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url }) });
+      const response = await fetch("/api/audit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Verifica non riuscita");
-      const present = (data.issues || []).some((item) => String(item.label || "").trim().toLowerCase() === String(issue?.label || "").trim().toLowerCase());
-      setMessage(present ? "Il problema selezionato è ancora presente." : "Il problema selezionato non risulta più presente nel controllo pagina; per problemi globali può servire un nuovo crawl completo.");
-    } catch (error) { setMessage(`Verifica non riuscita: ${error.message}`); }
-    finally { setVerifying(false); }
+      const present = (data.issues || []).some(
+        (item) =>
+          String(item.label || "").trim().toLowerCase() ===
+          String(issue?.label || "").trim().toLowerCase(),
+      );
+      setMessage(
+        present
+          ? "Il problema selezionato è ancora presente."
+          : "Il problema selezionato non risulta più presente nel controllo pagina; per problemi globali può servire un nuovo crawl completo.",
+      );
+    } catch (error) {
+      setMessage(`Verifica non riuscita: ${error.message}`);
+    } finally {
+      setVerifying(false);
+    }
   };
 
   const risk = isHighImpact(issue);
+
   return createPortal(
     <section className="panel audit-unified-remediation">
       <div className="audit-remediation-head">
@@ -275,9 +470,9 @@ export default function AuditUnifiedRemediation() {
         <section className="audit-unified-credentials">
           <div className="audit-card-title"><ShieldCheck /><div><strong>Connessione WordPress</strong><span>Credenziali usate solo per questa esecuzione. La password applicativa non viene salvata.</span></div></div>
           <div className="audit-unified-credential-grid">
-            <label>URL del sito<input value={wpUrl} onChange={(e) => setWpUrl(e.target.value)} placeholder="https://example.com" autoComplete="url" /></label>
-            <label>Utente WordPress<input value={wpUsername} onChange={(e) => setWpUsername(e.target.value)} placeholder="utente WordPress" autoComplete="username" /></label>
-            <label>Password applicativa<input type="password" value={wpPassword} onChange={(e) => setWpPassword(e.target.value)} placeholder="xxxx xxxx xxxx xxxx" autoComplete="new-password" /></label>
+            <label>URL del sito<input value={wpUrl} onChange={(event) => updateWpDraft("url", event.target.value)} placeholder="https://example.com" autoComplete="url" /></label>
+            <label>Utente WordPress<input value={wpUsername} onChange={(event) => updateWpDraft("username", event.target.value)} placeholder="utente WordPress" autoComplete="username" /></label>
+            <label>Password applicativa<input type="password" value={wpPassword} onChange={(event) => setPasswordDraft({ clientId, value: event.target.value })} placeholder="xxxx xxxx xxxx xxxx" autoComplete="new-password" /></label>
           </div>
         </section>
       )}
@@ -295,7 +490,7 @@ export default function AuditUnifiedRemediation() {
       <div className="audit-remediation-context-row">
         <section className="audit-context-card issue-select-card">
           <div className="audit-card-title purple"><ListChecks /><strong>Problema da correggere</strong></div>
-          <label className="audit-issue-select"><select value={selectedIndex} onChange={(e) => setSelectedIndex(Number(e.target.value))}>{issues.map((item, i) => <option key={`${item.label}-${i}`} value={i}>{i + 1}. {item.label || "Problema SEO"}</option>)}</select></label>
+          <label className="audit-issue-select"><select value={activeIndex} onChange={(event) => setSelectedIndex(Number(event.target.value))}>{issues.map((item, index) => <option key={`${item.label}-${index}`} value={index}>{index + 1}. {item.label || "Problema SEO"}</option>)}</select></label>
         </section>
 
         <section className="audit-context-card issue-detail-card">
@@ -317,8 +512,9 @@ export default function AuditUnifiedRemediation() {
       </div>
 
       {report.length > 0 && <div className="audit-unified-report"><strong>Report remediation</strong>{report.map((item, index) => <div key={`${item.issue?.label}-${index}`}><span>{item.status === "corrected" ? "✓" : "!"} {item.issue?.label || "Problema"}</span><small>{item.status === "corrected" ? `Applicato a WordPress: ${(item.changes || []).join(", ")} · verifica SEO separata in Correzioni` : item.reason}</small></div>)}</div>}
-      {job && <label className="audit-unified-job">Job operativo<textarea value={job} onChange={(e) => setJob(e.target.value)} /><button type="button" className="secondary" onClick={() => navigator.clipboard.writeText(job).then(() => setMessage("Job copiato.")).catch(() => setMessage("Copia non riuscita."))}><Copy />Copia job</button></label>}
+      {job && <label className="audit-unified-job">Job operativo<textarea value={job} onChange={(event) => setJob(event.target.value)} /><button type="button" className="secondary" onClick={() => navigator.clipboard.writeText(job).then(() => setMessage("Job copiato.")).catch(() => setMessage("Copia non riuscita."))}><Copy />Copia job</button></label>}
       {message && <p className="integration-result audit-remediation-message">{message}</p>}
-    </section>, target,
+    </section>,
+    target,
   );
 }
