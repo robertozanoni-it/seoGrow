@@ -4,6 +4,7 @@ import './remediationIntegrity';
 import './locationEvents';
 import './liveRollbackRouter';
 import './wordpressRemediationRuntimePatch';
+import './wordpressSeoRuntimePatch';
 import './remediationUiOrderPatch';
 import './seoResponseIntegrity';
 import './remediationReportUx';
