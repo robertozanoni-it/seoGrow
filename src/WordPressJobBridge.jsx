@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, Copy, ExternalLink, Plug, Sparkles } from "lucide-react";
 import { apiFetch } from "./api";
@@ -58,12 +58,13 @@ const buildSingleJob = ({ client, auditType, audit, issue }) =>
   );
 
 const resolvePortalTarget = () => {
-  let page = "";
-  try {
-    page = decodeURIComponent(window.location.hash.slice(1));
-  } catch {
-    page = "";
-  }
+  const page = (() => {
+    try {
+      return decodeURIComponent(window.location.hash.slice(1));
+    } catch {
+      return "";
+    }
+  })();
   if (page !== "Audit SEO") return null;
   return document.querySelector(".audit-enhancer-root .gptsites-bulk-slot");
 };
@@ -96,6 +97,7 @@ export default function WordPressJobBridge() {
     };
   }, []);
 
+  void version;
   const clients = readJson(CLIENTS_KEY, []);
   const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, clients[0]?.id));
   const client = clients.find((item) => item.id === selectedClientId) || clients[0];
@@ -109,10 +111,7 @@ export default function WordPressJobBridge() {
   const latest = client ? latestAudit(selectedClientId) : null;
   const issues = Array.isArray(latest?.item?.issues) ? latest.item.issues : [];
   const firstIssue = issues[0] || null;
-  const firstUrl = useMemo(
-    () => issueUrl(firstIssue, latest?.item, client),
-    [firstIssue, latest?.item, client, version],
-  );
+  const firstUrl = issueUrl(firstIssue, latest?.item, client);
 
   if (!target || platform === "gptsites" || !client || !latest?.item || !issues.length)
     return null;
