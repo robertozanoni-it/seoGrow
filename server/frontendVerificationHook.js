@@ -37,6 +37,22 @@ function firstMatch(value, pattern) {
   return String(value || "").match(pattern)?.[1]?.replace(/\s+/g, " ").trim() || "";
 }
 
+function metaContent(html, name) {
+  const escaped = String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return firstMatch(
+    html,
+    new RegExp(`<meta[^>]+name=["']${escaped}["'][^>]+content=["']([^"']*)["']`, "i"),
+  ) || firstMatch(
+    html,
+    new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+name=["']${escaped}["']`, "i"),
+  );
+}
+
+function canonicalHref(html) {
+  return firstMatch(html, /<link[^>]+rel=["'][^"']*canonical[^"']*["'][^>]+href=["']([^"']+)["']/i) ||
+    firstMatch(html, /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*canonical[^"']*["']/i);
+}
+
 function visibleText(html) {
   return String(html || "")
     .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
@@ -64,14 +80,14 @@ function pageKind(pathname) {
   return "content";
 }
 
-async function fetchHtml(initialUrl) {
+async function fetchPage(initialUrl) {
   let current = await safeTarget(initialUrl);
   const originalHost = current.hostname.toLowerCase();
   for (let redirect = 0; redirect < 4; redirect += 1) {
     const response = await fetch(current, {
       redirect: "manual",
       signal: AbortSignal.timeout(20000),
-      headers: { accept: "text/html,application/xhtml+xml", "user-agent": "seoGrowAI/1.4-frontend-verification" },
+      headers: { accept: "text/html,application/xhtml+xml,*/*;q=0.1", "user-agent": "seoGrowAI/1.4-frontend-verification" },
     });
     if ([301, 302, 303, 307, 308].includes(response.status)) {
       const location = response.headers.get("location");
@@ -84,43 +100,106 @@ async function fetchHtml(initialUrl) {
       continue;
     }
     if (!response.ok) throw new Error(`Frontend HTTP ${response.status}.`);
-    const type = response.headers.get("content-type") || "";
-    if (!/(?:text\/html|application\/xhtml\+xml)/i.test(type))
-      throw new Error("Il frontend non restituisce HTML.");
+    const contentType = response.headers.get("content-type") || "";
+    const isHtml = /(?:text\/html|application\/xhtml\+xml)/i.test(contentType);
     const bytes = Buffer.from(await response.arrayBuffer());
     if (bytes.length > 5 * 1024 * 1024) throw new Error("Pagina frontend troppo grande per la verifica.");
-    return { url: current.href, html: bytes.toString("utf8") };
+    const html = isHtml ? bytes.toString("utf8") : "";
+    return {
+      url: current.href,
+      status: response.status,
+      contentType,
+      isHtml,
+      html,
+      xRobotsTag: response.headers.get("x-robots-tag") || "",
+    };
   }
   throw new Error("Troppi redirect durante la verifica frontend.");
+}
+
+function signals(page) {
+  const title = firstMatch(page.html, /<title[^>]*>([\s\S]*?)<\/title>/i);
+  const h1 = (page.html.match(/<h1\b[^>]*>/gi) || []).length;
+  const text = visibleText(page.html);
+  const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+  const kind = pageKind(new URL(page.url).pathname);
+  const minimumWords = kind === "utility" ? 60 : kind === "archive" ? 80 : kind === "gdpr" ? 0 : 180;
+  const robots = metaContent(page.html, "robots");
+  const googlebot = metaContent(page.html, "googlebot");
+  const directives = `${robots},${googlebot},${page.xRobotsTag}`;
+  const noindex = /(?:^|[,;\s])noindex(?:$|[,;\s])/i.test(directives);
+  const canonical = canonicalHref(page.html);
+  return {
+    title,
+    h1,
+    text,
+    words,
+    pageKind: kind,
+    minimumWords,
+    robots,
+    googlebot,
+    xRobotsTag: page.xRobotsTag,
+    noindex,
+    indexable: page.isHtml && !noindex,
+    canonical,
+  };
+}
+
+async function inspect(url) {
+  const page = await fetchPage(url);
+  const result = signals(page);
+  return {
+    ok: true,
+    url: page.url,
+    status: page.status,
+    contentType: page.contentType,
+    isHtml: page.isHtml,
+    title: result.title,
+    h1: result.h1,
+    words: result.words,
+    pageKind: result.pageKind,
+    minimumWords: result.minimumWords,
+    robots: result.robots,
+    googlebot: result.googlebot,
+    xRobotsTag: result.xRobotsTag,
+    noindex: result.noindex,
+    indexable: result.indexable,
+    canonical: result.canonical,
+    _visibleText: result.text,
+  };
+}
+
+function publicResult(result) {
+  const { _visibleText: _ignored, ...safe } = result;
+  return safe;
 }
 
 function registerRoutes(app) {
   if (app[HOOKED]) return;
   app[HOOKED] = true;
 
+  app.post("/api/frontend/inspect", async (req, res) => {
+    try {
+      return res.json(publicResult(await inspect(req.body?.url)));
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Ispezione frontend non riuscita.",
+      });
+    }
+  });
+
   app.post("/api/wordpress/verify-frontend", async (req, res) => {
     try {
       const { url, expected = {} } = req.body || {};
-      const page = await fetchHtml(url);
-      const title = firstMatch(page.html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-      const h1 = (page.html.match(/<h1\b[^>]*>/gi) || []).length;
-      const text = visibleText(page.html);
-      const words = text.split(/\s+/).filter(Boolean).length;
-      const kind = pageKind(new URL(page.url).pathname);
-      const minimumWords = kind === "utility" ? 60 : kind === "archive" ? 80 : kind === "gdpr" ? 0 : 180;
+      const result = await inspect(url);
+      if (!result.isHtml) throw new Error(`Il frontend non restituisce HTML (${result.contentType || "Content-Type assente"}).`);
       const expectedTitle = normalizeText(expected.title);
       const expectedContent = normalizeText(expected.content);
-      const normalizedVisible = normalizeText(text);
+      const normalizedVisible = normalizeText(result._visibleText);
       const contentProbe = expectedContent ? expectedContent.slice(0, Math.min(180, expectedContent.length)) : "";
       return res.json({
-        ok: true,
-        url: page.url,
-        title,
-        h1,
-        words,
-        pageKind: kind,
-        minimumWords,
-        titleMatchesExpected: expectedTitle ? normalizeText(title) === expectedTitle : null,
+        ...publicResult(result),
+        titleMatchesExpected: expectedTitle ? normalizeText(result.title) === expectedTitle : null,
         contentProbeVisible: contentProbe ? normalizedVisible.includes(contentProbe) : null,
       });
     } catch (error) {
