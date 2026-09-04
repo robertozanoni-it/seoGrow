@@ -5,10 +5,32 @@ clear
 echo "seoGrow AI — avvio dell'app"
 echo
 
+opener_pid=""
+launcher_finished=0
+pause_before_close() {
+  status=$?
+  if [ -n "$opener_pid" ]; then kill "$opener_pid" 2>/dev/null || true; fi
+  if [ "$launcher_finished" -eq 1 ]; then return; fi
+  launcher_finished=1
+  echo
+  if [ "$status" -eq 0 ]; then
+    echo "seoGrow AI è stato arrestato oppure era già aperto."
+  elif [ "$status" -eq 130 ]; then
+    echo "seoGrow AI è stato interrotto con Ctrl+C."
+  else
+    echo "seoGrow AI si è chiuso inaspettatamente (codice $status)."
+    echo "Copia le ultime righe visibili di questa finestra e inviale per la diagnosi."
+  fi
+  echo
+  if [ -t 0 ]; then
+    read "?Premi Invio per chiudere questa finestra…"
+  fi
+}
+trap pause_before_close EXIT
+trap 'exit 130' INT TERM
+
 if ! command -v npm >/dev/null 2>&1; then
   echo "Node.js non risulta installato. Scaricalo da https://nodejs.org/ e riprova."
-  echo
-  read "?Premi Invio per chiudere…"
   exit 1
 fi
 
@@ -16,20 +38,17 @@ node_major=$(node -p "Number(process.versions.node.split('.')[0])" 2>/dev/null)
 if [ -z "$node_major" ] || [ "$node_major" -lt 22 ]; then
   echo "Errore: seoGrow AI richiede Node.js 22 o successivo."
   echo "Versione rilevata: $(node -v 2>/dev/null || echo non disponibile)"
-  read "?Premi Invio per chiudere…"
   exit 1
 fi
 
 if [ ! -f package.json ]; then
   echo "Errore: package.json non trovato nella cartella dell'app."
-  read "?Premi Invio per chiudere…"
   exit 1
 fi
 
 app_version=$(node -p "require('./package.json').version" 2>/dev/null)
 if [ -z "$app_version" ]; then
   echo "Errore: versione dell'app non leggibile da package.json."
-  read "?Premi Invio per chiudere…"
   exit 1
 fi
 
@@ -39,14 +58,12 @@ if [ ! -d node_modules ] || [ ! -f node_modules/.package-lock.json ]; then
   echo "Prima configurazione: installazione dei componenti necessari…"
   npm ci || {
     echo "Installazione non riuscita. Copia il messaggio di errore prima di chiudere."
-    read "?Premi Invio per chiudere…"
     exit 1
   }
 elif [ package-lock.json -nt node_modules/.package-lock.json ]; then
   echo "Aggiornamento dei componenti dell'app…"
   npm ci || {
     echo "Aggiornamento non riuscito. Copia il messaggio di errore prima di chiudere."
-    read "?Premi Invio per chiudere…"
     exit 1
   }
 fi
@@ -81,7 +98,6 @@ while lsof -nP -iTCP:"$app_port" -sTCP:LISTEN -t >/dev/null 2>&1; do
   app_port=$((app_port + 1))
   if [ "$app_port" -gt 65535 ]; then
     echo "Errore: non è stata trovata una porta frontend libera."
-    read "?Premi Invio per chiudere…"
     exit 1
   fi
 done
@@ -90,7 +106,6 @@ api_port=$(node --input-type=module -e "import fs from 'node:fs'; import dotenv 
 if [ -z "$api_port" ]; then api_port=8787; fi
 if ! [[ "$api_port" =~ '^[0-9]+$' ]] || [ "$api_port" -lt 1024 ] || [ "$api_port" -gt 65535 ]; then
   echo "Errore: PORT nel file .env deve essere un numero tra 1024 e 65535."
-  read "?Premi Invio per chiudere…"
   exit 1
 fi
 
@@ -104,7 +119,6 @@ if lsof -nP -iTCP:"$api_port" -sTCP:LISTEN -t >/dev/null 2>&1; then
     echo "Errore: la porta API $api_port è occupata da un altro programma."
     echo "Chiudi il programma indicato oppure cambia PORT nel file .env e riavvia."
     lsof -nP -iTCP:"$api_port" -sTCP:LISTEN 2>/dev/null
-    read "?Premi Invio per chiudere…"
     exit 1
   fi
 fi
@@ -127,7 +141,6 @@ echo "Lascia aperta questa finestra del Terminale mentre usi l'app."
   done
 ) &
 opener_pid=$!
-trap 'kill "$opener_pid" 2>/dev/null' EXIT INT TERM
 
 if [ "$reuse_api" -eq 1 ]; then
   ./node_modules/.bin/vite --port "$app_port" --strictPort
