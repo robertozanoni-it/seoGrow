@@ -10,6 +10,7 @@ import App from './App';
 import AuditWorkspace from './AuditWorkspace';
 import AuditUnifiedRemediation from './AuditUnifiedRemediation';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
+import WordPressConnectionControl from './WordPressConnectionControl';
 import './styles.css';
 
 class AppErrorBoundary extends React.Component {
@@ -41,6 +42,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <App />
       <AuditWorkspace />
       <AuditUnifiedRemediation />
+      <WordPressConnectionControl />
       <CorrectionsWorkspace />
     </AppErrorBoundary>
   </React.StrictMode>,
