@@ -3,6 +3,8 @@ import net from "node:net";
 import express from "express";
 
 const HOOKED = Symbol.for("seogrow.wordpressRemediationHook");
+const USE_PATCHED = Symbol.for("seogrow.wordpressRemediationUsePatched");
+const LISTEN_PATCHED = Symbol.for("seogrow.wordpressRemediationListenPatched");
 const RATE = new Map();
 
 function privateAddress(address) {
@@ -52,14 +54,19 @@ function authHeaders(username, password) {
 
 async function wpFetch(url, options = {}) {
   const response = await fetch(url, { redirect: "manual", ...options, signal: AbortSignal.timeout(20000) });
-  if ([301, 302, 303, 307, 308].includes(response.status)) throw new Error("WordPress ha restituito un redirect inatteso.");
+  if ([301, 302, 303, 307, 308].includes(response.status))
+    throw new Error("WordPress ha restituito un redirect inatteso.");
   return response;
 }
 
 async function json(response) {
   const text = await response.text();
   let data = {};
-  try { data = text ? JSON.parse(text) : {}; } catch { throw new Error(`Risposta WordPress non valida (HTTP ${response.status}).`); }
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Risposta WordPress non valida (HTTP ${response.status}).`);
+  }
   if (!response.ok) {
     const detail = data?.message || data?.code || `HTTP ${response.status}`;
     throw new Error(`WordPress: ${detail}`);
@@ -71,8 +78,10 @@ function rateLimit(req) {
   const now = Date.now();
   const key = req.ip || "local";
   const recent = (RATE.get(key) || []).filter((time) => now - time < 10 * 60_000);
-  if (recent.length >= 30) return false;
-  recent.push(now); RATE.set(key, recent); return true;
+  if (recent.length >= 250) return false;
+  recent.push(now);
+  RATE.set(key, recent);
+  return true;
 }
 
 function cleanString(value, max = 300000) {
@@ -86,18 +95,25 @@ async function resolveEntity(base, headers, requestedUrl) {
   const pathname = target.pathname.replace(/\/+$/, "");
   const slug = decodeURIComponent(pathname.split("/").filter(Boolean).at(-1) || "");
   if (!slug) throw new Error("Impossibile determinare lo slug della pagina WordPress.");
+
   for (const resource of ["pages", "posts"]) {
     const url = endpoint(base, resource);
     url.searchParams.set("slug", slug);
     url.searchParams.set("context", "edit");
     url.searchParams.set("per_page", "10");
-    const response = await wpFetch(url, { headers });
-    const rows = await json(response);
-    const match = Array.isArray(rows) ? rows.find((row) => {
-      try { return new URL(row.link).pathname.replace(/\/+$/, "") === pathname; } catch { return false; }
-    }) || rows[0] : null;
+    const rows = await json(await wpFetch(url, { headers }));
+    const match = Array.isArray(rows)
+      ? rows.find((row) => {
+          try {
+            return new URL(row.link).pathname.replace(/\/+$/, "") === pathname;
+          } catch {
+            return false;
+          }
+        }) || rows[0]
+      : null;
     if (match) return { resource, entity: match };
   }
+
   throw new Error(`Nessuna pagina o articolo WordPress trovato per ${target.href}`);
 }
 
@@ -113,67 +129,117 @@ function allowedChanges(input) {
   return changes;
 }
 
-async function registerRoutes(app) {
+function registerRoutes(app) {
   if (app[HOOKED]) return;
   app[HOOKED] = true;
 
+  app.get("/api/wordpress/remediation-capabilities", (_req, res) => {
+    res.json({
+      ok: true,
+      supports: ["inspect", "title", "content", "excerpt", "h1"],
+      unsupported: ["elementor_data", "seo_plugin_meta", "redirect", "canonical", "noindex", "robots", "sitemap", "url_change"],
+    });
+  });
+
   app.post("/api/wordpress/inspect", async (req, res) => {
-    if (!rateLimit(req)) return res.status(429).json({ error: "Limite remediation raggiunto. Riprova più tardi." });
+    if (!rateLimit(req))
+      return res.status(429).json({ error: "Limite remediation raggiunto. Riprova più tardi." });
     try {
       const { url, username, applicationPassword } = req.body || {};
-      if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
+      if (!username || !applicationPassword)
+        throw new Error("Inserisci utente e password applicativa WordPress.");
       const base = await safeBase(url);
       const headers = authHeaders(username, applicationPassword);
-      const me = await json(await wpFetch(endpoint(base, "users/me"), { headers }));
+      const meUrl = endpoint(base, "users/me");
+      meUrl.searchParams.set("context", "edit");
+      const me = await json(await wpFetch(meUrl, { headers }));
       const resolved = await resolveEntity(base, headers, url);
-      return res.json({ ok: true, user: { id: me.id, name: me.name || me.username }, resource: resolved.resource, entity: resolved.entity });
+      return res.json({
+        ok: true,
+        user: { id: me.id, name: me.name || me.username },
+        resource: resolved.resource,
+        entity: resolved.entity,
+      });
     } catch (error) {
-      return res.status(400).json({ error: error instanceof Error ? error.message : "Ispezione WordPress non riuscita." });
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Ispezione WordPress non riuscita.",
+      });
     }
   });
 
   app.post("/api/wordpress/remediate", async (req, res) => {
-    if (!rateLimit(req)) return res.status(429).json({ error: "Limite remediation raggiunto. Riprova più tardi." });
+    if (!rateLimit(req))
+      return res.status(429).json({ error: "Limite remediation raggiunto. Riprova più tardi." });
     try {
       const { url, username, applicationPassword, resource, id, changes } = req.body || {};
-      if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
+      if (!username || !applicationPassword)
+        throw new Error("Inserisci utente e password applicativa WordPress.");
       const base = await safeBase(url);
       const headers = authHeaders(username, applicationPassword);
       let entityResource = resource === "pages" || resource === "posts" ? resource : null;
       let entityId = Number(id);
       let current;
+
       if (!entityResource || !Number.isSafeInteger(entityId) || entityId <= 0) {
         const resolved = await resolveEntity(base, headers, url);
-        entityResource = resolved.resource; entityId = Number(resolved.entity.id); current = resolved.entity;
+        entityResource = resolved.resource;
+        entityId = Number(resolved.entity.id);
+        current = resolved.entity;
       } else {
-        current = await json(await wpFetch(endpoint(base, entityResource, `/${entityId}?context=edit`), { headers }));
+        current = await json(
+          await wpFetch(endpoint(base, entityResource, `/${entityId}?context=edit`), { headers }),
+        );
       }
+
       const patch = allowedChanges(changes);
-      const update = await json(await wpFetch(endpoint(base, entityResource, `/${entityId}`), {
-        method: "POST", headers, body: JSON.stringify(patch),
-      }));
+      const update = await json(
+        await wpFetch(endpoint(base, entityResource, `/${entityId}`), {
+          method: "POST",
+          headers,
+          body: JSON.stringify(patch),
+        }),
+      );
+
       return res.json({
         ok: true,
         resource: entityResource,
         id: entityId,
         link: update.link || current?.link || url,
         changed: Object.keys(patch),
-        before: { title: current?.title?.rendered || current?.title?.raw || "", slug: current?.slug || "" },
-        after: { title: update?.title?.rendered || update?.title?.raw || "", slug: update?.slug || "" },
+        before: {
+          title: current?.title?.rendered || current?.title?.raw || "",
+          slug: current?.slug || "",
+        },
+        after: {
+          title: update?.title?.rendered || update?.title?.raw || "",
+          slug: update?.slug || "",
+        },
         message: "Modifica applicata e confermata da WordPress.",
       });
     } catch (error) {
-      return res.status(400).json({ error: error instanceof Error ? error.message : "Remediation WordPress non riuscita." });
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : "Remediation WordPress non riuscita.",
+      });
     }
   });
 }
 
+const originalUse = express.application.use;
+if (!originalUse[USE_PATCHED]) {
+  const patchedUse = function (...args) {
+    if (!this[HOOKED] && args[0] === "/api") registerRoutes(this);
+    return originalUse.apply(this, args);
+  };
+  patchedUse[USE_PATCHED] = true;
+  express.application.use = patchedUse;
+}
+
 const originalListen = express.application.listen;
-if (!originalListen[HOOKED]) {
-  const patched = function (...args) {
+if (!originalListen[LISTEN_PATCHED]) {
+  const patchedListen = function (...args) {
     registerRoutes(this);
     return originalListen.apply(this, args);
   };
-  patched[HOOKED] = true;
-  express.application.listen = patched;
+  patchedListen[LISTEN_PATCHED] = true;
+  express.application.listen = patchedListen;
 }
