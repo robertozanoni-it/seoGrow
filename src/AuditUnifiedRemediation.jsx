@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Check,
-  CheckCircle2,
   Copy,
   ExternalLink,
   ListChecks,
@@ -50,6 +49,7 @@ const isHighImpact = (issue) => {
 
 const classifyIssue = (issue) => {
   const text = `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+  if (/meta description/.test(text)) return null;
   if (/title|titolo/.test(text)) return "title";
   if (/contenuto|content|testo|parole|word|brev/.test(text)) return "content";
   if (/excerpt|estratto/.test(text)) return "excerpt";
@@ -61,11 +61,11 @@ const buildJob = ({ platform, client, auditType, audit, issues }) => {
   const rows = issues.map((issue, i) => `${i + 1}. ${issue.label || "Problema SEO"}\n   URL: ${issueUrl(issue, audit, client)}\n   Severità: ${issue.severity || "media"}\n   Dettaglio: ${issue.detail || "Nessun dettaglio aggiuntivo."}`).join("\n\n");
   const destination = platformLabel(platform).toUpperCase();
   const rules = platform === "wordpress"
-    ? "Usa l'adapter WordPress reale. Prima verifica che il problema sia ancora presente. Applica solo title, contenuto, excerpt o altre proprietà esplicitamente supportate. Non sovrascrivere _elementor_data e non toccare redirect/canonical/noindex/robots/URL senza un adapter dedicato."
+    ? "Usa l'adapter WordPress reale. Prima verifica che il problema sia ancora presente e che il campo WordPress controlli realmente il frontend. Applica solo title, contenuto, excerpt o altre proprietà esplicitamente supportate. Non sovrascrivere _elementor_data e non toccare redirect/canonical/noindex/robots/URL senza un adapter dedicato."
     : platform === "gptsites"
       ? "Lavora nel Site collegato. Verifica ogni problema prima di modificarlo e applica la modifica minima necessaria."
       : "Prepara istruzioni CMS-agnostiche e non dichiarare applicata alcuna modifica.";
-  return `JOB AGENTICO ${destination} — ${issues.length === 1 ? "VERIFICA E CORREGGI" : "BULK REMEDIATION"}\n\nPROGETTO\n${client.name}\n${client.url}\n\nORIGINE\nAudit ${auditType === "page" ? "pagina" : "sito completo"}.\n\nPROBLEMI\n${rows}\n\nCONTROLLO PRELIMINARE\nVerifica che ogni problema sia ancora presente e che la correzione non introduca regressioni.\n\nESECUZIONE\n${rules}\nNon fermare l'intero batch per un singolo caso ambiguo o non supportato: registralo e continua.\n\nREPORT FINALE\nRestituisci analizzati, corretti, già risolti, eccezioni, non correggibili, pagine modificate e dettagli delle modifiche. Poi esegui un controllo finale SeoGrow.`;
+  return `JOB AGENTICO ${destination} — ${issues.length === 1 ? "VERIFICA E CORREGGI" : "BULK REMEDIATION"}\n\nPROGETTO\n${client.name}\n${client.url}\n\nORIGINE\nAudit ${auditType === "page" ? "pagina" : "sito completo"}.\n\nPROBLEMI\n${rows}\n\nCONTROLLO PRELIMINARE\nVerifica che ogni problema sia ancora presente e che la correzione non introduca regressioni.\n\nESECUZIONE\n${rules}\nNon fermare l'intero batch per un singolo caso ambiguo o non supportato: registralo e continua.\n\nREPORT FINALE\nRestituisci analizzati, applicati, già risolti, eccezioni, non correggibili, pagine modificate e dettagli delle modifiche. Poi esegui un controllo finale SeoGrow.`;
 };
 const resolveTarget = () => {
   try { if (decodeURIComponent(window.location.hash.slice(1)) !== "Audit SEO") return null; } catch { return null; }
@@ -116,13 +116,16 @@ export default function AuditUnifiedRemediation() {
     } else if (client?.url) setWpUrl((value) => value || client.url);
   }, [profile, client?.url]);
   useEffect(() => {
-    const sync = () => {
+    const syncTarget = () => {
       const next = resolveTarget();
       setTarget((previous) => previous === next ? previous : next);
-      setTick((v) => v + 1);
     };
-    sync();
-    const observer = new MutationObserver(sync);
+    const refresh = () => {
+      syncTarget();
+      setTick((value) => value + 1);
+    };
+    syncTarget();
+    const observer = new MutationObserver(syncTarget);
     observer.observe(document.body, { childList: true, subtree: true });
     const open = (event) => {
       const request = event.detail || {};
@@ -131,15 +134,15 @@ export default function AuditUnifiedRemediation() {
       setTimeout(() => document.querySelector(".audit-unified-remediation")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
     };
     window.addEventListener("seogrow-remediation-open", open);
-    window.addEventListener("hashchange", sync);
-    window.addEventListener("seogrow-locationchange", sync);
-    window.addEventListener("storage", sync);
+    window.addEventListener("hashchange", refresh);
+    window.addEventListener("seogrow-locationchange", refresh);
+    window.addEventListener("storage", refresh);
     return () => {
       observer.disconnect();
       window.removeEventListener("seogrow-remediation-open", open);
-      window.removeEventListener("hashchange", sync);
-      window.removeEventListener("seogrow-locationchange", sync);
-      window.removeEventListener("storage", sync);
+      window.removeEventListener("hashchange", refresh);
+      window.removeEventListener("seogrow-locationchange", refresh);
+      window.removeEventListener("storage", refresh);
     };
   }, [clientId]);
 
@@ -156,13 +159,32 @@ export default function AuditUnifiedRemediation() {
     if (!response.ok) throw new Error(data.error || "Connessione WordPress non riuscita");
     return data;
   };
+  const verifyWordPressFieldOwnsFrontend = async (kind, targetUrl, inspected) => {
+    if (!["title", "content", "h1"].includes(kind)) return { ok: true };
+    const entity = inspected.entity || {};
+    const expected = kind === "title"
+      ? { title: entity.title?.raw || entity.title?.rendered || "" }
+      : { content: entity.content?.raw || entity.content?.rendered || "" };
+    const response = await fetch("/api/wordpress/verify-frontend", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ url: targetUrl, expected }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Controllo frontend preliminare non riuscito");
+    if (kind === "title" && data.titleMatchesExpected !== true)
+      return { ok: false, reason: "Il <title> SEO pubblico non coincide con il titolo WordPress: probabilmente è gestito da Rank Math, Yoast o da un template. L'adapter core non modifica questo problema per evitare falsi positivi." };
+    if (["content", "h1"].includes(kind) && data.contentProbeVisible !== true)
+      return { ok: false, reason: "Il contenuto WordPress core non coincide con il contenuto pubblico: la pagina può essere gestita da Elementor o da un template. Nessuna modifica automatica viene applicata al campo sbagliato." };
+    return { ok: true };
+  };
   const generatePatch = async (issueToFix, inspected) => {
     const kind = classifyIssue(issueToFix);
     if (!kind) return null;
     const current = inspected.entity || {};
     const context = JSON.stringify({ issue: issueToFix, page: { title: current.title?.raw || current.title?.rendered || "", content: current.content?.raw || current.content?.rendered || "", excerpt: current.excerpt?.raw || current.excerpt?.rendered || "" } });
     const instruction = kind === "title"
-      ? "Genera un nuovo title SEO naturale, specifico per la pagina e coerente con l'intento. Restituisci SOLO JSON: {\"changes\":{\"title\":\"...\"}}. Non usare clickbait."
+      ? "Genera un nuovo titolo WordPress naturale, specifico per la pagina e coerente con l'intento. Restituisci SOLO JSON: {\"changes\":{\"title\":\"...\"}}. Non usare clickbait."
       : kind === "excerpt"
         ? "Genera un excerpt utile e naturale di circa 20-40 parole. Restituisci SOLO JSON: {\"changes\":{\"excerpt\":\"...\"}}."
         : kind === "h1"
@@ -180,6 +202,8 @@ export default function AuditUnifiedRemediation() {
     const kind = classifyIssue(issueToFix);
     if (!kind) return { status: "unsupported", issue: issueToFix, reason: "Questo tipo di problema non è ancora supportato dall'adapter WordPress reale." };
     const inspected = await inspectWordPress(targetUrl);
+    const ownership = await verifyWordPressFieldOwnsFrontend(kind, targetUrl, inspected);
+    if (!ownership.ok) return { status: "unsupported", issue: issueToFix, reason: ownership.reason };
     const changes = await generatePatch(issueToFix, inspected);
     if (!changes || !Object.keys(changes).length) return { status: "unsupported", issue: issueToFix, reason: "Nessuna patch applicabile generata." };
     const response = await fetch("/api/wordpress/remediate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ url: targetUrl, username: wpUsername, applicationPassword: wpPassword, resource: inspected.resource, id: inspected.entity.id, changes }) });
@@ -198,10 +222,10 @@ export default function AuditUnifiedRemediation() {
       catch (error) { results.push({ status: "exception", issue: currentIssue, reason: error.message }); }
       setReport([...results]);
     }
-    const corrected = results.filter((item) => item.status === "corrected").length;
+    const applied = results.filter((item) => item.status === "corrected").length;
     const unsupported = results.filter((item) => item.status === "unsupported").length;
     const exceptions = results.filter((item) => item.status === "exception").length;
-    setMessage(`Remediation completata: ${corrected} corretti, ${unsupported} non supportati, ${exceptions} eccezioni. Nessun caso ha bloccato il batch.`);
+    setMessage(`Remediation completata: ${applied} applicati a WordPress, ${unsupported} non supportati, ${exceptions} eccezioni. La conferma SEO definitiva è visibile nella sezione Correzioni.`);
     setRunning(false);
   };
   const prepare = async (all = false) => {
@@ -224,7 +248,7 @@ export default function AuditUnifiedRemediation() {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Verifica non riuscita");
       const present = (data.issues || []).some((item) => String(item.label || "").trim().toLowerCase() === String(issue?.label || "").trim().toLowerCase());
-      setMessage(present ? "Il problema selezionato è ancora presente." : "Il problema selezionato non risulta più presente.");
+      setMessage(present ? "Il problema selezionato è ancora presente." : "Il problema selezionato non risulta più presente nel controllo pagina; per problemi globali può servire un nuovo crawl completo.");
     } catch (error) { setMessage(`Verifica non riuscita: ${error.message}`); }
     finally { setVerifying(false); }
   };
@@ -236,7 +260,7 @@ export default function AuditUnifiedRemediation() {
         <div>
           <span className="audit-remediation-kicker"><Sparkles /> Remediation guidata</span>
           <h2>Correzione automatica</h2>
-          <p>Segui il flusso da sinistra a destra: scegli la piattaforma, verifica il problema, applica la correzione e controlla il risultato.</p>
+          <p>Scegli la piattaforma, verifica che l'adapter controlli davvero il frontend, applica la modifica e attendi la conferma SEO.</p>
         </div>
         <span className="audit-unified-badge"><Wrench />{issues.length} problemi</span>
       </div>
@@ -266,7 +290,7 @@ export default function AuditUnifiedRemediation() {
         {platform === "wordpress" && !profile && <button type="button" className="secondary" onClick={() => { localStorage.setItem("seogrow-selected-page-v1", JSON.stringify("Integrazioni")); window.location.hash = encodeURIComponent("Integrazioni"); }}><Plug />Configura WordPress</button>}
       </div>
 
-      <div className="audit-unified-note"><strong>Limiti controllati</strong><span>WordPress: modifica reale di title, contenuto, excerpt e H1 tramite REST. Elementor _elementor_data, meta description dei plugin SEO, redirect, canonical, noindex, robots, sitemap e cambi URL restano fuori dall'adapter finché non esiste un'integrazione dedicata.</span></div>
+      <div className="audit-unified-note"><strong>Limiti controllati</strong><span>WordPress core viene modificato solo se il controllo preliminare conferma che quel campo alimenta il frontend pubblico. Elementor _elementor_data, meta dei plugin SEO, redirect, canonical, noindex, robots, sitemap e cambi URL richiedono adapter dedicati.</span></div>
 
       <div className="audit-remediation-context-row">
         <section className="audit-context-card issue-select-card">
@@ -286,13 +310,13 @@ export default function AuditUnifiedRemediation() {
       </div>
 
       <div className="audit-workflow" aria-label="Flusso di remediation">
-        <section className="audit-step audit-step-blue"><div className="audit-step-head"><span>1</span><Search /><strong>Audit</strong></div><p>Analisi del problema e raccolta dei dati necessari.</p><small><CheckCircle2 /> Rilevazione automatica</small><small><CheckCircle2 /> Dati pagina e contesto</small></section>
-        <section className="audit-step audit-step-amber"><div className="audit-step-head"><span>2</span><ShieldCheck /><strong>Controllo preliminare</strong></div><p>Verifica fattibilità, impatto e sicurezza della modifica.</p><small><CheckCircle2 /> Controllo permessi</small><small><CheckCircle2 /> Verifica reversibilità</small></section>
-        <section className="audit-step audit-step-green"><div className="audit-step-head"><span>3</span><Wrench /><strong>Correzione</strong></div><p>Applicazione della modifica minima necessaria.</p><small><CheckCircle2 /> Scrittura tramite adapter</small><small><CheckCircle2 /> Conferma esecuzione</small></section>
-        <section className="audit-step audit-step-violet"><div className="audit-step-head"><span>4</span><Check /><strong>Verifica</strong></div><p>Ricontrollo e validazione del risultato finale.</p><small><CheckCircle2 /> Nuovo controllo SeoGrow</small><small><CheckCircle2 /> Aggiornamento esito</small></section>
+        <section className="audit-step audit-step-blue"><div className="audit-step-head"><span>1</span><Search /><strong>Audit</strong></div><p>Analisi del problema e raccolta dei dati necessari.</p><small>Rilevazione e contesto pagina</small></section>
+        <section className="audit-step audit-step-amber"><div className="audit-step-head"><span>2</span><ShieldCheck /><strong>Controllo preliminare</strong></div><p>Verifica che il campo WordPress controlli realmente il frontend.</p><small>Permessi, ownership del campo e reversibilità</small></section>
+        <section className="audit-step audit-step-green"><div className="audit-step-head"><span>3</span><Wrench /><strong>Applicazione</strong></div><p>Scrittura della modifica minima sul solo adapter supportato.</p><small>La scrittura non equivale ancora a problema SEO risolto</small></section>
+        <section className="audit-step audit-step-violet"><div className="audit-step-head"><span>4</span><Check /><strong>Verifica</strong></div><p>Ricontrollo del frontend e validazione del risultato SEO.</p><small>Solo qui la Task può essere chiusa</small></section>
       </div>
 
-      {report.length > 0 && <div className="audit-unified-report"><strong>Report remediation</strong>{report.map((item, index) => <div key={`${item.issue?.label}-${index}`}><span>{item.status === "corrected" ? "✓" : "!"} {item.issue?.label || "Problema"}</span><small>{item.status === "corrected" ? `Corretto: ${(item.changes || []).join(", ")}` : item.reason}</small></div>)}</div>}
+      {report.length > 0 && <div className="audit-unified-report"><strong>Report remediation</strong>{report.map((item, index) => <div key={`${item.issue?.label}-${index}`}><span>{item.status === "corrected" ? "✓" : "!"} {item.issue?.label || "Problema"}</span><small>{item.status === "corrected" ? `Applicato a WordPress: ${(item.changes || []).join(", ")} · verifica SEO separata in Correzioni` : item.reason}</small></div>)}</div>}
       {job && <label className="audit-unified-job">Job operativo<textarea value={job} onChange={(e) => setJob(e.target.value)} /><button type="button" className="secondary" onClick={() => navigator.clipboard.writeText(job).then(() => setMessage("Job copiato.")).catch(() => setMessage("Copia non riuscita."))}><Copy />Copia job</button></label>}
       {message && <p className="integration-result audit-remediation-message">{message}</p>}
     </section>, target,
