@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import AuditWorkspace from './AuditWorkspace';
 import './styles.css';
 
 class AppErrorBoundary extends React.Component {
@@ -27,5 +28,10 @@ class AppErrorBoundary extends React.Component {
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode><AppErrorBoundary><App /></AppErrorBoundary></React.StrictMode>,
+  <React.StrictMode>
+    <AppErrorBoundary>
+      <App />
+      <AuditWorkspace />
+    </AppErrorBoundary>
+  </React.StrictMode>,
 );
