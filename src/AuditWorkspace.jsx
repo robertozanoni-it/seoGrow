@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ExternalLink, FileText, Globe2 } from "lucide-react";
+import { Check, ExternalLink, FileText, Globe2, Sparkles } from "lucide-react";
 import { apiFetch } from "./api";
 import {
   analysisDiff,
@@ -134,6 +134,27 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
       createdAt: new Date().toISOString(),
     };
     writeJson(TASKS_KEY, [task, ...tasks]);
+  };
+
+  const openRemediation = (issueIndex) => {
+    const openPanel = () => {
+      const panel = document.querySelector(".remediation-panel");
+      if (!panel) return false;
+      const select = panel.querySelector(".remediation-select select");
+      if (select && select.value !== String(issueIndex)) {
+        const setter = Object.getOwnPropertyDescriptor(
+          HTMLSelectElement.prototype,
+          "value",
+        )?.set;
+        setter?.call(select, String(issueIndex));
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      panel.scrollIntoView({ behavior: "smooth", block: "start" });
+      panel.classList.add("remediation-focus");
+      window.setTimeout(() => panel.classList.remove("remediation-focus"), 1600);
+      return true;
+    };
+    if (!openPanel()) window.setTimeout(openPanel, 120);
   };
 
   const run = async (event) => {
@@ -296,8 +317,10 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
 
           <section className="panel issues audit-issues-list">
             <div className="panel-head">
-              <div><h2>Problemi rilevati</h2><p>Trasforma solo i problemi che vuoi gestire in Task.</p></div>
-              <button className="secondary small-button" onClick={() => { localStorage.setItem("seogrow-selected-page-v1", JSON.stringify("Task")); window.location.hash = encodeURIComponent("Task"); }}>Apri Task</button>
+              <div>
+                <h2>Problemi rilevati</h2>
+                <p>Correggi direttamente con l’agente del progetto oppure crea una Task solo se vuoi inserirlo nel backlog.</p>
+              </div>
             </div>
             {issues.length ? issues.map((issue, index) => {
               const issueUrl = issue.targetUrl || issue.url || result.url || client.url;
@@ -305,6 +328,9 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
                 <div key={`${issue.type || issue.label}-${issueUrl}-${index}`}>
                   <span className={`priority ${issue.severity || "media"}`}>{issue.severity || "media"}</span>
                   <strong>{issue.label}</strong>
+                  <button className="primary mini audit-agent-action" onClick={() => openRemediation(index)}>
+                    <Sparkles />Correggi con agente
+                  </button>
                   {issueUrl && <a className="task-link" href={issueUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>}
                   <button className="secondary mini" onClick={() => createTask(issue, selectedResult.type, result)}>Crea task</button>
                 </div>
@@ -348,12 +374,10 @@ export default function AuditWorkspace() {
     };
     sync();
     window.addEventListener("hashchange", sync);
-    const timer = window.setInterval(() => {
-      if (window.location.hash.includes("Audit%20SEO") || window.location.hash.includes("Audit SEO")) refresh();
-    }, 1000);
+    window.addEventListener("seogrow-locationchange", sync);
     return () => {
       window.removeEventListener("hashchange", sync);
-      window.clearInterval(timer);
+      window.removeEventListener("seogrow-locationchange", sync);
       document.querySelector(".workspace main")?.classList.remove("audit-workspace-active");
     };
   }, []);
