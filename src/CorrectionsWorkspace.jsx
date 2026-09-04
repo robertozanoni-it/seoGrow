@@ -105,9 +105,11 @@ export default function CorrectionsWorkspace() {
 
   useEffect(() => {
     if (!mainTarget) return undefined;
-    if (active) mainTarget.dataset.correctionsOpen = "true";
-    else delete mainTarget.dataset.correctionsOpen;
-    return () => { delete mainTarget.dataset.correctionsOpen; };
+    const main = document.querySelector(".app main");
+    if (!main) return undefined;
+    if (active) main.dataset.correctionsOpen = "true";
+    else delete main.dataset.correctionsOpen;
+    return () => { delete main.dataset.correctionsOpen; };
   }, [active, mainTarget]);
 
   useEffect(() => {
