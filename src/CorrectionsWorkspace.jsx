@@ -26,6 +26,11 @@ const currentHash = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)); } catch { return ""; }
 };
 
+const openCorrections = () => {
+  window.__seogrowCorrectionsMode = true;
+  window.location.hash = encodeURIComponent("Correzioni");
+};
+
 const preview = (value, max = 360) => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return text.length > max ? `${text.slice(0, max)}…` : text || "—";
@@ -103,7 +108,7 @@ export default function CorrectionsWorkspace() {
       if (!currentBatch) return;
       if (sessionStorage.getItem(OPENED_BATCH_KEY) === currentBatch) return;
       sessionStorage.setItem(OPENED_BATCH_KEY, currentBatch);
-      window.location.hash = encodeURIComponent("Correzioni");
+      openCorrections();
     };
     const observer = new MutationObserver(checkCompletion);
     observer.observe(document.body, { childList: true, subtree: true, characterData: true });
@@ -171,7 +176,7 @@ export default function CorrectionsWorkspace() {
       type="button"
       className={active ? "active corrections-nav-button" : "corrections-nav-button"}
       aria-current={active ? "page" : undefined}
-      onClick={() => { window.location.hash = encodeURIComponent("Correzioni"); }}
+      onClick={openCorrections}
     >
       <History />
       <span>Correzioni</span>
