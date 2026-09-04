@@ -31,7 +31,27 @@ test("gli H1 vengono corretti deterministicamente senza chiamare OpenAI", () => 
 test("la remediation H1 usa WordPress core solo se il numero H1 coincide con il frontend", () => {
   assert.match(liveControl, /const countH1 =/);
   assert.match(liveControl, /const coreH1 = countH1\(entity\.content\?\.raw \|\| entity\.content\?\.rendered \|\| ""\)/);
-  assert.match(liveControl, /data\.contentProbeVisible === true && Number\(data\.h1\) === coreH1/);
+  assert.match(liveControl, /frontendH1 === coreH1/);
+});
+
+test("un audit H1 stale viene marcato già risolto invece di tentare una patch inutile", () => {
+  assert.match(liveControl, /const alreadyResolvedReason =/);
+  assert.match(liveControl, /Number\(frontend\.h1\) === 1/);
+  assert.match(liveControl, /status: "resolved"/);
+  assert.match(liveControl, /problemi già risolti nel frontend corrente/);
+});
+
+test("la remediation usa l'audit aperto e non forza sempre l'ultimo audit", () => {
+  assert.match(liveControl, /const selectAudit =/);
+  assert.match(liveControl, /entry\.type === requested\.auditType/);
+  assert.match(liveControl, /String\(auditTimestamp\(entry\)\) === String\(requested\.analyzedAt/);
+  assert.match(liveControl, /seogrow-remediation-open/);
+});
+
+test("l'anteprima live ha un fallback locale e mostra i campi interessati", () => {
+  assert.match(liveControl, /const localPreview =/);
+  assert.match(liveControl, /if \(!hasUsefulPreview\(data\.previewBefore\)\) data\.previewBefore = fallback\.before/);
+  assert.match(liveControl, /Campi interessati:/);
 });
 
 test("la cache runtime non include mai la password applicativa", () => {
