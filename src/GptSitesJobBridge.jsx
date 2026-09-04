@@ -52,6 +52,28 @@ const buildBulkJob = ({ client, auditType, audit, issues }) => {
   return `JOB AGENTICO GPTSITES — BULK REMEDIATION\n\nPROGETTO\n${client.name}\n${client.url}\n\nORIGINE\nAudit ${auditType === "page" ? "pagina" : "sito completo"} — ${issues.length} problemi rilevati.\n\nPROBLEMI\n${grouped}\n\nESEGUI L'INTERO BATCH\n1. Raggruppa i problemi per pagina e rimuovi duplicati equivalenti.\n2. Prima di ogni modifica verifica che il problema sia ancora realmente presente.\n3. Correggi automaticamente i problemi confermati con la modifica minima necessaria.\n4. Per redirect, canonical, noindex, robots, sitemap, cambi URL, eliminazioni e modifiche strutturali pesanti esegui CONTROLLO PRELIMINARE OBBLIGATORIO: stato attuale, dipendenze, link e pagine coinvolte, rischio regressioni, coerenza con indicizzazione e reversibilità.\n5. Se dopo il controllo la soluzione è inequivocabile e verificabile, applicala autonomamente. Non chiedere approvazione solo perché la modifica è tecnica o strutturale.\n6. Se un singolo caso resta ambiguo, conflittuale o non verificabile, non bloccare il batch: registra l'eccezione e continua con gli altri problemi.\n7. Preserva layout, contenuti, URL, integrazioni e tracciamenti non coinvolti. Non inventare dati, recensioni, credenziali o prove sociali.\n8. Dopo ogni gruppo di modifiche esegui un controllo di regressione.\n9. Al termine ricontrolla le pagine modificate.\n10. Restituisci un report con: analizzati, corretti, già risolti, eccezioni, non correggibili, pagine modificate e modifiche effettuate.\n11. Lascia il Site pronto per il nuovo audit completo SeoGrow.\n\nOBIETTIVO\nL'utente non deve controllare manualmente ogni problema: GPTSites deve verificare, decidere, correggere e documentare; l'intervento umano è richiesto solo per casi realmente non determinabili.`;
 };
 
+const resolvePortalTarget = () => {
+  let page = "";
+  try {
+    page = decodeURIComponent(window.location.hash.slice(1));
+  } catch {
+    page = "";
+  }
+  if (page !== "Audit SEO") return null;
+
+  const root = document.querySelector(".audit-enhancer-root");
+  if (!root) return null;
+
+  let slot = root.querySelector(".gptsites-bulk-slot");
+  const issuesPanel = root.querySelector(".audit-issues-list");
+  if (!slot && issuesPanel?.parentNode) {
+    slot = document.createElement("div");
+    slot.className = "gptsites-bulk-slot";
+    issuesPanel.parentNode.insertBefore(slot, issuesPanel);
+  }
+  return slot || root;
+};
+
 export default function GptSitesJobBridge() {
   const [target, setTarget] = useState(null);
   const [version, setVersion] = useState(0);
@@ -61,10 +83,8 @@ export default function GptSitesJobBridge() {
 
   useEffect(() => {
     const sync = () => {
-      let page = "";
-      try { page = decodeURIComponent(window.location.hash.slice(1)); } catch { page = ""; }
-      const root = document.querySelector(".audit-enhancer-root");
-      setTarget(page === "Audit SEO" ? root : null);
+      const nextTarget = resolvePortalTarget();
+      setTarget(nextTarget);
       setVersion((value) => value + 1);
     };
     sync();
@@ -91,6 +111,11 @@ export default function GptSitesJobBridge() {
     () => issueUrl(firstIssue, latest?.item, client),
     [firstIssue, latest?.item, client, version],
   );
+
+  useEffect(() => {
+    const nextTarget = resolvePortalTarget();
+    if (nextTarget && nextTarget !== target) setTarget(nextTarget);
+  }, [target, version]);
 
   if (!target || !client || !latest?.item || !issues.length) return null;
 
