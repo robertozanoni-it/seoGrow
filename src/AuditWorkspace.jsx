@@ -310,6 +310,8 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
             </div>
           </section>
 
+          {issues.length > 0 && <div className="gptsites-bulk-slot" />}
+
           <section className="panel issues audit-issues-list">
             <div className="panel-head">
               <div>
