@@ -22,6 +22,7 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
 }
 
 await import("./wordpressLiveApprovalHook.js");
+await import("./wordpressLiveRollbackHook.js");
 await import("./wordpressSeoAdapterHook.js");
 await import("./wordpressDraftCopyHook.js");
 await import("./wordpressRemediationHook.js");
