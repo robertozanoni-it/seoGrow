@@ -68,9 +68,6 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   const requestRef = useRef(null);
 
   useEffect(() => () => requestRef.current?.abort(), []);
-  useEffect(() => {
-    setUrl(client.url);
-  }, [client.url, clientId]);
 
   const savePageAudit = (result) => {
     const current = readJson(PAGE_HISTORY_KEY, {});
