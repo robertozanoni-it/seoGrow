@@ -1,0 +1,106 @@
+.wordpress-job-panel {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+
+.wordpress-job-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(33, 117, 155, .1);
+  color: #21759b;
+}
+
+.wordpress-job-badge svg,
+.wordpress-job-actions svg,
+.wordpress-job-note svg,
+.wordpress-job-target svg {
+  width: 16px;
+  height: 16px;
+}
+
+.wordpress-job-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wordpress-job-actions button,
+.wordpress-job-note button,
+.wordpress-job-target a {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.wordpress-job-target {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--border, #dce3ee);
+  border-radius: 14px;
+}
+
+.wordpress-job-target > div {
+  display: grid;
+  gap: 5px;
+}
+
+.wordpress-job-target small,
+.wordpress-job-note span {
+  line-height: 1.5;
+  opacity: .78;
+}
+
+.wordpress-job-note {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(33, 117, 155, .06);
+  border: 1px solid rgba(33, 117, 155, .15);
+}
+
+.wordpress-job-note button {
+  width: fit-content;
+}
+
+.wordpress-job-text {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.wordpress-job-text textarea {
+  width: 100%;
+  min-height: 280px;
+  resize: vertical;
+  font: 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.wordpress-job-text button {
+  width: fit-content;
+}
+
+@media (max-width: 760px) {
+  .wordpress-job-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .wordpress-job-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .wordpress-job-target {
+    flex-direction: column;
+  }
+}
