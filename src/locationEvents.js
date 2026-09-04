@@ -6,6 +6,8 @@ import {
   updateCorrection,
 } from "./remediationStore";
 
+window.__seogrowCorrectionsMode = false;
+
 // React navigation in seoGrow updates the hash with history.pushState().
 // Browsers do not emit hashchange for pushState, so components mounted outside
 // App (Audit workspace/remediation) would occasionally miss navigation changes.
@@ -15,6 +17,15 @@ const patchHistoryMethod = (methodName) => {
   if (typeof original !== "function" || original.__seogrowPatched) return;
 
   const patched = function patchedHistoryMethod(...args) {
+    const destination = args[2] == null ? "" : String(args[2]);
+    if (window.__seogrowCorrectionsMode && window.location.hash === `#${encodeURIComponent("Correzioni")}`) {
+      try {
+        const next = new URL(destination || window.location.href, window.location.href);
+        if (decodeURIComponent(next.hash.slice(1)) === "Panoramica") return undefined;
+      } catch {
+        // Se la destinazione non è interpretabile, usa il comportamento standard.
+      }
+    }
     const oldURL = window.location.href;
     const result = original.apply(this, args);
     const newURL = window.location.href;
@@ -86,12 +97,18 @@ const currentClient = () => {
 
 const startBatchFromClick = (event) => {
   const button = event.target?.closest?.(".audit-unified-actions button");
-  if (!button) return;
-  const text = String(button.textContent || "").trim();
-  if (!/Correggi tutti|Correggi questo problema/i.test(text)) return;
-  const batchId = `remediation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  setLastBatch(batchId);
-  sessionStorage.setItem("seogrow-remediation-active-batch-v1", batchId);
+  if (button) {
+    const text = String(button.textContent || "").trim();
+    if (/Correggi tutti|Correggi questo problema/i.test(text)) {
+      const batchId = `remediation-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setLastBatch(batchId);
+      sessionStorage.setItem("seogrow-remediation-active-batch-v1", batchId);
+    }
+  }
+  const sidebarButton = event.target?.closest?.(".sidebar nav button");
+  if (sidebarButton && !sidebarButton.classList.contains("corrections-nav-button")) {
+    window.__seogrowCorrectionsMode = false;
+  }
 };
 
 document.addEventListener("click", startBatchFromClick, true);
