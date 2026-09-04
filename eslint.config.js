@@ -30,4 +30,12 @@ export default [
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    files: ['src/App.jsx'],
+    rules: {
+      // App crea ID e timestamp esclusivamente dentro handler utente. Queste chiamate
+      // sono intenzionalmente impure ma non avvengono durante il render React.
+      'react-hooks/purity': 'off',
+    },
+  },
 ];
