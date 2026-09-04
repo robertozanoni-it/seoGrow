@@ -137,24 +137,19 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   };
 
   const openRemediation = (issueIndex) => {
-    const openPanel = () => {
-      const panel = document.querySelector(".remediation-panel");
-      if (!panel) return false;
-      const select = panel.querySelector(".remediation-select select");
-      if (select && select.value !== String(issueIndex)) {
-        const setter = Object.getOwnPropertyDescriptor(
-          HTMLSelectElement.prototype,
-          "value",
-        )?.set;
-        setter?.call(select, String(issueIndex));
-        select.dispatchEvent(new Event("change", { bubbles: true }));
-      }
-      panel.scrollIntoView({ behavior: "smooth", block: "start" });
-      panel.classList.add("remediation-focus");
-      window.setTimeout(() => panel.classList.remove("remediation-focus"), 1600);
-      return true;
-    };
-    if (!openPanel()) window.setTimeout(openPanel, 120);
+    window.dispatchEvent(
+      new CustomEvent("seogrow-remediation-open", {
+        detail: {
+          clientId,
+          issueIndex,
+          auditType: selectedResult?.type || "page",
+          analyzedAt:
+            selectedResult?.data?.analyzedAt ||
+            selectedResult?.data?.startedAt ||
+            "",
+        },
+      }),
+    );
   };
 
   const run = async (event) => {
@@ -328,11 +323,15 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
                 <div key={`${issue.type || issue.label}-${issueUrl}-${index}`}>
                   <span className={`priority ${issue.severity || "media"}`}>{issue.severity || "media"}</span>
                   <strong>{issue.label}</strong>
-                  <button className="primary mini audit-agent-action" onClick={() => openRemediation(index)}>
+                  <button
+                    type="button"
+                    className="primary mini audit-agent-action"
+                    onClick={() => openRemediation(index)}
+                  >
                     <Sparkles />Correggi con agente
                   </button>
                   {issueUrl && <a className="task-link" href={issueUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>}
-                  <button className="secondary mini" onClick={() => createTask(issue, selectedResult.type, result)}>Crea task</button>
+                  <button type="button" className="secondary mini" onClick={() => createTask(issue, selectedResult.type, result)}>Crea task</button>
                 </div>
               );
             }) : <div className="success"><Check />Nessun problema tra quelli controllati.</div>}
