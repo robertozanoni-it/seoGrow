@@ -117,6 +117,40 @@ const currentClient = () => {
   return { clientId, client };
 };
 
+const remediationOwnerSnapshot = () => {
+  const { clientId, client } = currentClient();
+  return {
+    clientId,
+    client: {
+      id: client?.id,
+      name: client?.name || "",
+      url: client?.url || "",
+    },
+  };
+};
+
+const changesFingerprint = (changes) =>
+  JSON.stringify(
+    Object.entries(changes && typeof changes === "object" ? changes : {})
+      .map(([key, value]) => [String(key), String(value ?? "")])
+      .toSorted(([a], [b]) => a.localeCompare(b)),
+  );
+
+const takePendingGeneration = (requestBody) => {
+  if (!pendingGenerations.length) return null;
+  const fingerprint = changesFingerprint(requestBody?.changes);
+  const target = normalizeUrl(requestBody?.url || "");
+  const index = pendingGenerations.findIndex((generation) => {
+    if (changesFingerprint(generation?.changes) !== fingerprint) return false;
+    const generationTarget = normalizeUrl(
+      generation?.issue?.targetUrl || generation?.issue?.url || "",
+    );
+    return !generationTarget || !target || generationTarget === target;
+  });
+  if (index >= 0) return pendingGenerations.splice(index, 1)[0];
+  return pendingGenerations.shift() || null;
+};
+
 const startBatchFromClick = (event) => {
   const button = event.target?.closest?.(".audit-unified-actions button");
   if (button) {
@@ -286,6 +320,7 @@ if (!window.fetch.__seogrowRemediationPatched) {
         const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
         if (/^Remediation WordPress\s+(?:title|content|excerpt|h1)$/i.test(String(body?.topic || ""))) {
           const context = parseJson(body?.context || "{}", {});
+          const owner = remediationOwnerSnapshot();
           const response = await originalFetch("/api/wordpress/generate-patch", init);
           if (response.ok) {
             try {
@@ -295,6 +330,7 @@ if (!window.fetch.__seogrowRemediationPatched) {
                 issue: context.issue || {},
                 page: context.page || {},
                 changes: parsed.changes || {},
+                owner,
               });
             } catch {
               // La UI mostrerà l'errore di struttura se la risposta non è valida.
@@ -310,12 +346,14 @@ if (!window.fetch.__seogrowRemediationPatched) {
     if (url === "/api/wordpress/remediate" && method === "POST") {
       const rollbackHeader = new Headers(init.headers || {}).get("x-seogrow-rollback") === "1";
       const requestBody = parseJson(init.body || "{}", {});
-      const generation = rollbackHeader ? null : pendingGenerations.shift() || null;
+      const generation = rollbackHeader ? null : takePendingGeneration(requestBody);
       const response = await originalFetch(input, init);
       if (response.ok && !rollbackHeader) {
         try {
           const data = await response.clone().json();
-          const { clientId, client } = currentClient();
+          const owner = generation?.owner || remediationOwnerSnapshot();
+          const clientId = Number(owner.clientId);
+          const client = owner.client || {};
           const changed = Array.isArray(data.changed) && data.changed.length
             ? data.changed
             : Object.keys(requestBody.changes || {});
