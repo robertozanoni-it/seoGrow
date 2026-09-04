@@ -126,7 +126,7 @@ fi
 app_url="http://localhost:$app_port"
 export APP_ORIGIN="$app_url"
 export PORT="$api_port"
-export NODE_OPTIONS="${NODE_OPTIONS:-} --import=./server/wordpressRemediationHook.js"
+export NODE_OPTIONS="${NODE_OPTIONS:-} --import=./server/wordpressRemediationHook.js --import=./server/frontendVerificationHook.js"
 echo "Avvio in corso su $app_url"
 echo "Lascia aperta questa finestra del Terminale mentre usi l'app."
 
