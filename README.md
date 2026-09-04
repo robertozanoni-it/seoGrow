@@ -1,6 +1,6 @@
-# seoGrow AI — MVP 1.4.2
+# seoGrow AI — MVP 1.4.3
 
-Le verifiche della versione sono riepilogate in `docs/QA-1.4.2.md`.
+Le verifiche storiche della versione 1.4.2 sono riepilogate in `docs/QA-1.4.2.md`. La release 1.4.3 aggiunge il workflow di remediation WordPress con verifica frontend, storico correzioni e rollback.
 
 MVP personale per gestire clienti SEO, audit on-page, opportunità, contenuti, task e integrazioni WordPress.
 
@@ -10,10 +10,10 @@ MVP personale per gestire clienti SEO, audit on-page, opportunità, contenuti, t
 2. Apri il Terminale nella cartella del progetto.
 3. Esegui `npm install`.
 4. Copia `.env.example` in `.env` e compila soltanto le chiavi necessarie.
-5. Esegui `npm run dev`.
+5. Esegui `npm run dev` oppure usa `AVVIA.command`.
 6. Apri `http://localhost:5176`.
 
-Con `AVVIA.command` non serve digitare l’indirizzo: il launcher usa normalmente `http://localhost:5176`, memorizza la porta e la riutilizza per conservare lo stesso archivio del browser. Se seoGrow AI è già attiva, la riapre senza avviare una seconda copia.
+`npm run dev`, `npm start` e `AVVIA.command` caricano gli stessi adapter di remediation e verifica frontend. Con `AVVIA.command` non serve digitare l’indirizzo: il launcher usa normalmente `http://localhost:5176`, memorizza la porta e la riutilizza per conservare lo stesso archivio del browser. Se seoGrow AI è già attiva, la riapre senza avviare una seconda copia.
 
 ## Produzione
 
@@ -40,7 +40,7 @@ Esegui `npm run build` e quindi `npm start`. Apri `http://localhost:5176`; l’A
 - controllo posizionamenti DataForSEO per desktop/mobile, profondità fino alla top 100, URL posizionata, storico e variazione;
 - eliminazione protetta dei clienti e dei relativi dati locali;
 - report HTML scaricabile per ogni cliente, stampabile anche in PDF;
-- backup completo cifrato con password e copie locali automatiche ripristinabili;
+- backup completo cifrato con password, incluse cronologia e snapshot di rollback delle remediation, e copie locali automatiche ripristinabili;
 - notifiche per cali, nuovi problemi, correzioni e task scadute;
 - metriche reali per cliente: clic, impressioni, CTR, posizione, query, pagine, Paesi e dispositivi;
 - opportunità e task iniziali derivati dalle query importate;
@@ -48,10 +48,11 @@ Esegui `npm run build` e quindi `npm start`. Apri `http://localhost:5176`; l’A
 - audit reale di una singola URL;
 - generatore di brief/contenuti con modalità demo;
 - API OpenAI lato server quando `OPENAI_API_KEY` è configurata;
-- verifica guidata WordPress e invio dei contenuti esclusivamente come bozze, con credenziali mantenute solo durante la sessione;
+- verifica guidata WordPress e invio dei contenuti editoriali esclusivamente come bozze, con credenziali mantenute solo durante la sessione;
+- remediation WordPress separata per campi supportati, con verifica del frontend prima di considerare risolto un problema SEO e storico Prima/Dopo con rollback;
 - ricerca globale funzionante per sezioni, clienti e task;
 - integrazione OAuth Search Console con importazione query–pagina reale e aggiornamento periodico mentre l’app è aperta;
-- salvataggio delle preferenze nel browser.
+- salvataggio delle preferenze nel browser;
 - salvataggio automatico delle bozze editoriali per progetto;
 - server accessibile esclusivamente dal computer locale e protezione delle chiamate a pagamento;
 - verifica reale delle credenziali DataForSEO e avviso per importazioni Search Console parziali;
@@ -72,7 +73,7 @@ I dati rimangono sul computer nel browser utilizzato.
 
 ## Sicurezza
 
-Non inserire chiavi API nel codice frontend. Le password applicative WordPress non vengono salvate nel browser né dal server: restano in memoria soltanto fino alla chiusura o al ricaricamento dell’app.
+Non inserire chiavi API nel codice frontend. Le password applicative WordPress non vengono salvate nel browser né dal server: restano in memoria soltanto fino alla chiusura o al ricaricamento dell’app. Le richieste WordPress e di verifica frontend usate dalla remediation vengono risolte su indirizzi pubblici e bloccate contro destinazioni locali/private.
 
 ## Piano editoriale e WordPress
 
@@ -80,6 +81,8 @@ Non inserire chiavi API nel codice frontend. Le password applicative WordPress n
 2. Genera il brief, l’articolo o i metadati e revisiona il testo.
 3. Apri **Integrazioni → WordPress**, inserisci URL del sito, nome utente e password applicativa, quindi premi **Verifica connessione**.
 4. Torna al **Piano editoriale** e premi **Invia come bozza**. L’app usa sempre `status: draft` e non pubblica direttamente.
+
+La **remediation SEO** è un workflow distinto dall’invio editoriale: quando viene eseguita su una pagina esistente può modificare i campi WordPress espressamente supportati. Una modifica non viene considerata risolta finché il frontend e il nuovo controllo SEO non la confermano. I title SEO gestiti da plugin come Rank Math/Yoast non vengono dichiarati corretti dal solo adapter WordPress core.
 
 ## DataForSEO: posizionamenti e topical map
 
@@ -98,7 +101,7 @@ Il controllo dei link interrotti richiede una **Nuova analisi** del sito: Search
 ## Report, backup e analisi
 
 - In **Siti**, premi **Report** nella card di un cliente. Apri il file HTML e usa **Stampa / Salva PDF** se desideri un PDF.
-- In **Impostazioni → Backup completo**, scegli una password di almeno 10 caratteri: il file viene cifrato con AES-GCM. Conservala, perché non può essere recuperata dall’app.
+- In **Impostazioni → Backup completo**, scegli una password di almeno 10 caratteri: il file viene cifrato con AES-GCM. Conservala, perché non può essere recuperata dall’app. Nella 1.4.3 il backup include anche storico correzioni e snapshot Prima/Dopo usati per il rollback.
 - In **Panoramica**, **Storico**, **Link interni** o **Task**, premi **Nuova analisi**. Puoi scegliere da 25 a 200 pagine.
 
 L’esportazione standard di Search Console non contiene l’abbinamento query-pagina. Quando possibile, seoGrow AI suggerisce una pagina confrontando la query con il percorso degli URL; il suggerimento non viene presentato come dato confermato da Google.
