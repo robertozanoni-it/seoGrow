@@ -209,7 +209,22 @@ async function resolveEntity(base, headers, requestedUrl) {
   if (/^\d+$/.test(segments.at(-1) || "") && segments.length > 1)
     throw new Error("Pagina di archivio/paginazione WordPress: non è un contenuto singolo modificabile automaticamente.");
   const slug = decodeURIComponent(segments.at(-1) || "");
-  if (!slug) throw new Error("Impossibile determinare lo slug della pagina WordPress.");
+
+  if (!slug) {
+    let settings;
+    try {
+      settings = await json(await wpFetch(endpoint(base, "settings"), { headers }));
+    } catch (error) {
+      throw new Error(`Homepage WordPress: impossibile determinare la pagina statica. ${error.message}`);
+    }
+    const frontPageId = Number(settings?.page_on_front);
+    if (settings?.show_on_front !== "page" || !Number.isSafeInteger(frontPageId) || frontPageId <= 0)
+      throw new Error("Homepage WordPress basata sull'archivio articoli: non è un contenuto singolo modificabile automaticamente.");
+    const entity = await json(
+      await wpFetch(endpoint(base, "pages", `/${frontPageId}?context=edit`), { headers }),
+    );
+    return { resource: "pages", entity };
+  }
 
   for (const resource of ["pages", "posts"]) {
     const url = endpoint(base, resource);
@@ -251,8 +266,8 @@ function registerRoutes(app) {
   app.get("/api/wordpress/remediation-capabilities", (_req, res) => {
     res.json({
       ok: true,
-      supports: ["inspect", "title", "content", "excerpt", "h1"],
-      unsupported: ["elementor_data", "seo_plugin_meta", "redirect", "canonical", "noindex", "robots", "sitemap", "url_change"],
+      supports: ["inspect", "title", "content", "excerpt", "h1", "static_homepage"],
+      unsupported: ["elementor_data", "seo_plugin_meta", "redirect", "canonical", "noindex", "robots", "sitemap", "url_change", "posts_homepage"],
     });
   });
 
