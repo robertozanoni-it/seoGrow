@@ -1,4 +1,5 @@
 import { validPendingApproval } from "./agentRuntime.js";
+import { listCorrections, replaceCorrections } from "./remediationStore.js";
 
 const STOP_WORDS = new Set([
   "a",
@@ -207,11 +208,13 @@ export async function exportWorkspaceBackup(data, passphrase) {
     throw new Error(
       "Usa una password di almeno 10 caratteri per proteggere il backup.",
     );
+  const corrections = await listCorrections();
   const plaintext = new TextEncoder().encode(
     JSON.stringify({
-      schemaVersion: 3,
+      schemaVersion: 4,
       exportedAt: new Date().toISOString(),
       ...data,
+      corrections,
     }),
   );
   const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -277,7 +280,7 @@ export async function readWorkspaceBackup(file, passphrase = "") {
     }
   }
   if (
-    ![1, 2, 3].includes(data.schemaVersion) ||
+    ![1, 2, 3, 4].includes(data.schemaVersion) ||
     !Array.isArray(data.clients) ||
     !data.clients.length ||
     !Array.isArray(data.tasks) ||
@@ -353,10 +356,29 @@ export async function readWorkspaceBackup(file, passphrase = "") {
         throw new Error("Il backup contiene un profilo WordPress non valido.");
     }
   }
+  if (data.corrections != null) {
+    if (!Array.isArray(data.corrections) || data.corrections.length > 500)
+      throw new Error("Il backup contiene uno storico correzioni non valido.");
+    const validCorrection = (record) =>
+      record &&
+      typeof record.id === "string" &&
+      typeof record.batchId === "string" &&
+      data.clients.some((client) => Number(client.id) === Number(record.clientId)) &&
+      typeof record.issueLabel === "string" &&
+      Boolean(safeReportUrl(record.sourceUrl)) &&
+      Array.isArray(record.fields) &&
+      record.fields.every((field) => ["title", "content", "excerpt", "slug"].includes(field)) &&
+      record.before && typeof record.before === "object" && !Array.isArray(record.before) &&
+      record.after && typeof record.after === "object" && !Array.isArray(record.after) &&
+      !("applicationPassword" in record) && !("password" in record) && !("apiKey" in record);
+    if (!data.corrections.every(validCorrection) || new Set(data.corrections.map((record) => record.id)).size !== data.corrections.length)
+      throw new Error("Il backup contiene record di remediation non validi.");
+  }
   if (!validAgentRuns(data.agentRuns, data.clients))
     throw new Error("Il backup contiene una memoria SEO Agent non valida.");
   const jsonSize = JSON.stringify(data).length;
   if (jsonSize > 25 * 1024 * 1024)
     throw new Error("Il contenuto del backup supera il limite consentito.");
+  if (Array.isArray(data.corrections)) await replaceCorrections(data.corrections);
   return data;
 }
