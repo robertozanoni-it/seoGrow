@@ -61,16 +61,19 @@ async function wpFetch(url, options = {}) {
   return response;
 }
 
+function parseJsonText(text, response) {
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch (error) {
+    if (response.status === 404)
+      throw new Error("WordPress REST API non trovata alla root del sito (HTTP 404). Verifica che /wp-json/ sia disponibile.", { cause: error });
+    throw new Error(`Risposta WordPress non valida (HTTP ${response.status}).`, { cause: error });
+  }
+}
+
 async function json(response) {
   const text = await response.text();
-  let data = {};
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch {
-    if (response.status === 404)
-      throw new Error("WordPress REST API non trovata alla root del sito (HTTP 404). Verifica che /wp-json/ sia disponibile.");
-    throw new Error(`Risposta WordPress non valida (HTTP ${response.status}).`);
-  }
+  const data = parseJsonText(text, response);
   if (!response.ok) {
     const detail = data?.message || data?.code || `HTTP ${response.status}`;
     throw new Error(`WordPress: ${detail}`);
@@ -118,15 +121,21 @@ function remediationInstruction(kind, issue) {
   return `Restituisci esclusivamente il contenuto WordPress completo migliorato per risolvere: ${label}. Amplia solo quanto necessario, conserva testo e link utili e non inventare dati, persone, statistiche o testimonianze.`;
 }
 
+function parseRemediationContext(value) {
+  try {
+    return JSON.parse(String(value || "{}"));
+  } catch (error) {
+    throw new Error("Contesto remediation non valido.", { cause: error });
+  }
+}
+
 async function generateStructuredPatch(body) {
   if (!process.env.OPENAI_API_KEY)
     throw new Error("OpenAI non è configurata. Inserisci OPENAI_API_KEY nel file .env e riavvia seoGrow.");
   const kind = remediationKind(body?.topic);
   if (!kind) throw new Error("Tipo di remediation AI non riconosciuto.");
 
-  let context = {};
-  try { context = JSON.parse(String(body?.context || "{}")); }
-  catch { throw new Error("Contesto remediation non valido."); }
+  const context = parseRemediationContext(body?.context);
   const page = context?.page || {};
   const issue = context?.issue || {};
   const pageContext = {
@@ -186,7 +195,7 @@ async function generateStructuredPatch(body) {
   const raw = await response.text();
   let data;
   try { data = raw ? JSON.parse(raw) : {}; }
-  catch { throw new Error(`Risposta OpenAI non valida (HTTP ${response.status}).`); }
+  catch (error) { throw new Error(`Risposta OpenAI non valida (HTTP ${response.status}).`, { cause: error }); }
   if (!response.ok)
     throw new Error(data?.error?.message || `OpenAI ha restituito HTTP ${response.status}`);
   const text = data.output
@@ -195,7 +204,7 @@ async function generateStructuredPatch(body) {
   if (!text) throw new Error("OpenAI non ha restituito la patch richiesta.");
   let parsed;
   try { parsed = JSON.parse(text); }
-  catch { throw new Error("OpenAI non ha restituito una patch strutturata valida."); }
+  catch (error) { throw new Error("OpenAI non ha restituito una patch strutturata valida.", { cause: error }); }
   const value = String(parsed?.value || "").trim();
   if (!value) throw new Error("OpenAI ha restituito una patch vuota.");
   const key = kind === "title" ? "title" : kind === "excerpt" ? "excerpt" : "content";
@@ -215,7 +224,7 @@ async function resolveEntity(base, headers, requestedUrl) {
     try {
       settings = await json(await wpFetch(endpoint(base, "settings"), { headers }));
     } catch (error) {
-      throw new Error(`Homepage WordPress: impossibile determinare la pagina statica. ${error.message}`);
+      throw new Error(`Homepage WordPress: impossibile determinare la pagina statica. ${error.message}`, { cause: error });
     }
     const frontPageId = Number(settings?.page_on_front);
     if (settings?.show_on_front !== "page" || !Number.isSafeInteger(frontPageId) || frontPageId <= 0)
