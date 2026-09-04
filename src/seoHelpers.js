@@ -1,3 +1,5 @@
+import { validPendingApproval } from "./agentRuntime.js";
+
 const STOP_WORDS = new Set([
   "a",
   "al",
@@ -246,7 +248,13 @@ function validAgentRuns(value, clients = []) {
   if (value == null) return true;
   if (typeof value !== "object" || Array.isArray(value)) return false;
   const clientIds = new Set(clients.map((client) => String(client.id)));
-  return Object.entries(value).every(([projectId, runs]) => clientIds.has(projectId) && Array.isArray(runs) && runs.every((run) => run && String(run.projectId) === projectId && typeof run.id === "string" && typeof run.goal === "string" && Array.isArray(run.observations) && Array.isArray(run.recommendations) && Array.isArray(run.approvalHistory) && (!run.plan || Array.isArray(run.plan.steps)) && run.recommendations.every((item) => item && Array.isArray(item.evidence) && Array.isArray(item.sources))));
+  return Object.entries(value).every(([projectId, runs]) => clientIds.has(projectId) && Array.isArray(runs) && runs.every((run) => {
+    const steps = Array.isArray(run?.plan?.steps) ? run.plan.steps : [];
+    const approvalIsValid = run?.status === "WAITING_APPROVAL"
+      ? validPendingApproval(run.pendingApproval, { requireFuture: true }) && String(run.pendingApproval.projectId) === projectId && run.pendingApproval.stepIndex < steps.length && steps[run.pendingApproval.stepIndex]?.tool === run.pendingApproval.tool
+      : run?.pendingApproval == null;
+    return run && String(run.projectId) === projectId && typeof run.id === "string" && typeof run.goal === "string" && Array.isArray(run.observations) && Array.isArray(run.recommendations) && Array.isArray(run.approvalHistory) && (!run.plan || Array.isArray(run.plan.steps)) && approvalIsValid && run.recommendations.every((item) => item && Array.isArray(item.evidence) && Array.isArray(item.sources));
+  }));
 }
 
 export async function readWorkspaceBackup(file, passphrase = "") {

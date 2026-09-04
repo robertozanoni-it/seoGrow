@@ -28,3 +28,61 @@ test("preview lenta rispetta timeout e abort", async () => { let previewAborted 
 test("fallimento required rende il risultato PARTIAL", async () => { const registry = new ToolRegistry().register(tool("data.gsc", () => ({ queries: [{ dimension: "seo", impressions: 100, clicks: 1, ctr: 1, position: 12 }] }))).register(tool("seo.opportunities", () => [{ dimension: "seo", impressions: 100, clicks: 1, ctr: 1, position: 12 }])).register(tool("data.rankings", () => { throw new AgentError("SCHEMA_INVALID", "ranking invalido"); })); const plan = { workflow: "TOP_10_PUSH", parameters: {}, steps: ["data.gsc", "seo.opportunities", "data.rankings"].map((name) => ({ tool: name, input: {}, required: true })) }; const run = await new SeoAgentOrchestrator({ registry, planner: { plan: () => plan, replan: () => {} } }).run("goal", { projectId: 1 }); assert.equal(run.status, AgentStatus.PARTIAL); assert.ok(run.recommendations.length); });
 test("cache usable alimenta raccomandazioni e in-flight provider consuma una quota", async () => { let calls = 0; const registry = new ToolRegistry().register(tool("data.gsc", () => ({ queries: [{ dimension: "seo", impressions: 100, clicks: 1, ctr: 1, position: 12 }] }), { freshnessMs: 60_000 })).register(tool("data.analysis", () => null, { freshnessMs: 60_000 })).register(tool("seo.opportunities", () => [{ dimension: "seo", impressions: 100, clicks: 1, ctr: 1, position: 12 }], { freshnessMs: 60_000 })); const orchestrator = new SeoAgentOrchestrator({ registry }); await orchestrator.run("opportunità", { projectId: 1, dataVersion: "v1" }); const second = await orchestrator.run("opportunità", { projectId: 1, dataVersion: "v1" }); assert.equal(second.status, AgentStatus.COMPLETED); assert.ok(second.observations.some((item) => item.status === "CACHED")); const paid = new ToolRegistry().register(tool("paid", async () => { calls += 1; await new Promise((resolve) => setTimeout(resolve, 5)); return [1]; }, { source: "DATAFORSEO", freshnessMs: 0 })); const context = { runId: "same", projectId: 1, dataVersion: "v", budget: new AgentBudget({ maxDataForSeoCalls: 1 }), policy: new AgentPolicy(), signal: new AbortController().signal }; const results = await Promise.all([paid.execute("paid", {}, context), paid.execute("paid", {}, context)]); assert.equal(results.length, 2); assert.equal(calls, 1); });
 test("costo stimato è bloccato prima dell’esecuzione", async () => { let called = false; const registry = new ToolRegistry().register(tool("paid.cost", () => (called = true, { cost: 2.5 }), { estimatedCost: 2.5 })); const context = { runId: "cost", projectId: 1, dataVersion: "", budget: new AgentBudget({ maxCost: 0 }), policy: new AgentPolicy(), signal: new AbortController().signal }; await assert.rejects(() => registry.execute("paid.cost", {}, context), /cost/); assert.equal(called, false); });
+
+test("due step high-risk consecutivi richiedono due approvazioni distinte", async () => {
+  let writes = 0;
+  const registry = new ToolRegistry()
+    .register(tool("write.one", () => (writes += 1, { ok: true }), { mutatesData: true, permission: "WRITE", risk: "HIGH", idempotent: false }))
+    .register(tool("write.two", () => (writes += 1, { ok: true }), { mutatesData: true, permission: "WRITE", risk: "HIGH", idempotent: false }));
+  const planner = { plan: () => ({ workflow: "CUSTOM", steps: [{ id: "1", tool: "write.one", input: {}, required: true }, { id: "2", tool: "write.two", input: {}, required: true }] }), replan: () => {} };
+  const orchestrator = new SeoAgentOrchestrator({ registry, planner });
+  const first = await orchestrator.run("goal", { projectId: 1, budget: { maxSteps: 2 } });
+  const second = await orchestrator.resolveApproval(first, { projectId: 1 }, { approved: true, token: first.pendingApproval.token });
+  assert.equal(second.status, AgentStatus.WAITING_APPROVAL); assert.equal(second.pendingApproval.stepIndex, 1); assert.notEqual(second.pendingApproval.token, first.pendingApproval.token); assert.equal(writes, 1);
+  const done = await orchestrator.resolveApproval(second, { projectId: 1 }, { approved: true, token: second.pendingApproval.token });
+  assert.equal(writes, 2); assert.equal(done.plan.steps[1].status, "COMPLETED");
+});
+
+test("retry e assessment restano attivi dopo una approvazione", async () => {
+  let reads = 0, assessments = 0;
+  const registry = new ToolRegistry()
+    .register(tool("write", () => ({ ok: true }), { mutatesData: true, permission: "WRITE", risk: "HIGH", idempotent: false }))
+    .register(tool("read", () => { reads += 1; if (reads === 1) throw new AgentError("NETWORK_ERROR", "temporaneo"); return [1]; }));
+  const planner = { plan: () => ({ workflow: "CUSTOM", steps: [{ id: "1", tool: "write", input: {} }, { id: "2", tool: "read", input: {} }] }), replan: () => {} };
+  const orchestrator = new SeoAgentOrchestrator({ registry, planner, assessor: () => (assessments += 1, { decision: AgentDecision.CONTINUE }), sleep: async () => {} });
+  const waiting = await orchestrator.run("goal", { projectId: 1, budget: { maxSteps: 2, maxRetries: 1 } });
+  const done = await orchestrator.resolveApproval(waiting, { projectId: 1 }, { approved: true, token: waiting.pendingApproval.token });
+  assert.equal(reads, 2); assert.equal(done.budget.used.retries, 1); assert.equal(assessments, 2);
+});
+
+test("replanning resta attivo dopo una approvazione", async () => {
+  const calls = [];
+  const registry = new ToolRegistry()
+    .register(tool("write", () => (calls.push("write"), { ok: true }), { mutatesData: true, permission: "WRITE", risk: "HIGH", idempotent: false }))
+    .register(tool("read", () => (calls.push("read"), [1])));
+  const planner = { plan: () => ({ version: 1, workflow: "CUSTOM", steps: [{ id: "1", tool: "write", input: {} }] }), replan: (plan) => ({ ...plan, version: 2, steps: [{ id: "2", tool: "read", input: {} }] }) };
+  let firstAssessment = true;
+  const assessor = () => firstAssessment ? (firstAssessment = false, { decision: AgentDecision.REPLAN, steps: [{ tool: "read" }] }) : { decision: AgentDecision.COMPLETE };
+  const orchestrator = new SeoAgentOrchestrator({ registry, planner, assessor });
+  const waiting = await orchestrator.run("goal", { projectId: 1, budget: { maxSteps: 2 } });
+  const done = await orchestrator.resolveApproval(waiting, { projectId: 1 }, { approved: true, token: waiting.pendingApproval.token });
+  assert.deepEqual(calls, ["write", "read"]); assert.equal(done.plan.version, 2); assert.equal(done.budget.used.replans, 1);
+});
+
+test("un costo effettivo oltre il budget interrompe gli step successivi", async () => {
+  let laterCalls = 0, receivedLimit;
+  const registry = new ToolRegistry()
+    .register(tool("paid", (_input, context) => { receivedLimit = context.providerCostLimit; return { ok: true, cost: 1 }; }, { estimatedCost: 0.1 }))
+    .register(tool("later", () => (laterCalls += 1, [1])));
+  const planner = { plan: () => ({ workflow: "CUSTOM", steps: [{ tool: "paid", input: {}, required: true }, { tool: "later", input: {} }] }), replan: () => {} };
+  const run = await new SeoAgentOrchestrator({ registry, planner }).run("goal", { projectId: 1, budget: { maxCost: 0.1, maxSteps: 2 } });
+  assert.equal(run.status, AgentStatus.PARTIAL); assert.equal(laterCalls, 0); assert.equal(receivedLimit, 0.1); assert.equal(run.budget.used.cost, 1); assert.equal(run.budget.used.costOverrun, 0.9); assert.match(run.errors.join(" "), /superato il budget/);
+});
+
+test("una scadenza approvazione mancante o non valida viene rifiutata", async () => {
+  const registry = new ToolRegistry().register(tool("write.expiry", () => ({ ok: true }), { mutatesData: true, permission: "WRITE", risk: "HIGH", idempotent: false }));
+  const planner = { plan: () => ({ workflow: "CUSTOM", steps: [{ id: "w", tool: "write.expiry", input: {} }] }), replan: () => {} };
+  const orchestrator = new SeoAgentOrchestrator({ registry, planner });
+  const waiting = await orchestrator.run("goal", { projectId: 1 }); waiting.pendingApproval.expiresAt = "not-a-date";
+  await assert.rejects(() => orchestrator.resolveApproval(waiting, { projectId: 1 }, { approved: true, token: waiting.pendingApproval.token }), (error) => error.code === "APPROVAL_INVALID");
+});

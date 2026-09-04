@@ -16,6 +16,18 @@ const approvalLedgerKey = "seogrow-agent-approval-ledger-v1";
 const memoryApprovalLedger = new Set();
 function approvalLedger() { if (!globalThis.localStorage) return memoryApprovalLedger; try { return new Set(JSON.parse(globalThis.localStorage.getItem(approvalLedgerKey) || "[]")); } catch { return memoryApprovalLedger; } }
 function consumeApprovalToken(token) { const ledger = approvalLedger(); if (ledger.has(token)) return false; ledger.add(token); memoryApprovalLedger.add(token); try { globalThis.localStorage?.setItem(approvalLedgerKey, JSON.stringify([...ledger].slice(-500))); } catch { /* memoria in-process come fallback */ } return true; }
+export function validPendingApproval(request, { requireFuture = false } = {}) {
+  if (!request || typeof request !== "object" || Array.isArray(request)) return false;
+  const requestedAt = Date.parse(request.requestedAt), expiresAt = Date.parse(request.expiresAt);
+  return [request.id, request.token, request.nonce, request.tool, request.inputFingerprint, request.previewHash].every((value) => typeof value === "string" && value.length > 0)
+    && request.projectId != null
+    && Number.isInteger(request.stepIndex)
+    && request.stepIndex >= 0
+    && Number.isFinite(requestedAt)
+    && Number.isFinite(expiresAt)
+    && expiresAt > requestedAt
+    && (!requireFuture || expiresAt > Date.now());
+}
 export const toolFingerprint = (tool, input, projectId, dataVersion = "") => `${tool}|${projectId || ""}|${dataVersion}|${stable(input || {})}`.toLowerCase();
 export class AgentError extends Error { constructor(code, message, details) { super(message); this.code = code; this.details = details; } }
 export function validateSchema(schema, value, path = "value") {
@@ -44,7 +56,7 @@ export function hasUsableEvidence(tool, data, context = {}) {
 export class AgentBudget {
   constructor(limits = {}) {
     this.limits = { maxSteps: 12, maxIterations: 20, maxReplans: 3, maxAssessments: 20, maxRetries: 1, maxDurationMs: 30_000, maxDataForSeoCalls: 0, maxOpenAiCalls: 0, maxUrls: 250, maxCost: 0, ...limits };
-    this.used = { steps: 0, iterations: 0, replans: 0, assessments: 0, retries: 0, dataForSeoCalls: 0, openAiCalls: 0, urls: 0, cost: 0, reservedCost: 0 };
+    this.used = { steps: 0, iterations: 0, replans: 0, assessments: 0, retries: 0, dataForSeoCalls: 0, openAiCalls: 0, urls: 0, cost: 0, reservedCost: 0, costOverrun: 0 };
   }
   consume(kind, amount = 1) {
     const keys = { step: ["steps", "maxSteps"], iteration: ["iterations", "maxIterations"], replan: ["replans", "maxReplans"], assessment: ["assessments", "maxAssessments"], retry: ["retries", "maxRetries"], dataforseo: ["dataForSeoCalls", "maxDataForSeoCalls"], openai: ["openAiCalls", "maxOpenAiCalls"], url: ["urls", "maxUrls"], cost: ["cost", "maxCost"] };
@@ -53,7 +65,18 @@ export class AgentBudget {
     this.used[used] += amount;
   }
   reserveCost(amount = 0) { if (amount <= 0) return 0; if (this.used.cost + this.used.reservedCost + amount > this.limits.maxCost) throw new AgentError("BUDGET_EXCEEDED", "BUDGET_EXCEEDED:cost"); this.used.reservedCost += amount; return amount; }
-  settleCost(reserved = 0, actual = reserved) { this.used.reservedCost = Math.max(0, this.used.reservedCost - reserved); this.used.cost += Number(actual || 0); }
+  settleCost(reserved = 0, actual = reserved) {
+    this.used.reservedCost = Math.max(0, this.used.reservedCost - reserved);
+    const charged = Number(actual);
+    if (!Number.isFinite(charged) || charged < 0) throw new AgentError("COST_INVALID", "Il provider ha restituito un costo non valido.");
+    this.used.cost += charged;
+    const overrun = Math.max(0, this.used.cost + this.used.reservedCost - this.limits.maxCost);
+    if (overrun > 0) {
+      this.used.costOverrun += overrun;
+      throw new AgentError("BUDGET_OVERRUN", `Il costo effettivo ha superato il budget di ${overrun.toFixed(4)}.`, { charged, overrun, maxCost: this.limits.maxCost });
+    }
+    return charged;
+  }
   releaseCost(reserved = 0) { this.used.reservedCost = Math.max(0, this.used.reservedCost - reserved); }
 }
 
@@ -93,7 +116,7 @@ export class ToolRegistry {
     const execution = (async () => {
       const controller = new AbortController(); const abort = () => controller.abort(context.signal?.reason || new AgentError("CANCELLED", "Run interrotto.")); context.signal?.addEventListener("abort", abort, { once: true });
       const timer = setTimeout(() => controller.abort(new AgentError("TOOL_TIMEOUT", `Timeout: ${name}`)), tool.timeoutMs); const started = this.clock();
-      try { const aborted = new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true })); const data = await Promise.race([Promise.resolve(tool.execute(input, { ...context, signal: controller.signal })), aborted]); validateSchema(tool.outputSchema, data, "output"); context.budget.settleCost(reservedCost, Number(data?.cost ?? tool.estimatedCost ?? 0)); const result = { data, source: tool.source, freshness: "live", observedAt: new Date().toISOString(), durationMs: this.clock() - started, estimatedCost: tool.estimatedCost || 0, actualCost: Number(data?.cost ?? 0), fingerprint }; calls.set(fingerprint, result); this.cache.set(fingerprint, { at: this.clock(), result }); while (this.cache.size > this.maxCacheEntries) this.cache.delete(this.cache.keys().next().value); return clone(result); }
+      try { const aborted = new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true })); const providerCostLimit = Math.max(0, context.budget.limits.maxCost - context.budget.used.cost - context.budget.used.reservedCost + reservedCost); const data = await Promise.race([Promise.resolve(tool.execute(input, { ...context, signal: controller.signal, providerCostLimit })), aborted]); validateSchema(tool.outputSchema, data, "output"); const actualCost = context.budget.settleCost(reservedCost, Number(data?.cost ?? tool.estimatedCost ?? 0)); const result = { data, source: tool.source, freshness: "live", observedAt: new Date().toISOString(), durationMs: this.clock() - started, estimatedCost: tool.estimatedCost || 0, actualCost, fingerprint }; calls.set(fingerprint, result); this.cache.set(fingerprint, { at: this.clock(), result }); while (this.cache.size > this.maxCacheEntries) this.cache.delete(this.cache.keys().next().value); return clone(result); }
       catch (error) { context.budget.releaseCost(reservedCost); if (controller.signal.aborted) throw controller.signal.reason instanceof Error ? controller.signal.reason : new AgentError("CANCELLED", "Run interrotto."); throw error; }
       finally { clearTimeout(timer); context.signal?.removeEventListener("abort", abort); }
     })().finally(() => this.inFlight.delete(flightKey)); this.inFlight.set(flightKey, execution); return execution;
@@ -154,37 +177,67 @@ export class SeoAgentOrchestrator {
   cancel(runId) { const active = this.active.get(runId); if (active) active.controller.abort(new AgentError("CANCELLED", "Run interrotto dall’utente.")); }
   transient(error) { return ["TOOL_TIMEOUT", "RATE_LIMIT", "HTTP_429", "HTTP_502", "HTTP_503", "HTTP_504", "NETWORK_ERROR"].includes(error.code); }
   async preview(tool, step, input, controller, remainingMs) { const timeout = Math.max(1, Math.min(tool.timeoutMs, remainingMs)); const timer = setTimeout(() => controller.abort(new AgentError("TOOL_TIMEOUT", `Timeout anteprima: ${tool.name}`)), timeout); try { const aborted = new Promise((_, reject) => controller.signal.addEventListener("abort", () => reject(controller.signal.reason), { once: true })); return await Promise.race([Promise.resolve(tool.preview ? tool.preview(step.input, { input, signal: controller.signal }) : { input: step.input }), aborted]); } finally { clearTimeout(timer); } }
+  async executeLoop(run, input, { budget, policy, controller, started, cursor = 0, approvedStepIndex = null, planFingerprints = new Set() }) {
+    while (cursor < run.plan.steps.length) {
+      budget.consume("iteration");
+      if (cursor !== approvedStepIndex) budget.consume("step");
+      if (controller.signal.aborted) throw controller.signal.reason;
+      if (Date.now() - started > budget.limits.maxDurationMs) { run.status = AgentStatus.PARTIAL; run.errors.push("Tempo massimo raggiunto."); break; }
+      const step = run.plan.steps[cursor], tool = this.registry.tools.get(step.tool); let attempts = 0; step.status = "RUNNING";
+      while (true) {
+        try {
+          const result = await this.registry.execute(step.tool, step.input, { runId: run.id, projectId: run.projectId, dataVersion: input.dataVersion, budget, policy, input, observations: run.observations, signal: controller.signal, approvalGranted: cursor === approvedStepIndex });
+          const usable = hasUsableEvidence(tool, result.data, { projectId: run.projectId }); step.status = result.cached ? "CACHED" : usable ? "COMPLETED" : "EMPTY"; run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, usable, result }); run.cursor = cursor + 1; approvedStepIndex = null; break;
+        } catch (error) {
+          if (error.code === "APPROVAL_REQUIRED") {
+            const preview = await this.preview(tool, step, input, controller, budget.limits.maxDurationMs - (Date.now() - started));
+            if (controller.signal.aborted) throw controller.signal.reason;
+            const inputFingerprint = toolFingerprint(step.tool, step.input, run.projectId, input.dataVersion), requestedAt = new Date();
+            step.status = "WAITING_APPROVAL"; run.status = AgentStatus.WAITING_APPROVAL; run.cursor = cursor;
+            run.pendingApproval = { id: identifier("approval"), token: identifier("token"), nonce: identifier("nonce"), projectId: run.projectId, tool: step.tool, stepIndex: cursor, inputFingerprint, previewHash: stable(preview), risk: tool?.risk, estimatedCost: tool?.estimatedCost || 0, preview, requestedAt: requestedAt.toISOString(), expiresAt: new Date(requestedAt.getTime() + 15 * 60_000).toISOString() };
+            break;
+          }
+          if (tool?.idempotent && this.transient(error) && attempts < budget.limits.maxRetries) { budget.consume("retry"); attempts += 1; const retryAfter = Number(error.retryAfterMs || 0); await this.sleep(retryAfter || Math.min(2_000, 100 * 2 ** attempts + Math.floor(Math.random() * 50)), controller.signal); continue; }
+          step.status = error.code === "CANCELLED" ? "CANCELLED" : "FAILED"; run.errors.push(error.message); run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, error: error.message }); if (step.required && error.code !== "CANCELLED") run.requiredFailure = true; if (["BUDGET_EXCEEDED", "BUDGET_OVERRUN"].includes(error.code)) run.status = AgentStatus.PARTIAL; if (error.code === "CANCELLED") run.status = AgentStatus.CANCELLED; break;
+        }
+      }
+      this.onUpdate(clone(run));
+      if ([AgentStatus.PARTIAL, AgentStatus.CANCELLED, AgentStatus.WAITING_APPROVAL].includes(run.status)) break;
+      budget.consume("assessment"); const assessment = this.assessor(clone(run), clone(step));
+      if (assessment.decision === AgentDecision.REPLAN) {
+        budget.consume("replan"); const nextPlan = this.planner.replan(run.plan, assessment.steps || []); const planFingerprint = stable(nextPlan.steps.map(({ tool: name, input: data }) => [name, data]));
+        if (planFingerprints.has(planFingerprint)) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; run.errors.push("Ciclo di ripianificazione rilevato e interrotto."); break; }
+        planFingerprints.add(planFingerprint); run.plan = nextPlan; run.decision = AgentDecision.REPLAN; cursor = 0; approvedStepIndex = null; continue;
+      }
+      if (assessment.decision === AgentDecision.BLOCKED) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; break; }
+      if (assessment.decision === AgentDecision.COMPLETE) break;
+      cursor += 1;
+    }
+    if (run.status === AgentStatus.RUNNING) {
+      run.recommendations = recommendationsFor(run.plan.workflow, run.observations, run.plan.parameters?.maxResults || 10); const hasEvidence = run.observations.some((item) => item.usable);
+      if (!hasEvidence) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; run.errors.push("Dati reali insufficienti per questo workflow."); }
+      else if (run.requiredFailure || !run.recommendations.length) { run.status = AgentStatus.PARTIAL; run.decision = AgentDecision.COMPLETE; if (!run.recommendations.length) run.errors.push("I dati disponibili non supportano raccomandazioni sufficientemente solide."); }
+      else { run.status = AgentStatus.COMPLETED; run.decision = AgentDecision.COMPLETE; }
+    }
+  }
+  finish(run, budget) {
+    run.budget = clone(budget);
+    if (run.status !== AgentStatus.WAITING_APPROVAL) { run.completedAt = new Date().toISOString(); this.active.delete(run.id); this.registry.cleanupRun(run.id); }
+    this.onUpdate(clone(run)); return clone(run);
+  }
   async run(goal, input = {}) {
     const run = { id: identifier("agent-run"), projectId: input.projectId, goal: String(goal || "").trim(), mode: input.mode || AgentMode.ASSISTED, status: AgentStatus.PLANNING, decision: AgentDecision.CONTINUE, observations: [], recommendations: [], approvalHistory: [], errors: [], startedAt: new Date().toISOString() };
     const budget = new AgentBudget(input.budget), policy = new AgentPolicy(run.mode), controller = new AbortController(), started = Date.now(), planFingerprints = new Set(); this.active.set(run.id, { controller }); this.onUpdate(clone(run));
     try {
-      run.plan = this.planner.plan(run.goal); run.status = AgentStatus.RUNNING; this.onUpdate(clone(run)); let cursor = 0;
-      while (cursor < run.plan.steps.length) {
-        budget.consume("iteration"); budget.consume("step");
-        if (controller.signal.aborted) throw controller.signal.reason;
-        if (Date.now() - started > budget.limits.maxDurationMs) { run.status = AgentStatus.PARTIAL; run.errors.push("Tempo massimo raggiunto."); break; }
-        const step = run.plan.steps[cursor]; const tool = this.registry.tools.get(step.tool); let attempts = 0; step.status = "RUNNING";
-        while (true) {
-          try { const result = await this.registry.execute(step.tool, step.input, { runId: run.id, projectId: run.projectId, dataVersion: input.dataVersion, budget, policy, input, observations: run.observations, signal: controller.signal }); const usable = hasUsableEvidence(tool, result.data, { projectId: run.projectId }); step.status = result.cached ? "CACHED" : usable ? "COMPLETED" : "EMPTY"; run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, usable, result }); break; }
-          catch (error) {
-            if (error.code === "APPROVAL_REQUIRED") { const preview = await this.preview(tool, step, input, controller, budget.limits.maxDurationMs - (Date.now() - started)); if (controller.signal.aborted) throw controller.signal.reason; const inputFingerprint = toolFingerprint(step.tool, step.input, run.projectId, input.dataVersion); step.status = "WAITING_APPROVAL"; run.status = AgentStatus.WAITING_APPROVAL; run.cursor = cursor; run.pendingApproval = { id: identifier("approval"), token: identifier("token"), nonce: identifier("nonce"), projectId: run.projectId, tool: step.tool, stepIndex: cursor, inputFingerprint, previewHash: stable(preview), risk: tool?.risk, estimatedCost: tool?.estimatedCost || 0, preview, requestedAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 15 * 60_000).toISOString() }; break; }
-            if (tool?.idempotent && this.transient(error) && attempts < budget.limits.maxRetries) { budget.consume("retry"); attempts += 1; const retryAfter = Number(error.retryAfterMs || 0); await this.sleep(retryAfter || Math.min(2_000, 100 * 2 ** attempts + Math.floor(Math.random() * 50)), controller.signal); continue; }
-            step.status = error.code === "CANCELLED" ? "CANCELLED" : "FAILED"; run.errors.push(error.message); run.observations.push({ id: identifier("observation"), tool: step.tool, status: step.status, error: error.message }); if (step.required && error.code !== "CANCELLED") run.requiredFailure = true; if (error.code === "BUDGET_EXCEEDED") run.status = AgentStatus.PARTIAL; if (error.code === "CANCELLED") run.status = AgentStatus.CANCELLED; break;
-          }
-        }
-        this.onUpdate(clone(run)); if ([AgentStatus.PARTIAL, AgentStatus.CANCELLED, AgentStatus.WAITING_APPROVAL].includes(run.status)) break;
-        budget.consume("assessment"); const assessment = this.assessor(clone(run), clone(step));
-        if (assessment.decision === AgentDecision.REPLAN) { budget.consume("replan"); const nextPlan = this.planner.replan(run.plan, assessment.steps || []); const planFingerprint = stable(nextPlan.steps.map(({ tool: name, input: data }) => [name, data])); if (planFingerprints.has(planFingerprint)) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; run.errors.push("Ciclo di ripianificazione rilevato e interrotto."); break; } planFingerprints.add(planFingerprint); run.plan = nextPlan; run.decision = AgentDecision.REPLAN; cursor = 0; continue; }
-        if (assessment.decision === AgentDecision.BLOCKED) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; break; }
-        if (assessment.decision === AgentDecision.COMPLETE) break; cursor += 1;
-      }
-      if (run.status === AgentStatus.RUNNING) { run.recommendations = recommendationsFor(run.plan.workflow, run.observations, run.plan.parameters?.maxResults || 10); const hasEvidence = run.observations.some((item) => item.usable); if (!hasEvidence) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; run.errors.push("Dati reali insufficienti per questo workflow."); } else if (run.requiredFailure || !run.recommendations.length) { run.status = AgentStatus.PARTIAL; run.decision = AgentDecision.COMPLETE; if (!run.recommendations.length) run.errors.push("I dati disponibili non supportano raccomandazioni sufficientemente solide."); } else { run.status = AgentStatus.COMPLETED; run.decision = AgentDecision.COMPLETE; } }
-    } catch (error) { run.status = error.code === "CANCELLED" ? AgentStatus.CANCELLED : ["BUDGET_EXCEEDED", "TOOL_TIMEOUT"].includes(error.code) ? AgentStatus.PARTIAL : AgentStatus.FAILED; run.decision = AgentDecision.BLOCKED; run.errors.push(error.message); }
-    run.budget = clone(budget); if (run.status !== AgentStatus.WAITING_APPROVAL) { run.completedAt = new Date().toISOString(); this.active.delete(run.id); this.registry.cleanupRun(run.id); } this.onUpdate(clone(run)); return clone(run);
+      run.plan = this.planner.plan(run.goal); run.status = AgentStatus.RUNNING; this.onUpdate(clone(run));
+      await this.executeLoop(run, input, { budget, policy, controller, started, planFingerprints });
+    } catch (error) { run.status = error.code === "CANCELLED" ? AgentStatus.CANCELLED : ["BUDGET_EXCEEDED", "BUDGET_OVERRUN", "TOOL_TIMEOUT"].includes(error.code) ? AgentStatus.PARTIAL : AgentStatus.FAILED; run.decision = AgentDecision.BLOCKED; run.errors.push(error.message); }
+    return this.finish(run, budget);
   }
   async resolveApproval(savedRun, input, { approved, token, operator = "utente" }) {
     const run = clone(savedRun), request = run.pendingApproval;
     if (run.status !== AgentStatus.WAITING_APPROVAL || !request) throw new AgentError("APPROVAL_INVALID", "Il run non attende un’approvazione.");
+    if (!validPendingApproval(request)) throw new AgentError("APPROVAL_INVALID", "La richiesta di approvazione è incompleta o alterata.");
     const step = run.plan?.steps?.[request.stepIndex], expectedFingerprint = step && toolFingerprint(step.tool, step.input, run.projectId, input.dataVersion);
     if (String(input.projectId) !== String(run.projectId) || request.projectId !== run.projectId || request.tool !== step?.tool || request.inputFingerprint !== expectedFingerprint || request.previewHash !== stable(request.preview)) throw new AgentError("APPROVAL_CONTEXT_MISMATCH", "L’approvazione non corrisponde più al progetto o all’azione originale.");
     if (Date.parse(request.expiresAt) <= Date.now()) throw new AgentError("APPROVAL_EXPIRED", "La richiesta di approvazione è scaduta.");
@@ -192,16 +245,11 @@ export class SeoAgentOrchestrator {
     run.approvalHistory = Array.isArray(run.approvalHistory) ? run.approvalHistory : [];
     run.approvalHistory.push({ approvalId: request.id, projectId: run.projectId, tool: request.tool, operator, decision: approved ? "APPROVED" : "REJECTED", decidedAt: new Date().toISOString() }); delete run.pendingApproval;
     if (!approved) { run.status = AgentStatus.BLOCKED; run.decision = AgentDecision.BLOCKED; run.completedAt = new Date().toISOString(); run.errors.push("Azione rifiutata dall’utente."); this.registry.cleanupRun(run.id); this.active.delete(run.id); this.onUpdate(clone(run)); return run; }
-    const budget = new AgentBudget(run.budget?.limits), policy = new AgentPolicy(run.mode), controller = new AbortController(); budget.used = { ...budget.used, ...(run.budget?.used || {}) }; this.active.set(run.id, { controller }); run.status = AgentStatus.RUNNING; this.onUpdate(clone(run));
+    const budget = new AgentBudget(run.budget?.limits), policy = new AgentPolicy(run.mode), controller = new AbortController(), started = Date.now(); budget.used = { ...budget.used, ...(run.budget?.used || {}) }; this.active.set(run.id, { controller }); run.status = AgentStatus.RUNNING; this.onUpdate(clone(run));
     try {
-      for (let cursor = request.stepIndex; cursor < run.plan.steps.length; cursor += 1) {
-        const current = run.plan.steps[cursor], tool = this.registry.tools.get(current.tool); budget.consume("iteration"); if (cursor !== request.stepIndex) budget.consume("step"); current.status = "RUNNING";
-        const result = await this.registry.execute(current.tool, current.input, { runId: run.id, projectId: run.projectId, dataVersion: input.dataVersion, budget, policy, input, observations: run.observations, signal: controller.signal, approvalGranted: cursor === request.stepIndex });
-        const usable = hasUsableEvidence(tool, result.data, { projectId: run.projectId }); current.status = result.cached ? "CACHED" : usable ? "COMPLETED" : "EMPTY"; run.observations.push({ id: identifier("observation"), tool: current.tool, status: current.status, usable, result }); run.cursor = cursor + 1; this.onUpdate(clone(run));
-      }
-      run.recommendations = recommendationsFor(run.plan.workflow, run.observations, run.plan.parameters?.maxResults || 10); run.status = run.requiredFailure || !run.recommendations.length ? AgentStatus.PARTIAL : AgentStatus.COMPLETED; run.decision = AgentDecision.COMPLETE;
-    } catch (error) { run.status = error.code === "CANCELLED" ? AgentStatus.CANCELLED : error.code === "BUDGET_EXCEEDED" ? AgentStatus.PARTIAL : AgentStatus.FAILED; run.errors.push(error.message); }
-    run.budget = clone(budget); run.completedAt = new Date().toISOString(); this.registry.cleanupRun(run.id); this.active.delete(run.id); this.onUpdate(clone(run)); return clone(run);
+      await this.executeLoop(run, input, { budget, policy, controller, started, cursor: request.stepIndex, approvedStepIndex: request.stepIndex });
+    } catch (error) { run.status = error.code === "CANCELLED" ? AgentStatus.CANCELLED : ["BUDGET_EXCEEDED", "BUDGET_OVERRUN", "TOOL_TIMEOUT"].includes(error.code) ? AgentStatus.PARTIAL : AgentStatus.FAILED; run.decision = AgentDecision.BLOCKED; run.errors.push(error.message); }
+    return this.finish(run, budget);
   }
 }
 

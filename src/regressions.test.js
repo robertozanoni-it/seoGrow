@@ -81,6 +81,22 @@ test("rifiuta memoria Agent attribuita a un progetto inesistente", async () => {
   await assert.rejects(() => readWorkspaceBackup({ size: 100, text: async () => JSON.stringify(data) }), /memoria SEO Agent non valida/);
 });
 
+test("rifiuta backup con approvazione Agent incompleta o alterata", async () => {
+  const run = { id: "run", projectId: 1, goal: "test", status: "WAITING_APPROVAL", observations: [], recommendations: [], approvalHistory: [], plan: { steps: [{ tool: "write", input: {} }] }, pendingApproval: { id: "approval", token: "token", nonce: "nonce", projectId: 1, tool: "write", stepIndex: 0, inputFingerprint: "fingerprint", previewHash: "preview", requestedAt: "2026-09-04T00:00:00.000Z", expiresAt: "not-a-date" } };
+  const data = { schemaVersion: 3, clients: [{ id: 1, name: "Test", url: "https://example.com" }], tasks: [], gscData: {}, agentRuns: { 1: [run] } };
+  await assert.rejects(() => readWorkspaceBackup({ size: 100, text: async () => JSON.stringify(data) }), /memoria SEO Agent non valida/);
+});
+
+test("accetta solo approvazioni future coerenti con lo step del backup", async () => {
+  const requestedAt = new Date(Date.now() - 1_000).toISOString(), expiresAt = new Date(Date.now() + 60_000).toISOString();
+  const pendingApproval = { id: "approval", token: "token", nonce: "nonce", projectId: 1, tool: "write", stepIndex: 0, inputFingerprint: "fingerprint", previewHash: "preview", requestedAt, expiresAt };
+  const run = { id: "run", projectId: 1, goal: "test", status: "WAITING_APPROVAL", observations: [], recommendations: [], approvalHistory: [], plan: { steps: [{ tool: "write", input: {} }] }, pendingApproval };
+  const data = { schemaVersion: 3, clients: [{ id: 1, name: "Test", url: "https://example.com" }], tasks: [], gscData: {}, agentRuns: { 1: [run] } };
+  const restored = await readWorkspaceBackup({ size: 100, text: async () => JSON.stringify(data) }); assert.equal(restored.agentRuns[1][0].status, "WAITING_APPROVAL");
+  data.agentRuns[1][0].pendingApproval.tool = "other";
+  await assert.rejects(() => readWorkspaceBackup({ size: 100, text: async () => JSON.stringify(data) }), /memoria SEO Agent non valida/);
+});
+
 test("interpreta correttamente numeri italiani e internazionali", () => {
   assert.equal(numberValue("18,77"), 18.77);
   assert.equal(numberValue("1.234,56"), 1234.56);
