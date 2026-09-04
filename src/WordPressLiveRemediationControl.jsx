@@ -106,6 +106,7 @@ const walkElementor = (items, visitor) => {
 };
 
 const serializeElementor = (parsed) => JSON.stringify(parsed.data);
+const countH1 = (value) => (String(value || "").match(/<h1\b[^>]*>/gi) || []).length;
 
 const pageContext = (entity, targetUrl, contentOverride) => ({
   title: entity?.title?.raw || entity?.title?.rendered || "",
@@ -143,6 +144,10 @@ async function verifyCoreOwnership(kind, targetUrl, inspected) {
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Controllo ownership frontend non riuscito.");
   if (kind === "title") return { ok: data.titleMatchesExpected === true };
+  if (kind === "h1") {
+    const coreH1 = countH1(entity.content?.raw || entity.content?.rendered || "");
+    return { ok: data.contentProbeVisible === true && Number(data.h1) === coreH1 };
+  }
   return { ok: data.contentProbeVisible === true };
 }
 
