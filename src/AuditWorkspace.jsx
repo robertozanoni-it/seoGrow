@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, ExternalLink, FileText, Globe2, Sparkles } from "lucide-react";
 import { apiFetch } from "./api";
@@ -37,8 +37,7 @@ const severityPriority = (severity) => {
   return "Media";
 };
 
-const createManualTaskId = () =>
-  `manual-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+const createManualTaskId = () => `manual-${crypto.randomUUID()}`;
 
 const currentPage = () => {
   try {
@@ -112,7 +111,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   };
 
   const createTask = (issue, resultType, result) => {
-    const issueUrl = issue.targetUrl || issue.url || result.url || client.url;
+    const sourceUrl = issue.targetUrl || issue.url || result.url || client.url;
     const tasks = readJson(TASKS_KEY, []);
     const title = issue.label || "Correggi problema SEO";
     const duplicate = tasks.find(
@@ -120,7 +119,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
         task.sourceClientId === clientId &&
         task.status !== "Completato" &&
         task.title === title &&
-        (task.sourceUrl || "") === issueUrl,
+        (task.sourceUrl || "") === sourceUrl,
     );
     if (duplicate) return;
     const task = {
@@ -133,7 +132,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
       status: "Da fare",
       kind: issue.type || "audit",
       targetUrl: "",
-      sourceUrl: issueUrl,
+      sourceUrl,
       linkLabel: "Apri pagina",
       detail:
         issue.detail ||
@@ -201,17 +200,13 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
 
   const result = selectedResult?.data;
   const issues = Array.isArray(result?.issues) ? result.issues : [];
-  const history = useMemo(
-    () =>
-      [
-        ...pageHistory.map((item) => ({ type: "page", item })),
-        ...siteHistory.map((item) => ({ type: "site", item })),
-      ].toSorted(
-        (a, b) =>
-          Date.parse(b.item.analyzedAt || b.item.startedAt || 0) -
-          Date.parse(a.item.analyzedAt || a.item.startedAt || 0),
-      ),
-    [pageHistory, siteHistory],
+  const history = [
+    ...pageHistory.map((item) => ({ type: "page", item })),
+    ...siteHistory.map((item) => ({ type: "site", item })),
+  ].toSorted(
+    (a, b) =>
+      Date.parse(b.item.analyzedAt || b.item.startedAt || 0) -
+      Date.parse(a.item.analyzedAt || a.item.startedAt || 0),
   );
 
   return (
@@ -328,9 +323,9 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
               </div>
             </div>
             {issues.length ? issues.map((issue, index) => {
-              const issueUrl = issue.targetUrl || issue.url || result.url || client.url;
+              const sourceUrl = issue.targetUrl || issue.url || result.url || client.url;
               return (
-                <div key={`${issue.type || issue.label}-${issueUrl}-${index}`}>
+                <div key={`${issue.type || issue.label}-${sourceUrl}-${index}`}>
                   <span className={`priority ${issue.severity || "media"}`}>{issue.severity || "media"}</span>
                   <strong>{issue.label}</strong>
                   <button
@@ -340,7 +335,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
                   >
                     <Sparkles />Correggi con agente
                   </button>
-                  {issueUrl && <a className="task-link" href={issueUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>}
+                  {sourceUrl && <a className="task-link" href={sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>}
                   <button type="button" className="secondary mini" onClick={() => createTask(issue, selectedResult.type, result)}>Crea task</button>
                 </div>
               );
@@ -378,12 +373,13 @@ export default function AuditWorkspace() {
       setActive(page === "Audit SEO" && Boolean(main));
       setTarget(main);
       if (main) main.classList.toggle("audit-workspace-active", page === "Audit SEO");
-      refresh();
+      setVersion((value) => value + 1);
     };
-    sync();
+    const deferredSync = window.setTimeout(sync, 0);
     window.addEventListener("hashchange", sync);
     window.addEventListener("seogrow-locationchange", sync);
     return () => {
+      window.clearTimeout(deferredSync);
       window.removeEventListener("hashchange", sync);
       window.removeEventListener("seogrow-locationchange", sync);
       document.querySelector(".workspace main")?.classList.remove("audit-workspace-active");
@@ -397,7 +393,12 @@ export default function AuditWorkspace() {
   if (!client) return null;
 
   return createPortal(
-    <AuditWorkspaceView key={`${selectedClientId}-${version}`} client={client} clientId={selectedClientId} refresh={refresh} />,
+    <AuditWorkspaceView
+      key={`${selectedClientId}-${version}`}
+      client={client}
+      clientId={selectedClientId}
+      refresh={refresh}
+    />,
     target,
   );
 }
