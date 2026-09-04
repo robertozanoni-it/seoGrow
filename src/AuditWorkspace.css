@@ -100,9 +100,28 @@
 
 .audit-issues-list > div:not(.panel-head):not(.success) {
   display: grid;
-  grid-template-columns: auto minmax(180px, 1fr) auto auto;
+  grid-template-columns: auto minmax(180px, 1fr) auto auto auto;
   align-items: center;
   gap: 10px;
+}
+
+.audit-agent-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.audit-agent-action svg {
+  width: 15px;
+  height: 15px;
+}
+
+.remediation-panel.remediation-focus {
+  outline: 3px solid rgba(36, 119, 238, .2);
+  outline-offset: 4px;
+  transition: outline-color .25s ease;
 }
 
 @media (max-width: 760px) {
