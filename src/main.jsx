@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import AuditWorkspace from './AuditWorkspace';
 import AuditRemediationPanel from './AuditRemediationPanel';
+import GptSitesJobBridge from './GptSitesJobBridge';
 import './styles.css';
 
 class AppErrorBoundary extends React.Component {
@@ -35,6 +36,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <App />
       <AuditWorkspace />
       <AuditRemediationPanel />
+      <GptSitesJobBridge />
     </AppErrorBoundary>
   </React.StrictMode>,
 );
