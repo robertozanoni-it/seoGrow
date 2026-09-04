@@ -3,6 +3,7 @@ import './remediationVerificationMigration';
 import './remediationIntegrity';
 import './locationEvents';
 import './liveRollbackRouter';
+import './wordpressRemediationRuntimePatch';
 import './seoResponseIntegrity';
 import './remediationReportUx';
 import React from 'react';
@@ -13,6 +14,7 @@ import AuditUnifiedRemediation from './AuditUnifiedRemediation';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
 import WordPressConnectionControl from './WordPressConnectionControl';
 import WordPressLiveRemediationControl from './WordPressLiveRemediationControl';
+import WordPressConnectorControl from './WordPressConnectorControl';
 import './styles.css';
 
 class AppErrorBoundary extends React.Component {
@@ -46,6 +48,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuditUnifiedRemediation />
       <WordPressConnectionControl />
       <WordPressLiveRemediationControl />
+      <WordPressConnectorControl />
       <CorrectionsWorkspace />
     </AppErrorBoundary>
   </React.StrictMode>,
