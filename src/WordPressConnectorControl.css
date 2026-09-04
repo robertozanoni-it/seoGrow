@@ -1,0 +1,64 @@
+.wp-connector-control {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(59, 130, 246, .28);
+  border-radius: 14px;
+  background: rgba(59, 130, 246, .06);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+}
+
+.wp-connector-control > div {
+  display: grid;
+  gap: 4px;
+}
+
+.wp-connector-control strong {
+  font-size: 15px;
+}
+
+.wp-connector-control small {
+  max-width: 880px;
+  line-height: 1.45;
+}
+
+.wp-connector-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.wp-connector-kicker svg,
+.wp-connector-control button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.wp-connector-control button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
+}
+
+.wp-connector-message {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 800px) {
+  .wp-connector-control {
+    grid-template-columns: 1fr;
+  }
+
+  .wp-connector-control button {
+    width: 100%;
+    justify-content: center;
+  }
+}
