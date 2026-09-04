@@ -3,6 +3,8 @@ const PATCHED = Symbol.for("seogrow.remediationUiOrderPatch");
 const legacyCorrectionButton = (button) =>
   /^Correggi tutti|^Correggi questo problema/i.test(String(button?.textContent || "").trim());
 
+const NOTE_TEXT = "WordPress core viene modificato solo se il controllo preliminare conferma che quel campo alimenta il frontend pubblico. Elementor e i meta SEO di Rank Math/Yoast vengono gestiti solo quando SeoGrow Connector li espone in modo autenticato e scrivibile. Archivi, tassonomie, redirect, robots, sitemap, cambi URL e casi senza ownership certa restano esclusi dalla modifica automatica.";
+
 const arrange = () => {
   const root = document.querySelector(".audit-unified-remediation");
   if (!root) return;
@@ -24,6 +26,9 @@ const arrange = () => {
     button.setAttribute("aria-hidden", "true");
     button.style.setProperty("display", "none", "important");
   });
+
+  const note = root.querySelector(".audit-unified-note span");
+  if (note && note.textContent !== NOTE_TEXT) note.textContent = NOTE_TEXT;
 };
 
 if (typeof window !== "undefined" && !window[PATCHED]) {
