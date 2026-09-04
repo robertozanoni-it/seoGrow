@@ -112,12 +112,13 @@ fi
 app_url="http://localhost:$app_port"
 export APP_ORIGIN="$app_url"
 export PORT="$api_port"
+export NODE_OPTIONS="${NODE_OPTIONS:-} --import=./server/wordpressRemediationHook.js"
 echo "Avvio in corso su $app_url"
 echo "Lascia aperta questa finestra del Terminale mentre usi l'app."
 
 (
   for attempt in {1..30}; do
-    if curl -fsS "$app_url/api/health" 2>/dev/null | grep -q '"ok":true'; then
+    if curl -fsS "$app_url/api/health" 2>/dev/null | grep -q '\"ok\":true'; then
       echo "$app_port" > "$port_file"
       open "$app_url"
       exit 0
