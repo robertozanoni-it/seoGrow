@@ -8,10 +8,17 @@ import {
 
 window.__seogrowCorrectionsMode = false;
 
-// React navigation in seoGrow updates the hash with history.pushState().
-// Browsers do not emit hashchange for pushState, so components mounted outside
-// App (Audit workspace/remediation) would occasionally miss navigation changes.
-// Emit one location-change signal only when the URL really changes.
+const GDPR_PATH = /(?:^|\/)(?:privacy(?:-policy)?|cookie(?:-policy)?|gdpr|informativa(?:-privacy)?|consenso(?:-cookie)?)(?:\/|$)/i;
+const GDPR_TEXT = /(?:cookie consent|consenso cookie|preferenze privacy|gestisci(?:re)? i cookie|iubenda|complianz|cookiebot|cookie law)/i;
+
+const isGdprUrl = (value) => {
+  try {
+    return GDPR_PATH.test(new URL(value).pathname);
+  } catch {
+    return GDPR_PATH.test(String(value || ""));
+  }
+};
+
 const patchHistoryMethod = (methodName) => {
   const original = window.history[methodName];
   if (typeof original !== "function" || original.__seogrowPatched) return;
@@ -23,16 +30,14 @@ const patchHistoryMethod = (methodName) => {
         const next = new URL(destination || window.location.href, window.location.href);
         if (decodeURIComponent(next.hash.slice(1)) === "Panoramica") return undefined;
       } catch {
-        // Se la destinazione non è interpretabile, usa il comportamento standard.
+        // Usa il comportamento standard se la destinazione non è interpretabile.
       }
     }
     const oldURL = window.location.href;
     const result = original.apply(this, args);
     const newURL = window.location.href;
     if (newURL !== oldURL) {
-      window.dispatchEvent(
-        new HashChangeEvent("hashchange", { oldURL, newURL }),
-      );
+      window.dispatchEvent(new HashChangeEvent("hashchange", { oldURL, newURL }));
       window.dispatchEvent(new Event("seogrow-locationchange"));
     }
     return result;
@@ -64,6 +69,15 @@ const normalizeUrl = (value) => {
     return String(value || "").replace(/\/+$/, "");
   }
 };
+
+const normalizeText = (value) => String(value || "")
+  .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+  .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+  .replace(/<[^>]+>/g, " ")
+  .replace(/&(?:nbsp|amp|quot|apos);/gi, " ")
+  .replace(/\s+/g, " ")
+  .trim()
+  .toLocaleLowerCase("it");
 
 const issueFamily = (issue) => {
   const text = `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
@@ -113,51 +127,147 @@ const startBatchFromClick = (event) => {
 
 document.addEventListener("click", startBatchFromClick, true);
 
+const scoreWithoutExcludedIssues = (data, issues) => {
+  const pages = Math.max(1, Number(data.pagesChecked || data.pages?.length || 1));
+  const penalty = issues.reduce(
+    (sum, issue) => sum + (issue.severity === "alta" ? 5 : issue.severity === "media" ? 2 : 1),
+    0,
+  );
+  const strongest = issues.reduce(
+    (maximum, issue) => Math.max(maximum, issue.severity === "alta" ? 5 : issue.severity === "media" ? 2 : 1),
+    0,
+  );
+  const normalized = Math.round(strongest + Math.max(0, penalty - strongest) / Math.sqrt(pages));
+  const failurePenalty = Math.min(40, Number(data.pagesFailed || 0) * 4 + (pages ? 0 : 60));
+  return Math.max(0, Math.min(100, 100 - normalized - failurePenalty));
+};
+
+const filterGdprFromSeoResponse = async (response, requestUrl, init) => {
+  if (!response.ok || !["/api/site-analysis", "/api/audit"].includes(requestUrl)) return response;
+  let body = {};
+  try { body = JSON.parse(String(init?.body || "{}")); } catch { body = {}; }
+  let data;
+  try { data = await response.clone().json(); } catch { return response; }
+
+  if (requestUrl === "/api/audit" && isGdprUrl(body.url || data.url)) {
+    data.gdprReview = {
+      managedSeparately: true,
+      url: data.url || body.url || "",
+      note: "Pagina GDPR esclusa dalle problematiche SEO. Verificarla nel flusso di regolarizzazione GDPR dedicato.",
+    };
+    data.issues = [];
+    data.score = 100;
+  }
+
+  if (requestUrl === "/api/site-analysis") {
+    const originalIssues = Array.isArray(data.issues) ? data.issues : [];
+    const filtered = originalIssues.filter((issue) => {
+      const urls = [issue?.url, issue?.sourceUrl, issue?.targetUrl].filter(Boolean);
+      return !urls.some(isGdprUrl);
+    });
+    const gdprPages = (Array.isArray(data.pages) ? data.pages : [])
+      .filter((page) => isGdprUrl(page?.url))
+      .map((page) => page.url);
+    const bannerDetected = (Array.isArray(data.pages) ? data.pages : [])
+      .some((page) => GDPR_TEXT.test(String(page?.contentExcerpt || "")));
+    const excluded = originalIssues.length - filtered.length;
+    data.issues = filtered;
+    data.score = scoreWithoutExcludedIssues(data, filtered);
+    data.summary = filtered.reduce((acc, issue) => {
+      acc[issue.type] = (acc[issue.type] || 0) + 1;
+      return acc;
+    }, {});
+    data.gdprReview = {
+      managedSeparately: true,
+      excludedSeoIssues: excluded,
+      pagesDetected: gdprPages,
+      bannerDetected,
+      note: "Pagine e componenti GDPR non concorrono al punteggio SEO; restano da verificare nel controllo GDPR dedicato.",
+    };
+  }
+
+  const headers = new Headers(response.headers);
+  headers.set("content-type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(data), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+};
+
+const expectedVisibleInPage = (record, page) => {
+  const fields = Array.isArray(record.fields) ? record.fields : Object.keys(record.after || {});
+  if (!fields.some((field) => field === "content" || field === "excerpt")) return true;
+  const expected = normalizeText(record.after?.content || record.after?.excerpt || "");
+  const visible = normalizeText(page?.contentExcerpt || "");
+  if (!expected || !visible) return false;
+  const words = expected.split(/\s+/).filter(Boolean);
+  if (words.length < 8) return visible.includes(expected);
+  const fragments = [
+    words.slice(0, 14).join(" "),
+    words.slice(Math.max(0, Math.floor(words.length / 3)), Math.max(0, Math.floor(words.length / 3)) + 14).join(" "),
+  ].filter((fragment) => fragment.length >= 35);
+  return fragments.some((fragment) => visible.includes(fragment));
+};
+
 async function verifyCorrection(record, originalFetch) {
   const family = issueFamily(record.issue);
   if (["title-duplicate", "meta-description-duplicate"].includes(family)) {
     await updateCorrection(record.id, {
       status: "Da verificare",
-      verificationNote: "La correzione è stata applicata, ma questo problema richiede un nuovo crawl completo del sito per essere confermato.",
+      verificationNote: "Modifica salvata in WordPress. Per confermare un duplicato serve un nuovo crawl completo del sito.",
     });
     return;
   }
 
   try {
-    const response = await originalFetch("/api/audit", {
+    const useSiteAudit = ["short-content", "h1"].includes(family) || (record.fields || []).includes("content");
+    const response = await originalFetch(useSiteAudit ? "/api/site-analysis" : "/api/audit", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ url: record.sourceUrl }),
+      body: JSON.stringify(useSiteAudit ? { url: record.sourceUrl, maxPages: 5 } : { url: record.sourceUrl }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Verifica non riuscita");
+
+    const page = useSiteAudit
+      ? (data.pages || []).find((item) => normalizeUrl(item.url) === normalizeUrl(record.sourceUrl)) || data.pages?.[0]
+      : data;
     const present = issuePresent(data.issues, record.issue, record.sourceUrl);
+    const visibleConfirmed = expectedVisibleInPage(record, page);
     const verifiedAt = new Date().toISOString();
+
     if (present) {
       await updateCorrection(record.id, {
         status: "Da verificare",
         verifiedAt,
-        verificationNote: "La modifica è stata applicata ma SeoGrow rileva ancora lo stesso tipo di problema.",
+        frontendConfirmed: visibleConfirmed,
+        verificationNote: "WordPress ha salvato la modifica, ma il nuovo controllo rileva ancora lo stesso tipo di problema SEO.",
+      });
+    } else if (!visibleConfirmed) {
+      await updateCorrection(record.id, {
+        status: "Da verificare",
+        verifiedAt,
+        frontendConfirmed: false,
+        verificationNote: "Il problema SEO non è stato rilevato nel ricontrollo, ma il contenuto modificato non è confermato nel frontend. Possibili cause: Elementor, cache o template separato.",
       });
     } else {
       const verified = await updateCorrection(record.id, {
         status: "Verificato",
         verifiedAt,
-        verificationNote: "Nuovo audit della pagina: problema non più rilevato.",
+        frontendConfirmed: true,
+        verificationNote: "Confermato: modifica visibile nel frontend e problema SEO non più rilevato.",
       });
       if (verified) removeVerifiedTask(verified);
     }
   } catch (error) {
     await updateCorrection(record.id, {
       status: "Da verificare",
-      verificationNote: `Modifica applicata; verifica automatica non conclusa: ${error.message}`,
+      verificationNote: `WordPress ha salvato la modifica; verifica automatica non conclusa: ${error.message}`,
     });
   }
 }
 
-// La remediation WordPress necessita di output JSON deterministico. In più,
-// intercettiamo il ciclo generate -> apply per registrare snapshot Prima/Dopo,
-// verificare il risultato e chiudere la Task soltanto quando il problema sparisce.
 const originalFetch = window.fetch.bind(window);
 if (!window.fetch.__seogrowRemediationPatched) {
   const patchedFetch = async (input, init = {}) => {
@@ -187,7 +297,7 @@ if (!window.fetch.__seogrowRemediationPatched) {
           return response;
         }
       } catch {
-        // Se il body non è JSON valido, lascia che l'endpoint originale gestisca l'errore.
+        // L'endpoint originale gestirà eventuali body non validi.
       }
     }
 
@@ -231,7 +341,8 @@ if (!window.fetch.__seogrowRemediationPatched) {
             after,
             status: "Applicato",
             appliedAt: new Date().toISOString(),
-            verificationNote: "WordPress ha confermato la scrittura. Verifica SeoGrow in corso.",
+            frontendConfirmed: false,
+            verificationNote: "WordPress ha confermato la scrittura. Verifica SeoGrow e frontend in corso.",
           };
           await saveCorrection(record);
           window.dispatchEvent(new CustomEvent("seogrow-remediation-applied", { detail: { id: record.id, batchId } }));
@@ -243,7 +354,8 @@ if (!window.fetch.__seogrowRemediationPatched) {
       return response;
     }
 
-    return originalFetch(input, init);
+    const response = await originalFetch(input, init);
+    return filterGdprFromSeoResponse(response, url, init);
   };
   patchedFetch.__seogrowRemediationPatched = true;
   window.fetch = patchedFetch;
