@@ -1,22 +1,16 @@
 import './gdprSeoMigration';
 import './remediationVerificationMigration';
-import './remediationIntegrity';
+import './remediationIntegrityV2';
 import './locationEvents';
-import './liveRollbackRouter';
-import './wordpressRemediationRuntimePatch';
-import './wordpressSeoRuntimePatch';
-import './remediationUiOrderPatch';
-import './remediationCompletionUxPatch';
 import './seoResponseIntegrity';
-import './remediationReportUx';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import AuditWorkspace from './AuditWorkspace';
-import AuditUnifiedRemediation from './AuditUnifiedRemediation';
-import CorrectionsWorkspace from './CorrectionsWorkspace';
+import AuditRemediationShell from './AuditRemediationShell';
+import CorrectionsWorkspaceV2 from './CorrectionsWorkspaceV2';
 import WordPressConnectionControl from './WordPressConnectionControl';
-import WordPressLiveRemediationControl from './WordPressLiveRemediationControl';
+import WordPressLiveRemediationControlV2 from './WordPressLiveRemediationControlV2';
 import WordPressConnectorControl from './WordPressConnectorControl';
 import './styles.css';
 
@@ -48,11 +42,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AppErrorBoundary>
       <App />
       <AuditWorkspace />
-      <AuditUnifiedRemediation />
+      <AuditRemediationShell />
       <WordPressConnectionControl />
-      <WordPressLiveRemediationControl />
+      <WordPressLiveRemediationControlV2 />
       <WordPressConnectorControl />
-      <CorrectionsWorkspace />
+      <CorrectionsWorkspaceV2 />
     </AppErrorBoundary>
   </React.StrictMode>,
 );
