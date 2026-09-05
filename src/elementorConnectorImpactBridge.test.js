@@ -43,14 +43,14 @@ test("bridge rifiuta contratti Connector che non dichiarano esplicitamente read-
     readOnly: false,
     sharedWriteAllowed: false,
     documents: [],
-  }, requested, { id: 42, type: "page" }), /contratto Elementor impact read-only non valido/i);
+  }, requested, { id: 42, type: "page" }), /non ha restituito un contratto Elementor impact read-only valido/i);
 
   assert.throws(() => normalizeConnectorImpactEvidence({
     ok: true,
     readOnly: true,
     sharedWriteAllowed: true,
     documents: [],
-  }, requested, { id: 42, type: "page" }), /contratto Elementor impact read-only non valido/i);
+  }, requested, { id: 42, type: "page" }), /non ha restituito un contratto Elementor impact read-only valido/i);
 });
 
 test("bridge rifiuta duplicati e documenti mancanti invece di scegliere il primo record", () => {
