@@ -35,6 +35,16 @@ test("l'host non introduce nuovi monkey-patch fetch o MutationObserver globali",
   assert.match(host, /requestAnimationFrame/);
 });
 
+test("l'host usa esattamente audit type e analyzedAt richiesti senza fallback silenzioso", () => {
+  assert.match(host, /const selectAudit =/);
+  assert.match(host, /requested\.auditType/);
+  assert.match(host, /requested\.analyzedAt/);
+  assert.match(host, /return matches\.length === 1 \? matches\[0\] : null/);
+  assert.match(host, /const \[requestedAudit, setRequestedAudit\] = useState\(null\)/);
+  assert.match(host, /setRequestedAudit\(/);
+  assert.doesNotMatch(host, /selectAudit\([^)]*\) \|\| candidates/);
+});
+
 test("i problemi verificati sono derivati dai dati e disabilitati nel selettore", () => {
   assert.match(host, /listCorrections\(\{ clientId \}\)/);
   assert.match(host, /record\.status === "Verificato"/);
