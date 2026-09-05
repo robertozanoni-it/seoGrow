@@ -41,6 +41,10 @@ test("Theme Builder o popup condivisi bloccano il fallback core quando l'ownersh
   assert.equal(state.hasDocument, true);
   assert.equal(state.widgets.length, 0);
   assert.deepEqual(state.sharedReferences.map((item) => item.templateType), ["single", "popup"]);
+  assert.equal(state.impact.status, "shared-risk-unresolved");
+  assert.equal(state.impact.requiresImpactReview, true);
+  assert.equal(state.impact.sharedWriteAllowed, false);
+  assert.equal(state.impact.displayConditionsResolved, false);
 });
 
 test("documenti Elementor condivisi effettivamente renderizzati bloccano i candidati locali e conservano gli ID", () => {
@@ -73,6 +77,11 @@ test("documenti Elementor condivisi effettivamente renderizzati bloccano i candi
     { type: "rendered-document", templateType: "header", id: "88" },
     { type: "rendered-document", templateType: "footer", id: "91" },
   ]);
+  assert.equal(state.impact.status, "source-partially-identified");
+  assert.equal(state.impact.sources.length, 2);
+  assert.equal(state.impact.sources.every((item) => item.risk === "high"), true);
+  assert.equal(state.impact.affectedPagesEnumerated, false);
+  assert.equal(state.impact.sharedWriteAllowed, false);
 });
 
 test("riferimenti locali precisi evitano di sostituire l'evidenza con blocchi generici site-wide", () => {
@@ -94,12 +103,19 @@ test("riferimenti locali precisi evitano di sostituire l'evidenza con blocchi ge
         { id: 123, type: "template", origin: "local-reference" },
       ],
       elementorExternalRenderedDocuments: [],
+      elementorResolvedSourceDocuments: [
+        { id: 123, type: "template", resolved: true, title: "CTA condivisa", origins: ["local-reference"] },
+      ],
     },
   };
   const state = inspectEditableElementor("content", entity);
   assert.deepEqual(state.sharedReferences, [
     { type: "template", templateType: "reusable", id: "123" },
   ]);
+  assert.equal(state.impact.status, "source-identified");
+  assert.equal(state.impact.sources[0].scope, "reusable-template");
+  assert.equal(state.impact.sources[0].title, "CTA condivisa");
+  assert.equal(state.impact.sharedWriteAllowed, false);
 });
 
 test("template condivisi presenti altrove nel sito non sopprimono i widget locali quando il frontend mostra solo la pagina corrente", () => {
@@ -126,6 +142,9 @@ test("template condivisi presenti altrove nel sito non sopprimono i widget local
   assert.equal(state.sharedReferences.length, 0);
   assert.equal(state.widgets.length, 1);
   assert.equal(state.widgets[0].id, "local-text");
+  assert.equal(state.impact.status, "local-only-observed");
+  assert.equal(state.impact.requiresImpactReview, false);
+  assert.equal(state.impact.sharedWriteAllowed, false);
 });
 
 test("un Template widget riutilizzato rende ambiguo il documento e sopprime i candidati locali", () => {
@@ -173,4 +192,5 @@ test("un documento Elementor solo locale conserva i widget statici candidati", (
   assert.equal(state.sharedReferences.length, 0);
   assert.equal(state.widgets.length, 1);
   assert.equal(state.widgets[0].id, "local-text");
+  assert.equal(state.impact.sharedWriteAllowed, false);
 });
