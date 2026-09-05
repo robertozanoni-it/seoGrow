@@ -31,6 +31,21 @@ test("header e footer renderizzati sono sorgenti condivise ad alto impatto", () 
   assert.equal(impact.sharedWriteAllowed, false);
 });
 
+test("evidenza server risolta non viene degradata da una seconda osservazione runtime dello stesso documento", () => {
+  const impact = summarizeElementorImpact({
+    elementorEvidenceStatus: "rendered-shared-documents",
+    elementorResolvedSourceDocuments: [
+      { id: 123, type: "template", title: "CTA condivisa", resolved: true, origins: ["local-reference"] },
+      { id: 123, type: "template", resolved: false, origins: ["local-runtime-reference"] },
+    ],
+  });
+  assert.equal(impact.status, "source-identified");
+  assert.equal(impact.sources.length, 1);
+  assert.equal(impact.sources[0].resolved, true);
+  assert.equal(impact.sources[0].title, "CTA condivisa");
+  assert.deepEqual(impact.sources[0].origins, ["local-reference", "local-runtime-reference"]);
+});
+
 test("popup e template riutilizzati restano bloccati finché condizioni e raggio non sono dimostrati", () => {
   const impact = summarizeElementorImpact({
     elementorEvidenceStatus: "rendered-shared-documents",
