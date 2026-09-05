@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { normalizeSiteAnalysis } from "./seoResponseIntegrity.js";
+import { normalizeSiteAnalysis, normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
 
 test("429 e 5xx non restano tra i link interrotti confermati", () => {
   const result = normalizeSiteAnalysis({
@@ -57,4 +57,36 @@ test("canonical rotta 404 rimane problema confermato", () => {
   });
   assert.equal(result.issues.length, 1);
   assert.equal(result.reviewItems.length, 0);
+});
+
+test("la normalizzazione site-analysis è idempotente", () => {
+  const first = normalizeSiteAnalysis({
+    score: 58,
+    pagesChecked: 5,
+    failures: [],
+    brokenLinks: [{ url: "https://example.com/manca", status: 404 }],
+    issues: [
+      { type: "broken-link", severity: "alta", label: "Link interno interrotto (404)", targetUrl: "https://example.com/manca", detail: "HTTP 404" },
+    ],
+  });
+  const snapshot = JSON.stringify(first);
+  const second = normalizeSiteAnalysis(first);
+  assert.equal(second, first);
+  assert.equal(JSON.stringify(second), snapshot);
+  assert.equal(second.rawScore, 58);
+});
+
+test("la risposta site-analysis viene normalizzata senza monkey-patch globale", async () => {
+  const response = await normalizeSiteAnalysisResponse(new Response(JSON.stringify({
+    score: 65,
+    pagesChecked: 2,
+    failures: [],
+    brokenLinks: [],
+    brokenExternalLinks: [],
+    issues: [{ type: "canonical", severity: "media", label: "Canonical differente", detail: "Segnale da verificare" }],
+  }), { status: 200, headers: { "content-type": "application/json" } }));
+  const data = await response.json();
+  assert.equal(data.scoreSource, "seogrow-derived");
+  assert.equal(data.issues.length, 0);
+  assert.equal(data.reviewItems.length, 1);
 });
