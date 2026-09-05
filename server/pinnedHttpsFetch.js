@@ -1,30 +1,15 @@
 import dns from "node:dns/promises";
 import https from "node:https";
-import net from "node:net";
-
-function privateAddress(address) {
-  if (net.isIPv4(address)) {
-    const [a, b, c] = address.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || a >= 224 ||
-      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
-      (a === 192 && b === 0 && [0, 2].includes(c)) ||
-      (a === 198 && [18, 19].includes(b)) ||
-      (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113);
-  }
-  const v = String(address).toLowerCase();
-  return v === "::" || v === "::1" || v.startsWith("fc") || v.startsWith("fd") ||
-    /^fe[89ab]/.test(v) || /^fe[c-f]/.test(v) || v.startsWith("ff") || v.startsWith("2001:db8:");
-}
+import { isPrivateOrReservedAddress } from "./networkSafety.js";
 
 export async function resolvePinnedHttpsUrl(input) {
   const url = input instanceof URL ? new URL(input.href) : new URL(String(input || ""));
   if (url.protocol !== "https:") throw new Error("Sono consentiti solo endpoint HTTPS.");
-  const host = url.hostname.toLowerCase();
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (["localhost", "127.0.0.1", "::1"].includes(host) || host.endsWith(".local"))
     throw new Error("Indirizzo locale non consentito.");
-  const addresses = await dns.lookup(url.hostname, { all: true, verbatim: true });
-  if (!addresses.length || addresses.some((item) => privateAddress(item.address)))
+  const addresses = await dns.lookup(host, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some((item) => isPrivateOrReservedAddress(item.address)))
     throw new Error("Indirizzo remoto non pubblico.");
   return { url, address: addresses[0].address, family: addresses[0].family };
 }
@@ -46,7 +31,7 @@ export async function pinnedHttpsFetch(input, options = {}) {
       path: `${url.pathname}${url.search}`,
       method,
       headers: Object.fromEntries(headers.entries()),
-      servername: url.hostname,
+      servername: url.hostname.replace(/^\[|\]$/g, ""),
       rejectUnauthorized: true,
       timeout: Number(options.timeout || 20_000),
     }, (response) => {
