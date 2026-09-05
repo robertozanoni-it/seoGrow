@@ -12,6 +12,7 @@ test("un documento Elementor solo locale non viene confuso con impatto condiviso
   assert.equal(impact.requiresImpactReview, false);
   assert.equal(impact.affectedPagesEnumerated, false);
   assert.equal(impact.sharedWriteAllowed, false);
+  assert.equal(impact.themeBuilderTargetOwnership.status, "not-observed");
 });
 
 test("header e footer renderizzati sono sorgenti condivise ad alto impatto", () => {
@@ -28,6 +29,7 @@ test("header e footer renderizzati sono sorgenti condivise ad alto impatto", () 
   assert.equal(impact.sources[0].scope, "shared-layout");
   assert.equal(impact.sources[0].risk, "high");
   assert.equal(impact.displayConditionsResolved, false);
+  assert.equal(impact.themeBuilderTargetOwnership.status, "unresolved");
   assert.equal(impact.sharedWriteAllowed, false);
 });
 
@@ -99,6 +101,111 @@ test("le Display Conditions risolte dal server restano visibili nel modello di o
   assert.match(impact.summary, /Display Conditions note risultano semanticamente risolte/i);
 });
 
+test("Theme Builder sulla URL è confermato solo con sorgente, tipo, rendering e condizioni univoci", () => {
+  const impact = summarizeElementorImpact({
+    elementorEvidenceStatus: "rendered-shared-documents",
+    elementorResolvedSourceDocuments: [
+      {
+        id: 88,
+        type: "header",
+        title: "Header principale",
+        resolved: true,
+        origins: ["frontend-rendered"],
+        typeEvidence: { status: "verified" },
+      },
+      {
+        id: 91,
+        type: "footer",
+        title: "Footer principale",
+        resolved: true,
+        origins: ["frontend-rendered"],
+        typeEvidence: { status: "verified" },
+      },
+    ],
+    elementorImpactEvidence: {
+      ok: true,
+      displayConditionsResolved: true,
+      affectedPagesEnumerated: false,
+      observedUrlCoverage: { completeSiteEnumeration: false },
+      documents: [
+        {
+          id: 88,
+          ok: true,
+          typeEvidence: { status: "verified" },
+          displayConditionsResolved: true,
+          targetApplicability: "applies",
+          conditionInterpretation: { semanticStatus: "resolved", targetApplicability: "applies" },
+        },
+        {
+          id: 91,
+          ok: true,
+          typeEvidence: { status: "verified" },
+          displayConditionsResolved: true,
+          targetApplicability: "applies",
+          conditionInterpretation: { semanticStatus: "resolved", targetApplicability: "applies" },
+        },
+      ],
+    },
+  });
+
+  assert.equal(impact.themeBuilderTargetOwnership.status, "confirmed");
+  assert.deepEqual(
+    impact.themeBuilderTargetOwnership.confirmedSources.map((source) => [source.id, source.type]),
+    [[88, "header"], [91, "footer"]],
+  );
+  assert.equal(impact.themeBuilderTargetOwnership.unresolvedSources.length, 0);
+  assert.equal(impact.sources[0].renderedOnTarget, true);
+  assert.equal(impact.sources[0].typeEvidenceStatus, "verified");
+  assert.equal(impact.sources[0].targetApplicability, "applies");
+  assert.equal(impact.sources[0].targetOwnershipCandidate, true);
+  assert.equal(impact.sharedWriteAllowed, false);
+  assert.match(impact.summary, /coincidono in modo univoco/i);
+});
+
+test("due sorgenti Theme Builder dello stesso tipo restano ambigue anche se entrambe sembrano applicate", () => {
+  const impact = summarizeElementorImpact({
+    elementorEvidenceStatus: "rendered-shared-documents",
+    elementorResolvedSourceDocuments: [
+      { id: 88, type: "header", resolved: true, origins: ["frontend-rendered"], typeEvidence: { status: "verified" } },
+      { id: 89, type: "header", resolved: true, origins: ["frontend-rendered"], typeEvidence: { status: "verified" } },
+    ],
+    elementorImpactEvidence: {
+      ok: true,
+      displayConditionsResolved: true,
+      documents: [
+        { id: 88, ok: true, typeEvidence: { status: "verified" }, displayConditionsResolved: true, targetApplicability: "applies" },
+        { id: 89, ok: true, typeEvidence: { status: "verified" }, displayConditionsResolved: true, targetApplicability: "applies" },
+      ],
+    },
+  });
+
+  assert.equal(impact.themeBuilderTargetOwnership.status, "ambiguous");
+  assert.deepEqual(impact.themeBuilderTargetOwnership.ambiguousTypes, ["header"]);
+  assert.equal(impact.themeBuilderTargetOwnership.confirmedSources.length, 0);
+  assert.equal(impact.themeBuilderTargetOwnership.unresolvedSources.length, 2);
+  assert.equal(impact.sharedWriteAllowed, false);
+});
+
+test("mancanza della prova sul tipo Elementor mantiene Theme Builder non risolto", () => {
+  const impact = summarizeElementorImpact({
+    elementorEvidenceStatus: "rendered-shared-documents",
+    elementorResolvedSourceDocuments: [
+      { id: 88, type: "header", resolved: true, origins: ["frontend-rendered"], typeEvidence: { status: "not-exposed" } },
+    ],
+    elementorImpactEvidence: {
+      ok: true,
+      displayConditionsResolved: true,
+      documents: [
+        { id: 88, ok: true, displayConditionsResolved: true, targetApplicability: "applies" },
+      ],
+    },
+  });
+
+  assert.equal(impact.themeBuilderTargetOwnership.status, "unresolved");
+  assert.equal(impact.sources[0].targetOwnershipCandidate, false);
+  assert.equal(impact.sharedWriteAllowed, false);
+});
+
 test("evidenza condizioni parziale non autorizza né dichiara risoluzione globale", () => {
   const impact = summarizeElementorImpact({
     elementorEvidenceStatus: "rendered-shared-documents",
@@ -135,6 +242,7 @@ test("popup e template riutilizzati restano bloccati finché condizioni e raggio
   assert.equal(impact.requiresImpactReview, true);
   assert.equal(impact.affectedPagesEnumerated, false);
   assert.equal(impact.displayConditionsResolved, false);
+  assert.equal(impact.themeBuilderTargetOwnership.status, "not-observed");
 });
 
 test("la sola presenza di template condivisi nel sito resta rischio irrisolto, non prova di applicazione", () => {
@@ -145,5 +253,6 @@ test("la sola presenza di template condivisi nel sito resta rischio irrisolto, n
   assert.equal(impact.status, "shared-risk-unresolved");
   assert.equal(impact.requiresImpactReview, true);
   assert.deepEqual(impact.siteWideTypes, ["single", "popup"]);
+  assert.equal(impact.themeBuilderTargetOwnership.status, "not-observed");
   assert.match(impact.summary, /non ha identificato con certezza/i);
 });
