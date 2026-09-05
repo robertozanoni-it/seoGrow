@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { elementorRenderedDocuments } from "../server/frontendVerificationHook.js";
 
 const server = await readFile(new URL("../server/frontendVerificationHook.js", import.meta.url), "utf8");
 const integrity = await readFile(new URL("./remediationIntegrity.js", import.meta.url), "utf8");
@@ -10,6 +11,20 @@ test("la verifica frontend dichiara esplicitamente quando serve un browser reale
   assert.match(server, /visibilityConfidence/);
   assert.match(server, /verificationSafe/);
   assert.match(server, /contentCoverageStrong: verificationSafe && ownership\.contentCoverageStrong/);
+});
+
+test("il frontend espone gli ID dei documenti Elementor effettivamente presenti nel markup", () => {
+  const documents = elementorRenderedDocuments(`
+    <header data-elementor-type="header" data-elementor-id="88"></header>
+    <main data-elementor-id="42" data-elementor-type="wp-page"></main>
+    <footer data-elementor-type="footer" data-elementor-id="91"></footer>
+    <div data-elementor-id="88" data-elementor-type="header"></div>
+  `);
+  assert.deepEqual(documents, [
+    { id: 42, type: "wp-page" },
+    { id: 88, type: "header" },
+    { id: 91, type: "footer" },
+  ]);
 });
 
 test("il contenuto breve non passa a Verificato con visibilità responsive non dimostrata", () => {
