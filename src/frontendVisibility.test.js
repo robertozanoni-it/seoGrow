@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { stripAlwaysHiddenMarkup, visibleH1Count, visibleText } from "../server/frontendVerificationHook.js";
+import {
+  hasResponsiveHiddenMarkup,
+  stripAlwaysHiddenMarkup,
+  visibleH1Count,
+  visibleText,
+} from "../server/frontendVerificationHook.js";
 
 test("la verifica frontend non conta contenuto sempre nascosto", () => {
   const html = `
@@ -35,14 +40,15 @@ test("un H1 dentro un wrapper nascosto non viene contato come visibile", () => {
   assert.doesNotMatch(visibleText(conservative), /H1 nascosto/);
 });
 
-test("markup Elementor marcato hidden per viewport non prova la visibilità frontend", () => {
+test("markup Elementor responsive resta nel modello statico ma obbliga la verifica browser", () => {
   const html = `
     <main>
       <section class="elementor-section elementor-hidden-desktop"><h1>H1 responsive ambiguo</h1><p>Contenuto responsive ambiguo</p></section>
       <section><h1>H1 stabile</h1><p>Contenuto stabile</p></section>
     </main>`;
   const conservative = stripAlwaysHiddenMarkup(html);
-  assert.equal(visibleH1Count(conservative), 1);
-  assert.doesNotMatch(visibleText(conservative), /responsive ambiguo/);
+  assert.equal(hasResponsiveHiddenMarkup(html), true);
+  assert.equal(visibleH1Count(conservative), 2);
+  assert.match(visibleText(conservative), /responsive ambiguo/);
   assert.match(visibleText(conservative), /Contenuto stabile/);
 });
