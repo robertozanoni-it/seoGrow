@@ -22,12 +22,15 @@ const stripHtml = (value) => String(value || "")
   .replace(/\s+/g, " ")
   .trim();
 
-function instruction(kind, issue) {
+function instruction(kind, issue, retry = false) {
   const label = String(issue?.label || issue?.detail || "problema SEO").slice(0, 500);
+  const retryNote = retry
+    ? " Il tentativo precedente non ha prodotto un valore strutturato utilizzabile: restituisci obbligatoriamente il solo valore richiesto nello schema JSON."
+    : "";
   if (kind === "seo_title")
-    return `Genera un title SEO unico, naturale e specifico per risolvere: ${label}. Mantieni l'intento della pagina, evita clickbait e non inventare fatti. Punta a circa 45-60 caratteri quando possibile.`;
+    return `Genera un title SEO unico, naturale e specifico per risolvere: ${label}. Mantieni l'intento della pagina, evita clickbait e non inventare fatti. Punta a circa 45-60 caratteri quando possibile.${retryNote}`;
   if (kind === "meta_description")
-    return `Genera una meta description unica, naturale e utile per risolvere: ${label}. Deve descrivere fedelmente la pagina, non inventare fatti e stare preferibilmente tra 135 e 160 caratteri.`;
+    return `Genera una meta description unica, naturale e utile per risolvere: ${label}. Deve descrivere fedelmente la pagina, non inventare fatti e stare preferibilmente tra 135 e 160 caratteri.${retryNote}`;
   throw new Error("Tipo di valore SEO non supportato.");
 }
 
@@ -65,17 +68,19 @@ function parseStructuredValue(text) {
   throw new Error("OpenAI non ha restituito un valore SEO strutturato valido.");
 }
 
-async function generateValue(kind, issue, page) {
-  if (!process.env.OPENAI_API_KEY)
-    throw new Error("OpenAI non è configurata. Inserisci OPENAI_API_KEY nel file .env e riavvia seoGrow.");
+export function deterministicMetaDescription(page) {
+  const title = stripHtml(page?.title);
+  const body = stripHtml(page?.excerpt) || stripHtml(page?.content);
+  const source = `${title ? `${title}. ` : ""}${body}`.replace(/\s+/g, " ").trim();
+  if (source.length < 80) return "";
+  if (source.length <= 160) return source;
+  const prefix = source.slice(0, 157);
+  const boundary = prefix.lastIndexOf(" ");
+  const clipped = (boundary >= 120 ? prefix.slice(0, boundary) : prefix).replace(/[\s,;:.-]+$/g, "");
+  return `${clipped}.`;
+}
 
-  const context = {
-    title: stripHtml(page?.title).slice(0, 500),
-    excerpt: stripHtml(page?.excerpt).slice(0, 1200),
-    content: stripHtml(page?.content).slice(0, 6000),
-    url: String(page?.url || "").slice(0, 800),
-  };
-
+async function requestValue(kind, issue, context, retry) {
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     signal: AbortSignal.timeout(90_000),
@@ -97,7 +102,7 @@ async function generateValue(kind, issue, page) {
           role: "user",
           content: [{
             type: "input_text",
-            text: `${instruction(kind, issue)}\n\nPAGINA\n${JSON.stringify(context)}`,
+            text: `${instruction(kind, issue, retry)}\n\nPAGINA\n${JSON.stringify(context)}`,
           }],
         },
       ],
@@ -114,7 +119,7 @@ async function generateValue(kind, issue, page) {
           },
         },
       },
-      max_output_tokens: 900,
+      max_output_tokens: retry ? 1200 : 900,
       store: false,
     }),
   });
@@ -127,7 +132,38 @@ async function generateValue(kind, issue, page) {
     throw new Error(`Risposta OpenAI non valida (HTTP ${response.status}).`, { cause: error });
   }
   if (!response.ok) throw new Error(data?.error?.message || `OpenAI ha restituito HTTP ${response.status}`);
+  if (data?.error || data?.incomplete_details || (data?.status && data.status !== "completed")) {
+    throw new Error("OpenAI non ha completato integralmente la generazione del valore SEO.");
+  }
   return parseStructuredValue(collectOutputText(data));
+}
+
+async function generateValue(kind, issue, page) {
+  if (!process.env.OPENAI_API_KEY)
+    throw new Error("OpenAI non è configurata. Inserisci OPENAI_API_KEY nel file .env e riavvia seoGrow.");
+
+  const context = {
+    title: stripHtml(page?.title).slice(0, 500),
+    excerpt: stripHtml(page?.excerpt).slice(0, 1200),
+    content: stripHtml(page?.content).slice(0, 6000),
+    url: String(page?.url || "").slice(0, 800),
+  };
+
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      return await requestValue(kind, issue, context, attempt > 0);
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (kind === "meta_description") {
+    const fallback = deterministicMetaDescription(page);
+    if (fallback) return fallback;
+  }
+
+  throw lastError || new Error("Generazione valore SEO non riuscita.");
 }
 
 function registerRoutes(app) {
