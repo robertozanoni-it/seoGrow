@@ -75,6 +75,33 @@ test("documenti Elementor condivisi effettivamente renderizzati bloccano i candi
   ]);
 });
 
+test("riferimenti locali precisi evitano di sostituire l'evidenza con blocchi generici site-wide", () => {
+  const entity = {
+    meta: {
+      _elementor_data: JSON.stringify([
+        {
+          id: "shared-template",
+          widgetType: "template",
+          settings: { template_id: 123 },
+          elements: [],
+        },
+      ]),
+    },
+    _seogrowOwnership: {
+      elementorSharedTemplateTypes: ["header", "footer", "popup", "single"],
+      elementorEvidenceStatus: "rendered-shared-documents",
+      elementorLocalSourceReferences: [
+        { id: 123, type: "template", origin: "local-reference" },
+      ],
+      elementorExternalRenderedDocuments: [],
+    },
+  };
+  const state = inspectEditableElementor("content", entity);
+  assert.deepEqual(state.sharedReferences, [
+    { type: "template", templateType: "reusable", id: "123" },
+  ]);
+});
+
 test("template condivisi presenti altrove nel sito non sopprimono i widget locali quando il frontend mostra solo la pagina corrente", () => {
   const entity = {
     meta: {
