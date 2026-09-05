@@ -39,10 +39,7 @@ export default function WordPressConnectionControl() {
   }, []);
 
   useEffect(() => {
-    if (!target) {
-      setReady(false);
-      return undefined;
-    }
+    if (!target) return undefined;
     const update = () => {
       const credentials = readCredentials(target);
       setReady(Boolean(credentials.url && credentials.username && credentials.applicationPassword));
@@ -50,9 +47,12 @@ export default function WordPressConnectionControl() {
         current.state === "idle" ? current : { state: "idle", message: "" },
       );
     };
-    update();
+    const timer = window.setTimeout(update, 0);
     target.addEventListener("input", update);
-    return () => target.removeEventListener("input", update);
+    return () => {
+      window.clearTimeout(timer);
+      target.removeEventListener("input", update);
+    };
   }, [target]);
 
   if (!target) return null;
