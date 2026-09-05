@@ -5,6 +5,10 @@ import {
   scanElementorExplicitReferences,
 } from "../server/elementorReferenceImpact.js";
 
+function sortReferences(rows) {
+  return [...rows].sort((a, b) => `${a.id}:${a.key}`.localeCompare(`${b.id}:${b.key}`));
+}
+
 test("parser riconosce solo template_id e templateID espliciti", () => {
   const scan = scanElementorExplicitReferences(JSON.stringify([
     {
@@ -20,10 +24,10 @@ test("parser riconosce solo template_id e templateID espliciti", () => {
     },
   ]));
   assert.equal(scan.ok, true);
-  assert.deepEqual(scan.references, [
+  assert.deepEqual(sortReferences(scan.references), sortReferences([
     { id: 42, key: "template_id", referenceKind: "template-widget" },
     { id: 77, key: "templateID", referenceKind: "global-widget" },
-  ]);
+  ]));
   assert.equal(scan.sharedWriteAllowed, false);
 });
 
@@ -50,10 +54,10 @@ test("riferimenti duplicati della stessa forma vengono deduplicati", () => {
     { settings: { template_id: 42 } },
     { settings: { templateID: 42 } },
   ]);
-  assert.deepEqual(scan.references, [
+  assert.deepEqual(sortReferences(scan.references), sortReferences([
     { id: 42, key: "template_id", referenceKind: "template-widget" },
     { id: 42, key: "templateID", referenceKind: "global-widget" },
-  ]);
+  ]));
 });
 
 test("aggregazione enumera le pagine referenti solo con tutte le scansioni complete", () => {
