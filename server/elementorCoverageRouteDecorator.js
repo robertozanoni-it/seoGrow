@@ -75,18 +75,20 @@ export function registerElementorImpactRoutesWithCoverage(app, elementorImpactMo
     throw new Error("Modulo Elementor impact non valido.");
   }
 
-  const originalPost = app.post.bind(app);
+  const originalPost = app.post;
+  const callOriginalPost = (path, ...handlers) => originalPost.call(app, path, ...handlers);
   app.post = (path, ...handlers) => {
-    if (path !== TARGET_ROUTE) return originalPost(path, ...handlers);
-    const wrapped = handlers.map((handler) => {
-      if (typeof handler !== "function") return handler;
+    if (path !== TARGET_ROUTE || handlers.length === 0) return callOriginalPost(path, ...handlers);
+    const lastIndex = handlers.length - 1;
+    const wrapped = handlers.map((handler, index) => {
+      if (index !== lastIndex || typeof handler !== "function") return handler;
       return async function elementorCoverageWrappedHandler(req, res, next) {
         const originalJson = res.json.bind(res);
         res.json = (payload) => originalJson(finalizeElementorImpactCoverage(payload, req?.body || {}));
         return handler(req, res, next);
       };
     });
-    return originalPost(path, ...wrapped);
+    return callOriginalPost(path, ...wrapped);
   };
 
   try {
