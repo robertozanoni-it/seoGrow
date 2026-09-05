@@ -1,4 +1,5 @@
 import express from "express";
+import { countVisibleWords, shortContentTarget } from "./wordpressContentTarget.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressPatchV2Hook");
 const USE_PATCHED = Symbol.for("seogrow.wordpressPatchV2UsePatched");
@@ -114,12 +115,16 @@ function remediationKind(topic) {
   return String(topic || "").toLowerCase().match(/remediation\s+wordpress\s+(title|content|excerpt|h1)/)?.[1] || "";
 }
 
-function instruction(kind, issue) {
+function instruction(kind, issue, page) {
   const label = String(issue?.label || issue?.detail || "problema SEO").slice(0, 600);
   if (kind === "title")
     return `Genera un titolo WordPress naturale, specifico e fedele alla pagina per risolvere: ${label}. Non inventare fatti e non usare clickbait.`;
   if (kind === "excerpt")
     return `Genera un excerpt WordPress utile di circa 20-40 parole per risolvere: ${label}. Deve essere fedele al contenuto e non inventare fatti.`;
+  const targetWords = shortContentTarget(issue, page);
+  if (kind === "content" && targetWords > 0) {
+    return `Migliora e amplia il contenuto esistente per risolvere: ${label}. Il NUOVO contenuto restituito deve contenere almeno ${targetWords} parole di testo visibile, senza contare markup HTML. Non accorciare il testo esistente. Mantieni le informazioni, i link utili e il formato HTML esistente; aggiungi solo contenuto pertinente e naturale, senza inventare dati, persone, statistiche, servizi o testimonianze. Restituisci l'intero contenuto finale, non solo le frasi aggiunte.`;
+  }
   return `Migliora il contenuto esistente per risolvere: ${label}. Mantieni le informazioni e i link utili, amplia solo quanto necessario, conserva il formato HTML esistente e non inventare dati, persone, statistiche o testimonianze.`;
 }
 
@@ -160,7 +165,7 @@ async function aiValue(kind, issue, page) {
           role: "user",
           content: [{
             type: "input_text",
-            text: `${instruction(kind, issue)}\n\nPAGINA_CORRENTE\n${JSON.stringify(context)}`,
+            text: `${instruction(kind, issue, page)}\n\nPAGINA_CORRENTE\n${JSON.stringify(context)}`,
           }],
         },
       ],
@@ -207,7 +212,29 @@ async function generatePatch(body) {
     return { changes: { content: next }, deterministic: true };
   }
 
-  const value = await aiValue(kind, issue, page);
+  let value = await aiValue(kind, issue, page);
+  if (kind === "content") {
+    const targetWords = shortContentTarget(issue, page);
+    if (targetWords > 0) {
+      let generatedWords = countVisibleWords(value);
+      if (generatedWords < targetWords) {
+        value = await aiValue(
+          kind,
+          {
+            ...issue,
+            remediationTargetWords: targetWords,
+            detail: `${issue?.detail || ""} Il tentativo precedente ha prodotto ${generatedWords} parole: rigenera l'intero contenuto e raggiungi obbligatoriamente almeno ${targetWords} parole di testo visibile.`,
+          },
+          page,
+        );
+        generatedWords = countVisibleWords(value);
+      }
+      if (generatedWords < targetWords) {
+        throw new Error(`La patch di contenuto è ancora troppo breve (${generatedWords} parole). Target minimo sicuro: ${targetWords}. Nessuna anteprima applicabile è stata creata.`);
+      }
+    }
+  }
+
   const key = kind === "title" ? "title" : kind === "excerpt" ? "excerpt" : "content";
   return { changes: { [key]: value }, deterministic: false };
 }
