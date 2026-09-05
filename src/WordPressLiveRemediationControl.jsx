@@ -7,6 +7,7 @@ import { saveCorrection, setLastBatch } from "./remediationStore";
 import {
   assessCoreOwnership,
   chooseElementorContentCandidate,
+  countTextWords,
   inspectEditableElementor,
   serializeElementor,
 } from "./wordpressOwnership";
@@ -45,11 +46,15 @@ const candidates = (clientId) => {
 
 const selectAudit = (clientId, requested) => {
   const list = candidates(clientId);
-  if (!requested || Number(requested.clientId) !== Number(clientId)) return list[0] || null;
-  return list.find((entry) =>
+  if (!requested) return list[0] || null;
+  if (Number(requested.clientId) !== Number(clientId)) return null;
+  if (!["page", "site"].includes(requested.auditType)) return null;
+  if (!requested.analyzedAt) return null;
+  const matches = list.filter((entry) =>
     entry.type === requested.auditType &&
-    String(auditTimestamp(entry)) === String(requested.analyzedAt || ""),
-  ) || list[0] || null;
+    String(auditTimestamp(entry)) === String(requested.analyzedAt),
+  );
+  return matches.length === 1 ? matches[0] : null;
 };
 
 const issueUrl = (issue, audit, client) =>
@@ -106,11 +111,12 @@ const metaKey = (entity, kind) => {
   return (candidatesByKind[kind] || []).find(([key]) => has(key)) || null;
 };
 
-const pageContext = (entity, targetUrl, contentOverride) => ({
+const pageContext = (entity, targetUrl, contentOverride, remediationMeasurement) => ({
   title: entity?.title?.raw || entity?.title?.rendered || "",
   content: contentOverride ?? entity?.content?.raw ?? entity?.content?.rendered ?? "",
   excerpt: entity?.excerpt?.raw || entity?.excerpt?.rendered || "",
   url: targetUrl,
+  ...(remediationMeasurement ? { remediationMeasurement } : {}),
 });
 
 const ownershipUndetermined = (kind, detail) => {
@@ -119,6 +125,29 @@ const ownershipUndetermined = (kind, detail) => {
   );
   error.code = "OWNERSHIP_UNDETERMINED";
   return error;
+};
+
+const contentMeasurement = (frontend, fieldContent) => {
+  const frontendWords = Number(frontend?.words);
+  const minimumWords = Number(frontend?.minimumWords);
+  const fieldWords = countTextWords(fieldContent);
+  if (
+    !Number.isSafeInteger(frontendWords) || frontendWords < 0 ||
+    !Number.isSafeInteger(minimumWords) || minimumWords < 0 ||
+    !Number.isSafeInteger(fieldWords) || fieldWords < 0 ||
+    fieldWords > frontendWords
+  ) {
+    throw ownershipUndetermined(
+      "content",
+      "Il conteggio corrente di frontend e campo modificabile non è coerente; il target non può essere calcolato in sicurezza.",
+    );
+  }
+  return {
+    frontendWords,
+    fieldWords,
+    minimumWords,
+    marginWords: minimumWords >= 180 ? 30 : 20,
+  };
 };
 
 async function inspectWordPress(targetUrl, credentials) {
@@ -178,13 +207,16 @@ const alreadyResolvedReason = (kind, issue, ownership) => {
   return "";
 };
 
-async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride) {
+async function generateCorePatch(kind, issue, entity, targetUrl, contentOverride, remediationMeasurement) {
   const response = await apiFetch("/api/wordpress/generate-patch", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       topic: `Remediation WordPress ${kind}`,
-      context: JSON.stringify({ issue, page: pageContext(entity, targetUrl, contentOverride) }),
+      context: JSON.stringify({
+        issue,
+        page: pageContext(entity, targetUrl, contentOverride, remediationMeasurement),
+      }),
     }),
   });
   const data = await response.json();
@@ -210,7 +242,7 @@ async function generateSeoValue(kind, issue, entity, targetUrl) {
   return String(data.value).trim();
 }
 
-async function chooseVerifiedElementorContentWidget(targetUrl, state, frontend) {
+async function chooseVerifiedElementorContentWidget(targetUrl, state) {
   if (state.widgets.length > 8) {
     throw ownershipUndetermined(
       "content",
@@ -220,7 +252,7 @@ async function chooseVerifiedElementorContentWidget(targetUrl, state, frontend) 
   const probes = await Promise.all(
     state.widgets.map((widget) => verifyFrontend(targetUrl, { content: widget.value })),
   );
-  const selected = chooseElementorContentCandidate(state.widgets, probes, frontend?.words);
+  const selected = chooseElementorContentCandidate(state.widgets, probes);
   if (!selected.candidate) throw ownershipUndetermined("content", selected.reason);
   return selected.candidate;
 }
@@ -263,9 +295,17 @@ async function elementorPlan(kind, issue, entity, targetUrl, state, frontend) {
   }
 
   if (kind === "content") {
-    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state, frontend);
+    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state);
     const previous = selected.item.settings.editor;
-    const patch = await generateCorePatch("content", issue, entity, targetUrl, previous);
+    const measurement = contentMeasurement(frontend, previous);
+    const patch = await generateCorePatch(
+      "content",
+      issue,
+      entity,
+      targetUrl,
+      previous,
+      measurement,
+    );
     if (typeof patch?.content !== "string" || !patch.content.trim() || patch.content === previous) return null;
     selected.item.settings.editor = patch.content;
     return {
@@ -299,10 +339,25 @@ async function buildPlan(kind, issue, inspected, targetUrl) {
       );
     }
 
+    if (elementorState.state === "valid" && elementorState.hasDocument) {
+      throw ownershipUndetermined(
+        kind,
+        "La pagina contiene un documento Elementor non vuoto ma nessun widget statico pertinente modificabile con certezza. Il fallback su post_content è bloccato.",
+      );
+    }
+
     if (ownership.ok) {
+      const coreContent = entity?.content?.raw || entity?.content?.rendered || "";
       return {
         adapter: "WordPress core",
-        changes: await generateCorePatch(kind, issue, entity, targetUrl),
+        changes: await generateCorePatch(
+          kind,
+          issue,
+          entity,
+          targetUrl,
+          undefined,
+          kind === "content" ? contentMeasurement(ownership.frontend, coreContent) : undefined,
+        ),
       };
     }
 
@@ -340,13 +395,13 @@ async function buildPlan(kind, issue, inspected, targetUrl) {
     const plugin = metaKey(entity, kind);
     if (!plugin) throw new Error("Rank Math/Yoast non espongono la meta description come campo REST scrivibile per questa pagina.");
     const value = await generateSeoValue("meta_description", issue, entity, targetUrl);
-    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: value } } };
+    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: value } };
   }
 
   if (kind === "canonical") {
     const plugin = metaKey(entity, kind);
     if (!plugin) throw new Error("Rank Math/Yoast non espongono la canonical come campo REST scrivibile per questa pagina.");
-    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: targetUrl } } };
+    return { adapter: plugin[1], changes: { meta: { [plugin[0]]: targetUrl } };
   }
 
   if (kind === "noindex") {
@@ -479,7 +534,7 @@ export default function WordPressLiveRemediationControl() {
     }
     const context = currentContext();
     if (!context.client || !context.audit || !context.issues.length) {
-      setMessage("Nessun audit con problemi disponibile per il cliente corrente.");
+      setMessage("L'audit richiesto non è disponibile o non corrisponde più al cliente corrente. Riapri l'audit prima di preparare le correzioni.");
       return;
     }
     const domIndex = Number(document.querySelector(".audit-issue-select select")?.value || 0);
@@ -499,8 +554,14 @@ export default function WordPressLiveRemediationControl() {
         const targetUrl = issueUrl(currentIssue, context.audit.item, context.client);
         const inspected = await inspectWordPress(targetUrl, credentials);
         const plan = await buildPlan(kind, currentIssue, inspected, targetUrl);
+        const contextSnapshot = {
+          clientId: context.clientId,
+          clientName: context.client?.name || "",
+          auditType: context.audit.type,
+          analyzedAt: auditTimestamp(context.audit),
+        };
         if (plan.alreadyResolved) {
-          next.push({ status: "resolved", issue: currentIssue, targetUrl, reason: plan.reason });
+          next.push({ status: "resolved", issue: currentIssue, targetUrl, reason: plan.reason, contextSnapshot });
           setResults([...next]);
           continue;
         }
@@ -524,7 +585,7 @@ export default function WordPressLiveRemediationControl() {
         const fallback = localPreview(inspected.entity || {}, plan.changes || {});
         if (!hasUsefulPreview(data.previewBefore)) data.previewBefore = fallback.before;
         if (!hasUsefulPreview(data.previewAfter)) data.previewAfter = fallback.after;
-        next.push({ status: "preview", issue: currentIssue, targetUrl, plan, data });
+        next.push({ status: "preview", issue: currentIssue, targetUrl, plan, data, contextSnapshot });
       } catch (error) {
         next.push({
           status: "unsupported",
@@ -552,9 +613,13 @@ export default function WordPressLiveRemediationControl() {
       setMessage("La password applicativa non è disponibile. Reinseriscila prima dell'approvazione.");
       return;
     }
+    const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, NaN));
+    if (previews.some((item) => Number(item.contextSnapshot?.clientId) !== selectedClientId)) {
+      setMessage("Il cliente selezionato è cambiato dopo la preparazione. Le anteprime sono state invalidate: preparale di nuovo prima di applicare.");
+      return;
+    }
     if (!window.confirm(`Applicare ORA ${previews.length} modifiche al sito WordPress live? SeoGrow userà esattamente le anteprime mostrate.`)) return;
 
-    const context = currentContext();
     const batchId = `live-remediation-${Date.now()}`;
     setLastBatch(batchId);
     sessionStorage.setItem("seogrow-remediation-active-batch-v1", batchId);
@@ -578,11 +643,12 @@ export default function WordPressLiveRemediationControl() {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || "Applicazione live non riuscita.");
         const fields = data.changed || [];
+        const snapshot = item.contextSnapshot || {};
         const record = {
           id: `correction-${crypto.randomUUID()}`,
           batchId,
-          clientId: context.clientId,
-          clientName: context.client?.name || "",
+          clientId: snapshot.clientId,
+          clientName: snapshot.clientName || "",
           platform: "wordpress",
           liveApproval: true,
           adapter: data.adapter || item.plan.adapter,
