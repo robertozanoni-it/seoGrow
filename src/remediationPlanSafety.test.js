@@ -28,6 +28,25 @@ test("stessa risorsa e stesso valore non produce conflitto", () => {
   assert.equal(conflicts.length, 0);
 });
 
+test("oggetti annidati diversi sullo stesso campo non vengono considerati equivalenti", () => {
+  const resource = "wp:site:posts:42";
+  const conflicts = detectPreviewConflicts([
+    { status: "preview", resourceIdentity: resource, plan: { changes: { meta: { plugin_state: { robots: { index: true, follow: true } } } } } },
+    { status: "preview", resourceIdentity: resource, plan: { changes: { meta: { plugin_state: { robots: { index: false, follow: true } } } } } },
+  ]);
+  assert.equal(conflicts.length, 1);
+  assert.equal(conflicts[0].field, "meta.plugin_state");
+});
+
+test("l'ordine delle chiavi annidate non crea falsi conflitti", () => {
+  const resource = "wp:site:posts:42";
+  const conflicts = detectPreviewConflicts([
+    { status: "preview", resourceIdentity: resource, plan: { changes: { meta: { plugin_state: { robots: { index: true, follow: true }, mode: "safe" } } } } },
+    { status: "preview", resourceIdentity: resource, plan: { changes: { meta: { plugin_state: { mode: "safe", robots: { follow: true, index: true } } } } } },
+  ]);
+  assert.equal(conflicts.length, 0);
+});
+
 test("canonical differente senza prova resta bloccata", () => {
   const decision = remediationContextDecision(
     { type: "canonical", label: "Canonical differente dall’URL analizzato" },
