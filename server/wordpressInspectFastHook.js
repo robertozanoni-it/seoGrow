@@ -1,11 +1,8 @@
 import dns from "node:dns/promises";
-import express from "express";
 import { isPrivateOrReservedAddress } from "./networkSafety.js";
 import { pickExactWordPressEntity } from "./wordpressEntityIdentity.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressInspectFastHook");
-const USE_PATCHED = Symbol.for("seogrow.wordpressInspectFastUsePatched");
-const LISTEN_PATCHED = Symbol.for("seogrow.wordpressInspectFastListenPatched");
 const RATE = new Map();
 
 async function safeBase(input) {
@@ -129,23 +126,3 @@ function registerRoutes(app) {
 }
 
 export { registerRoutes, resolveEntity, safeBase };
-
-const originalUse = express.application.use;
-if (!originalUse[USE_PATCHED]) {
-  const patchedUse = function (...args) {
-    if (!this[HOOKED] && args[0] === "/api") registerRoutes(this);
-    return originalUse.apply(this, args);
-  };
-  patchedUse[USE_PATCHED] = true;
-  express.application.use = patchedUse;
-}
-
-const originalListen = express.application.listen;
-if (!originalListen[LISTEN_PATCHED]) {
-  const patchedListen = function (...args) {
-    registerRoutes(this);
-    return originalListen.apply(this, args);
-  };
-  patchedListen[LISTEN_PATCHED] = true;
-  express.application.listen = patchedListen;
-}
