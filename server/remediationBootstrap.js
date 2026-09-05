@@ -45,7 +45,11 @@ export function registerRemediationRoutes(app) {
       supports: [
         "inspect",
         "inspect-fast",
-        "inspect-taxonomy-read-only",
+        "inspect-taxonomy",
+        "taxonomy-preview",
+        "taxonomy-apply",
+        "taxonomy-rollback-preview",
+        "taxonomy-verify",
         "frontend-verification",
         "patch-v2",
         "seo-value-v2",
@@ -54,7 +58,8 @@ export function registerRemediationRoutes(app) {
         "live-rollback",
       ],
       liveMode: "single-explicit-approval",
-      taxonomyMode: "read-only-exact-identity",
+      taxonomyMode: "single-field-explicit-approval-stale-safe",
+      taxonomyConnectorMinimum: "1.3.0",
       draftCopyCompatibility: false,
     });
   });
@@ -67,4 +72,3 @@ export function registerRemediationRoutes(app) {
 export const explicitRemediationRouteModules = remediationModules
   .filter((module) => typeof module.registerRoutes === "function")
   .length;
-
