@@ -13,11 +13,8 @@ import GuidedUxLayer from './GuidedUxLayer';
 import ProblemsNavBridge from './ProblemsNavBridge';
 import ProblemsWorkspace from './ProblemsWorkspace';
 import AuditWorkspace from './AuditWorkspace';
-import RemediationHost from './RemediationHost';
+import RemediationRuntime from './RemediationRuntime';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
-import WordPressConnectionControl from './WordPressConnectionControl';
-import WordPressLiveRemediationControlV2 from './WordPressLiveRemediationControlV2';
-import WordPressConnectorControl from './WordPressConnectorControl';
 import './styles.css';
 
 class AppErrorBoundary extends React.Component {
@@ -51,10 +48,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ProblemsNavBridge />
       <ProblemsWorkspace />
       <AuditWorkspace />
-      <RemediationHost />
-      <WordPressConnectionControl />
-      <WordPressLiveRemediationControlV2 />
-      <WordPressConnectorControl />
+      <RemediationRuntime />
       <CorrectionsWorkspace />
     </AppErrorBoundary>
   </React.StrictMode>,
