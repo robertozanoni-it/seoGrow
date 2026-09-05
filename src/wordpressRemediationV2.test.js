@@ -1,15 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import {
-  assessCoreOwnership,
-  chooseElementorContentCandidate,
-  inspectEditableElementor,
-} from "./wordpressOwnership.js";
+import { shouldPreferElementorOwnership } from "./wordpressRemediationRuntimePatch.js";
+import { countVisibleWords, shortContentTarget } from "../server/wordpressContentTarget.js";
 
 const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./wordpressRemediationRuntimePatch.js", import.meta.url), "utf8");
 const liveControl = await readFile(new URL("./WordPressLiveRemediationControl.jsx", import.meta.url), "utf8");
+const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.url), "utf8");
 const frontendVerification = await readFile(new URL("../server/frontendVerificationHook.js", import.meta.url), "utf8");
 const connector = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url), "utf8");
 
@@ -26,6 +24,38 @@ test("il patch engine unisce tutti i chunk output_text prima del parsing", () =>
   assert.match(patchServer, /source\.lastIndexOf\("\}"\)/);
 });
 
+test("la remediation contenuto breve calcola un target con margine oltre la soglia", () => {
+  const widgetContent = `<p>${Array.from({ length: 116 }, (_, index) => `parola${index}`).join(" ")}</p>`;
+  assert.equal(countVisibleWords(widgetContent), 116);
+  assert.equal(
+    shortContentTarget(
+      { label: "Contenuto breve per pagina content: 90 parole" },
+      { content: widgetContent },
+    ),
+    230,
+  );
+  assert.equal(
+    shortContentTarget(
+      { label: "Contenuto breve per pagina utility: 16 parole" },
+      { content: `<p>${Array(16).fill("parola").join(" ")}</p>` },
+    ),
+    80,
+  );
+});
+
+test("il target esplicito della remediation viene rispettato e limitato in sicurezza", () => {
+  assert.equal(shortContentTarget({ remediationTargetWords: 215 }, { content: "testo" }), 215);
+  assert.equal(shortContentTarget({ remediationTargetWords: 9999 }, { content: "testo" }), 1200);
+});
+
+test("una patch contenuto troppo breve viene rigenerata e mai proposta come applicabile", () => {
+  assert.match(patchServer, /generatedWords < targetWords/);
+  assert.match(patchServer, /remediationTargetWords: targetWords/);
+  assert.match(patchServer, /rigenera l'intero contenuto/);
+  assert.match(patchServer, /Nessuna anteprima applicabile è stata creata/);
+  assert.match(patchServer, /almeno \$\{targetWords\} parole di testo visibile/);
+});
+
 test("gli H1 vengono corretti deterministicamente senza chiamare OpenAI", () => {
   extractFunction(patchServer, "deterministicH1Patch");
   assert.match(patchServer, /openings\.length === 0/);
@@ -34,77 +64,10 @@ test("gli H1 vengono corretti deterministicamente senza chiamare OpenAI", () => 
   assert.match(patchServer, /deterministicH1Patch/);
 });
 
-test("ownership WordPress core richiede copertura forte e non un solo probe", () => {
-  const entity = { content: { raw: "<h1>Titolo</h1><p>uno due tre quattro cinque sei sette otto nove dieci undici dodici tredici quattordici quindici sedici diciassette diciotto diciannove venti</p>" } };
-  const weak = assessCoreOwnership("content", entity, {
-    contentProbeVisible: true,
-    words: 30,
-    expectedWords: 20,
-    contentProbeCount: 3,
-    contentProbeMatches: 1,
-    contentCoverageStrong: false,
-  });
-  assert.equal(weak.ok, false);
-
-  const strong = assessCoreOwnership("content", entity, {
-    contentProbeVisible: true,
-    words: 30,
-    expectedWords: 21,
-    contentProbeCount: 3,
-    contentProbeMatches: 3,
-    contentCoverageStrong: true,
-  });
-  assert.equal(strong.ok, true);
-});
-
-test("la remediation H1 core richiede sia copertura forte sia conteggio H1 coincidente", () => {
-  const entity = { content: { raw: "<h1>Titolo</h1><p>contenuto sufficientemente lungo per una pagina WordPress core con testo visibile e verificabile</p>" } };
-  const frontend = {
-    h1: 1,
-    words: 20,
-    expectedWords: 16,
-    contentProbeCount: 1,
-    contentProbeMatches: 1,
-    contentCoverageStrong: true,
-  };
-  assert.equal(assessCoreOwnership("h1", entity, frontend).ok, true);
-  assert.equal(assessCoreOwnership("h1", entity, { ...frontend, h1: 2 }).ok, false);
-});
-
-test("Elementor content espone solo text-editor statici modificabili", () => {
-  const entity = {
-    meta: {
-      _elementor_data: JSON.stringify([
-        { widgetType: "heading", settings: { title: "Titolo", header_size: "h1" }, elements: [] },
-        { widgetType: "text-editor", settings: { editor: "<p>Testo Elementor visibile</p>" }, elements: [] },
-        { widgetType: "text-editor", settings: { editor: "<p>Dinamico</p>", __dynamic__: { editor: "token" } }, elements: [] },
-      ]),
-    },
-  };
-  const state = inspectEditableElementor("content", entity);
-  assert.equal(state.state, "valid");
-  assert.equal(state.widgets.length, 1);
-  assert.match(state.widgets[0].value, /Testo Elementor/);
-});
-
-test("il candidato Elementor ambiguo viene bloccato invece di scegliere il più lungo alla cieca", () => {
-  const candidates = [
-    { item: { id: "a" }, value: "testo uno", words: 30 },
-    { item: { id: "b" }, value: "testo due", words: 28 },
-  ];
-  const probes = [{ contentProbeVisible: true }, { contentProbeVisible: true }];
-  const selected = chooseElementorContentCandidate(candidates, probes, 90);
-  assert.equal(selected.candidate, null);
-  assert.match(selected.reason, /Più text-editor Elementor/);
-});
-
-test("buildPlan valuta Elementor prima di autorizzare il fallback WordPress core", () => {
-  const elementorBranch = liveControl.indexOf('elementorState.state === "valid" && elementorState.widgets.length > 0');
-  const coreBranch = liveControl.indexOf("if (ownership.ok)", elementorBranch);
-  assert.ok(elementorBranch >= 0);
-  assert.ok(coreBranch > elementorBranch);
-  assert.match(liveControl, /Il fallback su post_content è bloccato/);
-  assert.match(liveControl, /changes: \{ meta: \{ _elementor_data:/);
+test("la remediation H1 usa WordPress core solo se la copertura core è forte e gli H1 coincidono", () => {
+  assert.match(ownership, /contentCoverageStrong/);
+  assert.match(ownership, /frontendH1 === coreH1/);
+  assert.match(liveControl, /assessCoreOwnership/);
 });
 
 test("un audit H1 stale viene marcato già risolto invece di tentare una patch inutile", () => {
@@ -127,18 +90,23 @@ test("l'anteprima live ha un fallback locale e mostra i campi interessati", () =
   assert.match(liveControl, /Campi interessati:/);
 });
 
-test("il verificatore frontend produce evidenza multi-probe per ownership core", () => {
-  extractFunction(frontendVerification, "contentOwnershipEvidence");
+test("il resolver Elementor precede WordPress core per content e blocca fallback ambiguo", () => {
+  assert.match(liveControl, /inspectEditableElementor\(kind, entity\)/);
+  assert.match(liveControl, /elementorPlan\(kind, issue, entity, targetUrl, elementorState, ownership\.frontend\)/);
+  const elementorIndex = liveControl.indexOf("if (elementorState.state === \"valid\" && elementorState.widgets.length > 0)");
+  const coreIndex = liveControl.indexOf("if (ownership.ok)", elementorIndex);
+  assert.ok(elementorIndex >= 0 && coreIndex > elementorIndex, "Elementor deve essere valutato prima del fallback core");
+  assert.match(liveControl, /Il fallback su post_content è bloccato/);
+  assert.match(ownership, /chooseElementorContentCandidate/);
   assert.match(frontendVerification, /contentProbeMatches/);
-  assert.match(frontendVerification, /contentProbeCount/);
   assert.match(frontendVerification, /contentCoverageStrong/);
-  assert.match(frontendVerification, /expectedWords/);
 });
 
-test("il runtime non altera più artificialmente l'ownership Elementor", () => {
-  assert.doesNotMatch(runtime, /shouldPreferElementorOwnership/);
-  assert.doesNotMatch(runtime, /seogrowOwnership/);
+test("il runtime patch non decide più l'ownership Elementor", () => {
+  const inspected = { entity: { meta: { _elementor_data: "[]" } } };
+  assert.equal(shouldPreferElementorOwnership(inspected, { expected: { content: "testo" } }), true);
   assert.doesNotMatch(runtime, /data\.contentProbeVisible = false/);
+  assert.doesNotMatch(runtime, /data\.seogrowOwnership = "elementor"/);
 });
 
 test("la cache runtime non include mai la password applicativa", () => {
