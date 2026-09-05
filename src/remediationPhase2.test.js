@@ -49,14 +49,18 @@ test("Rank Math e Yoast simultanei non vengono risolti per priorità arbitraria"
   assert.match(live, /non sceglie un plugin SEO per priorità arbitraria/);
 });
 
-test("pending generation non usa più fallback FIFO", () => {
-  assert.match(location, /return index >= 0 \? pendingGenerations\.splice\(index, 1\)\[0\] : null/);
-  assert.doesNotMatch(location, /pendingGenerations\.shift\(\) \|\| null/);
+test("il live flow V2 registra la correzione senza dipendere dal vecchio correlatore fetch", () => {
+  assert.match(live, /await saveCorrection\(record\)/);
+  assert.match(live, /seogrow-remediation-applied/);
+  assert.doesNotMatch(location, /pendingGenerations|takePendingGeneration|\/api\/wordpress\/remediate/);
+  assert.doesNotMatch(location, /window\.fetch\s*=/);
 });
 
-test("riverifica crawl non usa una pagina diversa come fallback", () => {
-  assert.match(location, /La pagina target non è presente nel nuovo crawl/);
-  assert.doesNotMatch(location, /\|\| data\.pages\?\.\[0\]/);
+test("locationEvents è limitato alla navigazione e non intercetta più le risposte API", () => {
+  assert.match(location, /patchHistoryMethod\("pushState"\)/);
+  assert.match(location, /patchHistoryMethod\("replaceState"\)/);
+  assert.match(location, /seogrow-locationchange/);
+  assert.doesNotMatch(location, /filterGdprFromSeoResponse|verifyCorrection|saveCorrection/);
 });
 
 test("rollback usa direttamente la route stale-safe senza fetch router", () => {
