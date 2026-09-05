@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, Eye, ShieldCheck, Wrench } from "lucide-react";
 import { apiFetch } from "./api";
+import { attachElementorImpactEvidence, inspectElementorImpactEvidence } from "./elementorImpactClient";
 import { normalizeAnalysisHistory } from "./platform";
 import { listCorrections, saveCorrection, setLastBatch, stableIssueKey } from "./remediationStore";
 import {
@@ -96,21 +97,45 @@ const elementorOwnershipDetail = (entity) => {
   const ownership = entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
     ? entity._seogrowOwnership
     : {};
-  const resolved = Array.isArray(ownership.elementorResolvedExternalDocuments)
+  const impactEvidence = ownership.elementorImpactEvidence && typeof ownership.elementorImpactEvidence === "object"
+    ? ownership.elementorImpactEvidence
+    : null;
+  const conditionRows = Array.isArray(impactEvidence?.documents) ? impactEvidence.documents : [];
+  const conditionById = new Map(conditionRows.map((row) => [Number(row?.id), row]));
+  const resolvedSources = Array.isArray(ownership.elementorResolvedSourceDocuments)
+    ? ownership.elementorResolvedSourceDocuments.filter((item) => item?.resolved === true)
+    : [];
+  const resolvedExternal = Array.isArray(ownership.elementorResolvedExternalDocuments)
     ? ownership.elementorResolvedExternalDocuments.filter((item) => item?.resolved === true)
     : [];
   const rendered = Array.isArray(ownership.elementorExternalRenderedDocuments)
     ? ownership.elementorExternalRenderedDocuments
     : [];
-  const sources = resolved.length ? resolved : rendered;
+  const local = Array.isArray(ownership.elementorLocalSourceReferences)
+    ? ownership.elementorLocalSourceReferences
+    : [];
+  const sources = resolvedSources.length ? resolvedSources : resolvedExternal.length ? resolvedExternal : [...rendered, ...local];
   if (sources.length) {
     const labels = sources.slice(0, 6).map((item) => {
       const type = String(item?.type || "documento");
       const id = Number(item?.id);
       const title = String(item?.title || "").trim();
-      return `${type}${Number.isSafeInteger(id) ? ` #${id}` : ""}${title ? ` “${title}”` : ""}`;
+      const condition = Number.isSafeInteger(id) ? conditionById.get(id) : null;
+      const conditionLabel = condition?.ok && condition?.conditionsObserved
+        ? " · condizioni lette (semantica da verificare)"
+        : condition?.ok
+          ? " · condizioni non esposte"
+          : condition?.error
+            ? " · condizioni non verificabili"
+            : "";
+      return `${type}${Number.isSafeInteger(id) ? ` #${id}` : ""}${title ? ` “${title}”` : ""}${conditionLabel}`;
     });
-    return `Il frontend della URL usa anche documenti Elementor condivisi: ${labels.join(", ")}. SeoGrow ha identificato l'ownership esterna ma non modifica automaticamente un template condiviso senza analizzarne l'impatto sulle altre pagine.`;
+    const evidenceNote = impactEvidence?.ok === false
+      ? ` La lettura read-only delle condizioni non è riuscita: ${impactEvidence.error}`
+      : impactEvidence
+        ? " Le condizioni disponibili sono state lette in sola lettura, ma SeoGrow non ne considera ancora risolta la semantica né enumera automaticamente tutte le URL coinvolte."
+        : " Le Display Conditions e il raggio sulle altre URL non sono ancora dimostrati.";
+    return `Il frontend della URL usa anche documenti Elementor condivisi: ${labels.join(", ")}. SeoGrow ha identificato l'ownership esterna ma non modifica automaticamente un template condiviso senza analizzarne l'impatto sulle altre pagine.${evidenceNote}`;
   }
   if (ownership.elementorEvidenceStatus === "shared-templates-present-unresolved") {
     const types = Array.isArray(ownership.elementorSharedTemplateTypes) ? ownership.elementorSharedTemplateTypes : [];
@@ -494,6 +519,10 @@ export default function WordPressLiveRemediationControlV2() {
           inspectWordPress(targetUrl, credentials),
           inspectFrontend(targetUrl),
         ]);
+        if (["content", "h1"].includes(kind)) {
+          const impactEvidence = await inspectElementorImpactEvidence(inspected.entity, credentials);
+          if (impactEvidence) attachElementorImpactEvidence(inspected.entity, impactEvidence);
+        }
         const plan = await buildPlan(kind, currentIssue, inspected, targetUrl, frontendContext);
         const contextSnapshot = {
           clientId: context.clientId,
