@@ -2,7 +2,7 @@
 /**
  * Plugin Name: SeoGrow Connector
  * Description: Espone a SeoGrow, tramite la REST API autenticata di WordPress, solo i campi necessari per Elementor, Rank Math e Yoast.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: SeoGrow AI
  * Requires at least: 6.0
  * Requires PHP: 7.4
@@ -12,7 +12,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-const SEOGROW_CONNECTOR_VERSION = '1.0.0';
+const SEOGROW_CONNECTOR_VERSION = '1.1.0';
 
 function seogrow_connector_can_edit_meta($allowed, $meta_key, $object_id) {
     $post_id = absint($object_id);
@@ -107,12 +107,44 @@ function seogrow_connector_clear_elementor_cache($meta_id, $post_id, $meta_key) 
 add_action('updated_post_meta', 'seogrow_connector_clear_elementor_cache', 10, 3);
 add_action('added_post_meta', 'seogrow_connector_clear_elementor_cache', 10, 3);
 
+function seogrow_connector_elementor_shared_template_types() {
+    if (!(defined('ELEMENTOR_VERSION') || class_exists('Elementor\\Plugin'))) {
+        return array();
+    }
+
+    $ids = get_posts(array(
+        'post_type' => 'elementor_library',
+        'post_status' => 'publish',
+        'fields' => 'ids',
+        'posts_per_page' => 200,
+        'no_found_rows' => true,
+        'orderby' => 'ID',
+        'order' => 'DESC',
+    ));
+    if (!is_array($ids) || !$ids) {
+        return array();
+    }
+
+    $shared = array('header', 'footer', 'single', 'archive', 'popup', 'widget');
+    $types = array();
+    foreach ($ids as $id) {
+        $type = sanitize_key((string) get_post_meta(absint($id), '_elementor_template_type', true));
+        if ($type && in_array($type, $shared, true)) {
+            $types[$type] = true;
+        }
+    }
+    return array_values(array_keys($types));
+}
+
 function seogrow_connector_status() {
+    $has_elementor = defined('ELEMENTOR_VERSION') || class_exists('Elementor\\Plugin');
     return rest_ensure_response(array(
         'ok' => true,
         'connector' => 'SeoGrow Connector',
         'version' => SEOGROW_CONNECTOR_VERSION,
-        'elementor' => defined('ELEMENTOR_VERSION') || class_exists('Elementor\\Plugin'),
+        'elementor' => $has_elementor,
+        'elementorPro' => defined('ELEMENTOR_PRO_VERSION'),
+        'elementorSharedTemplateTypes' => $has_elementor ? seogrow_connector_elementor_shared_template_types() : array(),
         'rankMath' => defined('RANK_MATH_VERSION') || class_exists('RankMath\\Helper'),
         'yoast' => defined('WPSEO_VERSION') || class_exists('WPSEO_Options'),
     ));
