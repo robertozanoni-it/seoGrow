@@ -1,12 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  correctionEvent,
   deriveProblemState,
   exactProblemStatus,
   issueIdentity,
   latestAudit,
   normalizeClientId,
   resourceIdentity,
+  taskEvent,
 } from "./reliabilityModel.js";
 
 test("Completato non equivale a Verificato e Non verificato non contiene Verificato", () => {
@@ -39,6 +41,37 @@ test("rollback riporta il problema ad aperto", () => {
   ]);
   assert.equal(state.problemState, "open");
   assert.equal(state.interventionState, "rolled_back");
+});
+
+test("gli eventi correzione usano il timestamp coerente con lo stato finale", () => {
+  const rollback = correctionEvent({
+    status: "Ripristinato",
+    verifiedAt: "2026-09-05T09:00:00Z",
+    appliedAt: "2026-09-05T08:30:00Z",
+    rollbackAt: "2026-09-05T11:00:00Z",
+  });
+  assert.equal(rollback.kind, "rollback");
+  assert.equal(rollback.at, "2026-09-05T11:00:00Z");
+
+  const applied = correctionEvent({
+    status: "Da verificare",
+    createdAt: "2026-09-05T08:00:00Z",
+    updatedAt: "2026-09-05T10:00:00Z",
+    appliedAt: "2026-09-05T09:30:00Z",
+  });
+  assert.equal(applied.kind, "correction_applied");
+  assert.equal(applied.at, "2026-09-05T09:30:00Z");
+});
+
+test("una task completata usa completedAt e non un updatedAt precedente", () => {
+  const event = taskEvent({
+    status: "Completato",
+    createdAt: "2026-09-05T08:00:00Z",
+    updatedAt: "2026-09-05T09:00:00Z",
+    completedAt: "2026-09-05T11:30:00Z",
+  });
+  assert.equal(event.kind, "task_completed");
+  assert.equal(event.at, "2026-09-05T11:30:00Z");
 });
 
 test("alias con lo stesso ID WordPress condividono la stessa risorsa", () => {
