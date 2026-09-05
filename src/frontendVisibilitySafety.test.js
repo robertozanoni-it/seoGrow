@@ -27,6 +27,17 @@ test("il frontend espone gli ID dei documenti Elementor effettivamente presenti 
   ]);
 });
 
+test("ID Elementor presenti solo in script template style o noscript non diventano falsa ownership", () => {
+  const documents = elementorRenderedDocuments(`
+    <main data-elementor-id="42" data-elementor-type="wp-page"></main>
+    <script>const markup = '<div data-elementor-id="701" data-elementor-type="popup"></div>';</script>
+    <template><section data-elementor-id="702" data-elementor-type="single"></section></template>
+    <style>.x::after { content: '<div data-elementor-id="703" data-elementor-type="header">'; }</style>
+    <noscript><footer data-elementor-id="704" data-elementor-type="footer"></footer></noscript>
+  `);
+  assert.deepEqual(documents, [{ id: 42, type: "wp-page" }]);
+});
+
 test("il contenuto breve non passa a Verificato con visibilità responsive non dimostrata", () => {
   assert.match(integrity, /const visibilitySafe = data\.verificationSafe !== false && data\.requiresBrowserVerification !== true/);
   assert.match(integrity, /const fixed = thresholdReached && modifiedContentVisible && qualityAccepted && visibilitySafe/);
