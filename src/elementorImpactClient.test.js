@@ -165,9 +165,10 @@ test("il client conserva il contratto fail-closed e accetta candidate URL solo c
   assert.match(source, /completeSiteEnumeration\s*=\s*data\?\.observedUrlCoverage\?\.completeSiteEnumeration\s*===\s*true/);
   assert.match(source, /affectedPagesEnumerated\s*=\s*data\?\.affectedPagesEnumerated\s*===\s*true[\s\S]*completeSiteEnumeration[\s\S]*displayConditionsResolved/);
   assert.match(source, /catch \(error\)[\s\S]*return failedEvidence\(error\)/);
-  assert.match(source, /candidateUrls:\s*Array\.isArray\(candidateUrls\)/);
+  assert.match(source, /candidateUrls:\s*effectiveCandidateUrls/);
   assert.match(source, /targetEntity:\s*\{/);
   assert.match(source, /id:\s*Number\(entity\?\.id\)/);
+  assert.match(source, /verified-complete-crawl/);
   assert.doesNotMatch(source, /sharedWriteAllowed:\s*data/);
 });
 
