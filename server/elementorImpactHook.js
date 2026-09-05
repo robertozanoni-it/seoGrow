@@ -94,7 +94,16 @@ export function boundConditionValue(input) {
   return visit(input, 0);
 }
 
-export function interpretElementorConditions(input) {
+export function normalizeImpactTarget(targetEntity) {
+  const id = Number(targetEntity?.id);
+  return {
+    id: Number.isSafeInteger(id) && id > 0 ? id : null,
+    type: String(targetEntity?.type || "").trim().toLowerCase().slice(0, 80),
+  };
+}
+
+export function interpretElementorConditions(input, targetEntity = null) {
+  const target = normalizeImpactTarget(targetEntity);
   const values = Array.isArray(input)
     ? input.filter((value) => typeof value === "string").map((value) => value.trim()).filter(Boolean).slice(0, 200)
     : [];
@@ -102,30 +111,70 @@ export function interpretElementorConditions(input) {
     const segments = raw.split("/").map((part) => part.trim()).filter(Boolean).slice(0, 12);
     const operator = ["include", "exclude"].includes(segments[0]) ? segments[0] : "unknown";
     const path = operator === "unknown" ? segments : segments.slice(1);
-    const entireSite = operator === "include" && path.length === 1 && path[0] === "general";
+    const general = operator !== "unknown" && path.length === 1 && path[0] === "general";
+    const entireSite = operator === "include" && general;
     const finalToken = path.at(-1) || "";
     const explicitNumericTarget = /^\d+$/.test(finalToken) ? Number(finalToken) : null;
+    const explicitSingularTarget = operator !== "unknown" && path[0] === "singular" && explicitNumericTarget !== null;
+    const targetMatches = explicitSingularTarget && target.id !== null
+      ? explicitNumericTarget === target.id
+      : null;
+
+    let semanticStatus = "unresolved";
+    let targetEffect = "unknown";
+    if (general) {
+      semanticStatus = operator === "include" ? "resolved-entire-site" : "resolved-entire-site-exclusion";
+      targetEffect = operator;
+    } else if (explicitSingularTarget && target.id !== null) {
+      semanticStatus = "resolved-explicit-singular-target";
+      targetEffect = targetMatches ? operator : "no-match";
+    }
+
     return {
       raw,
       operator,
       path,
       entireSite,
       explicitNumericTarget,
-      semanticStatus: entireSite ? "resolved-entire-site" : "unresolved",
+      explicitSingularTarget,
+      targetMatches,
+      targetEffect,
+      semanticStatus,
     };
   });
   const resolvedEntries = entries.filter((entry) => entry.semanticStatus !== "unresolved").length;
   const displayConditionsResolved = entries.length > 0 && resolvedEntries === entries.length;
+  const includeRules = entries.filter((entry) => entry.operator === "include");
+  let targetApplicability = "unknown";
+  if (displayConditionsResolved && target.id !== null) {
+    if (entries.some((entry) => entry.targetEffect === "exclude")) targetApplicability = "excluded";
+    else if (entries.some((entry) => entry.targetEffect === "include")) targetApplicability = "applies";
+    else if (includeRules.length > 0) targetApplicability = "not-applied";
+  }
+
+  let note;
+  if (displayConditionsResolved && targetApplicability === "applies") {
+    note = "Le condizioni osservate sono interpretabili nel sottoinsieme supportato e includono la risorsa WordPress target.";
+  } else if (displayConditionsResolved && targetApplicability === "excluded") {
+    note = "Le condizioni osservate sono interpretabili nel sottoinsieme supportato e una regola exclude esclude la risorsa WordPress target.";
+  } else if (displayConditionsResolved && targetApplicability === "not-applied") {
+    note = "Le condizioni osservate sono interpretabili nel sottoinsieme supportato, ma nessuna regola include corrisponde alla risorsa WordPress target.";
+  } else if (displayConditionsResolved) {
+    note = "Le condizioni osservate sono interpretabili nel sottoinsieme supportato, ma manca un'identità WordPress target sufficiente per stabilirne l'applicazione.";
+  } else if (resolvedEntries > 0) {
+    note = "Una parte delle condizioni è interpretabile, ma almeno una regola resta semanticamente non risolta.";
+  } else {
+    note = "Le condizioni sono conservate come evidenza strutturata senza inferenze sul loro significato.";
+  }
+
   return {
     entries,
+    target,
     entireSiteIncluded: entries.some((entry) => entry.entireSite),
+    targetApplicability,
     semanticStatus: displayConditionsResolved ? "resolved" : resolvedEntries > 0 ? "partial" : "unresolved",
     displayConditionsResolved,
-    note: displayConditionsResolved
-      ? "Le sole condizioni osservate corrispondono a include/general, che Elementor core usa per l'ambito intero sito."
-      : resolvedEntries > 0
-        ? "Una parte delle condizioni è interpretabile, ma almeno una regola resta semanticamente non risolta."
-        : "Le condizioni sono conservate come evidenza strutturata senza inferenze sul loro significato.",
+    note,
   };
 }
 
@@ -151,12 +200,14 @@ export function normalizeImpactCandidateUrls(base, candidateUrls) {
   return [...unique.values()];
 }
 
-export function extractElementorConditionEvidence(entity, requested = {}) {
+export function extractElementorConditionEvidence(entity, requested = {}, targetEntity = null) {
   const meta = entity?.meta && typeof entity.meta === "object" && !Array.isArray(entity.meta) ? entity.meta : {};
   const hasConditions = Object.prototype.hasOwnProperty.call(meta, "_elementor_conditions");
   const templateType = String(meta._elementor_template_type || requested.type || entity?.type || "unknown").trim().toLowerCase() || "unknown";
   const conditions = hasConditions ? boundConditionValue(meta._elementor_conditions) : null;
-  const conditionInterpretation = hasConditions ? interpretElementorConditions(meta._elementor_conditions) : interpretElementorConditions(null);
+  const conditionInterpretation = hasConditions
+    ? interpretElementorConditions(meta._elementor_conditions, targetEntity)
+    : interpretElementorConditions(null, targetEntity);
   return {
     id: Number(entity?.id),
     type: templateType,
@@ -169,6 +220,7 @@ export function extractElementorConditionEvidence(entity, requested = {}) {
     conditionInterpretation,
     conditionsSource: hasConditions ? "elementor-rest-edit-context" : "not-exposed",
     displayConditionsResolved: hasConditions && conditionInterpretation.displayConditionsResolved === true,
+    targetApplicability: conditionInterpretation.targetApplicability,
     affectedPagesEnumerated: false,
     sharedWriteAllowed: false,
     note: hasConditions
@@ -250,10 +302,11 @@ async function observeRenderedSources(candidateUrls, documentIds) {
   };
 }
 
-async function inspectImpact({ siteUrl, username, applicationPassword, documents, candidateUrls }) {
+async function inspectImpact({ siteUrl, username, applicationPassword, documents, candidateUrls, targetEntity }) {
   if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
   const requested = normalizeImpactDocuments(documents);
   if (!requested.length) throw new Error("Indica almeno un documento Elementor già identificato da SeoGrow.");
+  const normalizedTarget = normalizeImpactTarget(targetEntity);
   const base = await safeBase(siteUrl);
   const headers = authHeaders(username, applicationPassword);
   const types = await readJson(await wpFetch(typesEndpoint(base), { headers }));
@@ -265,7 +318,7 @@ async function inspectImpact({ siteUrl, username, applicationPassword, documents
     try {
       const entity = await readJson(await wpFetch(elementorLibraryEndpoint(base, descriptor, document.id), { headers }));
       if (Number(entity?.id) !== document.id) throw new Error("L'ID restituito da WordPress non coincide con il documento Elementor richiesto.");
-      results.push({ ok: true, ...extractElementorConditionEvidence(entity, document) });
+      results.push({ ok: true, ...extractElementorConditionEvidence(entity, document, normalizedTarget) });
     } catch (error) {
       results.push({
         ok: false,
@@ -274,6 +327,7 @@ async function inspectImpact({ siteUrl, username, applicationPassword, documents
         origins: document.origins,
         sharedWriteAllowed: false,
         displayConditionsResolved: false,
+        targetApplicability: "unknown",
         affectedPagesEnumerated: false,
         error: error instanceof Error ? error.message : "Ispezione documento Elementor non riuscita.",
       });
@@ -297,14 +351,18 @@ async function inspectImpact({ siteUrl, username, applicationPassword, documents
   const resolvedRows = results.filter((row) => row.ok);
   const displayConditionsResolved = resolvedRows.length > 0 && resolvedRows.length === results.length &&
     resolvedRows.every((row) => row.displayConditionsResolved === true);
+  const targetApplicabilityResolved = normalizedTarget.id !== null && resolvedRows.length > 0 &&
+    resolvedRows.length === results.length && resolvedRows.every((row) => row.targetApplicability !== "unknown");
 
   return {
     ok: true,
     readOnly: true,
     mode: "elementor-impact-evidence",
+    targetEntity: normalizedTarget,
     documents: results,
     conditionsSemantics: displayConditionsResolved ? "resolved-known-subset" : "unresolved-or-partial",
     displayConditionsResolved,
+    targetApplicabilityResolved,
     observedUrlCoverage: {
       provided: Array.isArray(candidateUrls) ? candidateUrls.length : 0,
       accepted: normalizedCandidates.length,
