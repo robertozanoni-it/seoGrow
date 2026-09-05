@@ -119,7 +119,7 @@ test("host diverso non può riutilizzare la provenance di un altro sito", () => 
   assert.equal(result.observedUrlCoverage.coverageStatus, "server-verification-missing");
 });
 
-test("decoratore registra solo la route Elementor e ripristina app.post", async () => {
+test("decoratore registra solo la route Elementor e ripristina esattamente app.post", async () => {
   const registrations = [];
   const app = {
     post(path, ...handlers) {
@@ -128,10 +128,12 @@ test("decoratore registra solo la route Elementor e ripristina app.post", async 
     },
   };
   const originalPost = app.post;
+  const firstMiddleware = (_req, _res, next) => next();
+  const finalHandler = (_req, res) => res.json(basePayload());
   const module = {
     registerRoutes(target) {
-      target.post("/api/wordpress/elementor-impact-inspect", (_req, res) => res.json(basePayload()));
-      target.post("/api/wordpress/not-elementor", (_req, res) => res.json({ ok: true }));
+      target.post("/api/wordpress/elementor-impact-inspect", firstMiddleware, finalHandler);
+      target.post("/api/wordpress/not-elementor", finalHandler);
     },
   };
 
@@ -139,14 +141,14 @@ test("decoratore registra solo la route Elementor e ripristina app.post", async 
   assert.equal(registrations.length, 2);
   assert.equal(registrations[0].path, "/api/wordpress/elementor-impact-inspect");
   assert.equal(registrations[1].path, "/api/wordpress/not-elementor");
-  assert.notEqual(registrations[0].handlers[0], module.registerRoutes);
-  assert.equal(typeof app.post, "function");
-  assert.notEqual(app.post, undefined);
-  assert.notEqual(app.post, originalPost);
+  assert.equal(registrations[0].handlers[0], firstMiddleware);
+  assert.notEqual(registrations[0].handlers[1], finalHandler);
+  assert.equal(registrations[1].handlers[0], finalHandler);
+  assert.equal(app.post, originalPost);
 
   let jsonPayload = null;
   const res = { json(payload) { jsonPayload = payload; return payload; } };
-  await registrations[0].handlers[0]({ body: verifiedRequest() }, res, () => {});
+  await registrations[0].handlers[1]({ body: verifiedRequest() }, res, () => {});
   assert.equal(jsonPayload.sharedWriteAllowed, false);
   assert.equal(jsonPayload.affectedPagesEnumerated, false);
 });
