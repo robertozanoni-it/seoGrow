@@ -1,5 +1,13 @@
 import dns from "node:dns/promises";
 import net from "node:net";
+import {
+  connectorEndpoint as taxonomyConnectorEndpoint,
+  normalizeTaxonomyInspection,
+  safeBase as safeTaxonomyBase,
+  sameFieldValue,
+  taxonomyAdapter,
+  taxonomyCurrentValue,
+} from "./wordpressTaxonomyHook.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressLiveRollbackHook");
 
@@ -68,6 +76,20 @@ async function wpJson(url, options) {
   return data;
 }
 
+async function taxonomyJson(response) {
+  const text = await response.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; }
+  catch (error) { throw new Error(`Risposta taxonomy del Connector non valida (HTTP ${response.status}).`, { cause: error }); }
+  if (!response.ok) {
+    const failure = new Error(data?.message || data?.error || data?.code || `WordPress HTTP ${response.status}`);
+    failure.code = data?.code || `HTTP_${response.status}`;
+    failure.status = response.status;
+    throw failure;
+  }
+  return data;
+}
+
 function cleanChanges(input) {
   const source = input && typeof input === "object" ? input : {};
   const result = {};
@@ -113,13 +135,100 @@ function assertExpectedCurrent(entity, expectedCurrent) {
   }
 }
 
+async function rollbackTaxonomy({ siteUrl, targetUrl, username, applicationPassword, adapter, taxonomyField, changes, expectedCurrent }) {
+  const field = String(taxonomyField || "");
+  if (!field || !Object.prototype.hasOwnProperty.call(changes || {}, field) || !Object.prototype.hasOwnProperty.call(expectedCurrent || {}, field)) {
+    const error = new Error("Rollback tassonomia bloccato: snapshot single-field incompleto.");
+    error.code = "STALE_ROLLBACK";
+    throw error;
+  }
+  const base = await safeTaxonomyBase(siteUrl || targetUrl);
+  const auth = headers(username, applicationPassword);
+  const inspectResponse = await fetch(taxonomyConnectorEndpoint(base, "taxonomy-inspect", targetUrl), {
+    method: "GET",
+    headers: auth,
+    redirect: "manual",
+    signal: AbortSignal.timeout(20_000),
+  });
+  if ([301, 302, 303, 307, 308].includes(inspectResponse.status)) {
+    await inspectResponse.body?.cancel();
+    throw new Error("WordPress ha restituito un redirect inatteso durante il rollback tassonomia.");
+  }
+  const inspection = normalizeTaxonomyInspection(await taxonomyJson(inspectResponse), targetUrl);
+  const currentAdapter = taxonomyAdapter(inspection);
+  if (!currentAdapter || currentAdapter !== adapter) {
+    const error = new Error("Rollback tassonomia bloccato: ownership/plugin SEO è cambiato dopo la correzione.");
+    error.code = "STALE_ROLLBACK";
+    throw error;
+  }
+  const expected = expectedCurrent[field];
+  const previous = changes[field];
+  const current = taxonomyCurrentValue(inspection, field, currentAdapter);
+  if (!sameFieldValue(field, current, expected)) {
+    const error = new Error("Rollback tassonomia bloccato: il valore corrente non coincide con lo stato applicato da SeoGrow.");
+    error.code = "STALE_ROLLBACK";
+    throw error;
+  }
+
+  const writeResponse = await fetch(taxonomyConnectorEndpoint(base, "taxonomy-write"), {
+    method: "POST",
+    headers: auth,
+    redirect: "manual",
+    signal: AbortSignal.timeout(20_000),
+    body: JSON.stringify({
+      url: targetUrl,
+      termId: inspection.term.id,
+      taxonomy: inspection.term.taxonomy,
+      adapter: currentAdapter,
+      field,
+      expectedCurrent: expected,
+      value: previous,
+    }),
+  });
+  if ([301, 302, 303, 307, 308].includes(writeResponse.status)) {
+    await writeResponse.body?.cancel();
+    throw new Error("WordPress ha restituito un redirect inatteso durante la scrittura rollback tassonomia.");
+  }
+  const result = await taxonomyJson(writeResponse);
+  if (result?.ok !== true || result?.staleChecked !== true || result?.singleField !== true ||
+      !sameFieldValue(field, result.before, expected) || !sameFieldValue(field, result.after, previous)) {
+    throw new Error("Il Connector non ha confermato integralmente il rollback tassonomia single-field.");
+  }
+  return {
+    ok: true,
+    resource: "taxonomy",
+    id: inspection.term.id,
+    taxonomy: inspection.term.taxonomy,
+    adapter: currentAdapter,
+    changed: [field],
+    staleChecked: true,
+    singleField: true,
+    message: "Versione precedente della tassonomia ripristinata dopo controllo stale-state e rilettura del valore.",
+  };
+}
+
 function registerRoutes(app) {
   if (app[HOOKED]) return;
   app[HOOKED] = true;
   app.post("/api/wordpress/live-rollback", async (req, res) => {
     try {
-      const { siteUrl, targetUrl, username, applicationPassword, resource, id, changes, expectedCurrent } = req.body || {};
+      const { siteUrl, targetUrl, username, applicationPassword, resource, id, adapter, taxonomyField, changes, expectedCurrent } = req.body || {};
       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
+
+      if (resource === "taxonomy") {
+        const result = await rollbackTaxonomy({
+          siteUrl,
+          targetUrl,
+          username,
+          applicationPassword,
+          adapter,
+          taxonomyField,
+          changes,
+          expectedCurrent,
+        });
+        return res.json(result);
+      }
+
       if (resource !== "pages" && resource !== "posts") throw new Error("Tipo di contenuto WordPress non supportato.");
       const entityId = Number(id);
       if (!Number.isSafeInteger(entityId) || entityId <= 0) throw new Error("ID contenuto WordPress non valido.");
@@ -157,10 +266,12 @@ function registerRoutes(app) {
         message: "Versione precedente ripristinata tramite rollback live approvato dopo controllo stale-state.",
       });
     } catch (error) {
-      const status = error?.code === "STALE_ROLLBACK" ? 409 : 400;
-      return res.status(status).json({ error: error instanceof Error ? error.message : "Rollback live non riuscito." });
+      const status = error?.code === "STALE_ROLLBACK"
+        ? 409
+        : Number.isSafeInteger(Number(error?.status)) ? Number(error.status) : 400;
+      return res.status(status).json({ error: error instanceof Error ? error.message : "Rollback live non riuscito.", code: String(error?.code || "") });
     }
   });
 }
 
-export { registerRoutes, assertExpectedCurrent };
+export { registerRoutes, assertExpectedCurrent, rollbackTaxonomy };
