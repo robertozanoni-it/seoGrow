@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   basePath,
+  elementorLibraryEndpoint,
+  elementorLibraryRestDescriptor,
   elementorOwnershipEvidence,
   filterConnectorOwnedMeta,
 } from "../server/wordpressInspectFastHook.js";
@@ -135,6 +137,21 @@ test("gli ID Elementor renderizzati distinguono documento locale e documenti con
     { id: 88, type: "header" },
     { id: 91, type: "footer" },
   ]);
+});
+
+test("Elementor Library viene risolta tramite la REST base dichiarata da WordPress", () => {
+  const descriptor = elementorLibraryRestDescriptor({
+    elementor_library: {
+      slug: "elementor_library",
+      rest_namespace: "wp/v2",
+      rest_base: "elementor_library",
+    },
+  });
+  assert.deepEqual(descriptor, { namespace: "wp/v2", restBase: "elementor_library" });
+  assert.equal(
+    elementorLibraryEndpoint(new URL("https://example.com/wordpress/"), descriptor, 88).href,
+    "https://example.com/wordpress/wp-json/wp/v2/elementor_library/88?context=edit",
+  );
 });
 
 test("template presenti nel sito non bloccano genericamente una pagina quando il frontend mostra solo il documento locale", () => {
