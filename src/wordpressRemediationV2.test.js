@@ -160,7 +160,7 @@ test("il runtime legacy non tronca né riscrive più il payload di approvazione"
 });
 
 test("il runtime browser non carica più il monkey-patch remediation legacy", () => {
-  assert.doesNotMatch(main, /import ['\"]\.\/wordpressRemediationRuntimePatch['\"]/);
+  assert.doesNotMatch(main, /import ['"]\.\/wordpressRemediationRuntimePatch['"]/);
   assert.match(liveControl, /\/api\/wordpress\/inspect-fast/);
   assert.match(liveControl, /\/api\/wordpress\/generate-patch-v2/);
   assert.match(liveControl, /\/api\/wordpress\/generate-seo-value-v2/);
