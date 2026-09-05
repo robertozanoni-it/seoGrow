@@ -136,6 +136,92 @@ function seogrow_connector_elementor_shared_template_types() {
     return array_values(array_keys($types));
 }
 
+function seogrow_connector_elementor_condition_values($value) {
+    if (!is_array($value)) {
+        return array();
+    }
+    $conditions = array();
+    foreach (array_slice($value, 0, 200) as $item) {
+        if (!is_scalar($item)) {
+            continue;
+        }
+        $condition = trim(wp_check_invalid_utf8((string) $item));
+        if ($condition === '') {
+            continue;
+        }
+        $conditions[] = substr($condition, 0, 1000);
+    }
+    return array_values(array_unique($conditions));
+}
+
+function seogrow_connector_elementor_impact_inspect(WP_REST_Request $request) {
+    if (!(defined('ELEMENTOR_VERSION') || class_exists('Elementor\\Plugin'))) {
+        return new WP_Error('seogrow_elementor_unavailable', 'Elementor non risulta attivo.', array('status' => 409));
+    }
+
+    $raw_ids = (string) $request->get_param('ids');
+    $ids = array();
+    foreach (array_slice(explode(',', $raw_ids), 0, 20) as $value) {
+        $id = absint($value);
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
+    }
+    $ids = array_values($ids);
+    if (!$ids) {
+        return new WP_Error('seogrow_elementor_ids_required', 'Indica almeno un ID documento Elementor.', array('status' => 400));
+    }
+
+    $documents = array();
+    foreach ($ids as $id) {
+        $post = get_post($id);
+        if (!$post || $post->post_type !== 'elementor_library') {
+            $documents[] = array(
+                'ok' => false,
+                'id' => (int) $id,
+                'error' => 'L’ID richiesto non identifica un documento Elementor Library.',
+            );
+            continue;
+        }
+        if (!current_user_can('edit_post', $id)) {
+            $documents[] = array(
+                'ok' => false,
+                'id' => (int) $id,
+                'error' => 'Permessi insufficienti per leggere questo documento Elementor.',
+            );
+            continue;
+        }
+
+        $conditions_observed = metadata_exists('post', $id, '_elementor_conditions');
+        $conditions = $conditions_observed
+            ? seogrow_connector_elementor_condition_values(get_post_meta($id, '_elementor_conditions', true))
+            : array();
+        $template_type = sanitize_key((string) get_post_meta($id, '_elementor_template_type', true));
+        $link = get_permalink($id);
+
+        $documents[] = array(
+            'ok' => true,
+            'id' => (int) $id,
+            'type' => $template_type,
+            'title' => get_the_title($id),
+            'status' => (string) get_post_status($id),
+            'link' => is_string($link) ? $link : '',
+            'conditionsObserved' => $conditions_observed,
+            'conditions' => $conditions,
+            'readOnly' => true,
+            'sharedWriteAllowed' => false,
+        );
+    }
+
+    return rest_ensure_response(array(
+        'ok' => true,
+        'readOnly' => true,
+        'resource' => 'elementor-impact-evidence',
+        'sharedWriteAllowed' => false,
+        'documents' => $documents,
+    ));
+}
+
 function seogrow_connector_url_identity($value) {
     $parts = wp_parse_url((string) $value);
     if (!is_array($parts) || empty($parts['host'])) {
@@ -441,6 +527,7 @@ function seogrow_connector_status() {
         'elementor' => $has_elementor,
         'elementorPro' => defined('ELEMENTOR_PRO_VERSION'),
         'elementorSharedTemplateTypes' => $has_elementor ? seogrow_connector_elementor_shared_template_types() : array(),
+        'elementorImpactReadOnly' => true,
         'taxonomyInspect' => true,
         'taxonomyWriteSingleField' => true,
         'rankMath' => defined('RANK_MATH_VERSION') || class_exists('RankMath\\Helper'),
@@ -455,6 +542,21 @@ add_action('rest_api_init', static function () {
         'permission_callback' => static function () {
             return current_user_can('edit_posts') || current_user_can('edit_pages');
         },
+    ));
+
+    register_rest_route('seogrow/v1', '/elementor-impact-inspect', array(
+        'methods' => WP_REST_Server::READABLE,
+        'callback' => 'seogrow_connector_elementor_impact_inspect',
+        'permission_callback' => static function () {
+            return current_user_can('edit_posts') || current_user_can('edit_pages');
+        },
+        'args' => array(
+            'ids' => array(
+                'required' => true,
+                'type' => 'string',
+                'sanitize_callback' => 'sanitize_text_field',
+            ),
+        ),
     ));
 
     register_rest_route('seogrow/v1', '/taxonomy-inspect', array(
