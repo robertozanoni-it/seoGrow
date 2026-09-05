@@ -13,17 +13,18 @@ export default function WordPressConnectorControl() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    const sync = () => setTarget((current) => {
+    let frame = 0;
+    let attempts = 0;
+    const scan = () => {
       const next = resolveTarget();
-      return current === next ? current : next;
-    });
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
-    const timer = window.setTimeout(sync, 0);
-    return () => {
-      window.clearTimeout(timer);
-      observer.disconnect();
+      setTarget((current) => current === next ? current : next);
+      if (!next && attempts < 120) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(scan);
+      }
     };
+    scan();
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   if (!target) return null;
