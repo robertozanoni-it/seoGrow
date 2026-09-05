@@ -20,6 +20,7 @@ test("il bulk live non transazionale non può applicare più elementi", () => {
   assert.match(guard, /const count = liveBatchCount/);
   assert.match(guard, /if \(count <= 1\) return/);
   assert.match(guard, /Applicazione bulk live bloccata per sicurezza/);
+  assert.match(guard, /event\.stopImmediatePropagation\(\)/);
 });
 
 test("apply invalida preview stale su client auditType e analyzedAt", () => {
