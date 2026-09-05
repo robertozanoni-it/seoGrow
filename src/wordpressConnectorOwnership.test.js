@@ -1,7 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { basePath, filterConnectorOwnedMeta } from "../server/wordpressInspectFastHook.js";
+import {
+  basePath,
+  elementorOwnershipEvidence,
+  filterConnectorOwnedMeta,
+} from "../server/wordpressInspectFastHook.js";
 
 const inspectSource = await readFile(new URL("../server/wordpressInspectFastHook.js", import.meta.url), "utf8");
 
@@ -96,7 +100,7 @@ test("se entrambi i plugin coincidono col frontend l'ambiguità resta bloccabile
   assert.equal(entity.meta._yoast_wpseo_title, "Stesso titolo");
 });
 
-test("l'ispezione conserva separatamente il rischio di ownership Elementor condivisa", () => {
+test("l'ispezione conserva separatamente il rischio di ownership Elementor condivisa non ancora risolta", () => {
   const entity = filterConnectorOwnedMeta({
     id: 42,
     meta: { _elementor_data: "[]" },
@@ -110,6 +114,45 @@ test("l'ispezione conserva separatamente il rischio di ownership Elementor condi
   assert.equal(entity.meta._elementor_data, "[]");
   assert.equal(entity._seogrowOwnership.elementorPro, true);
   assert.deepEqual(entity._seogrowOwnership.elementorSharedTemplateTypes, ["single", "popup"]);
+  assert.equal(entity._seogrowOwnership.elementorEvidenceStatus, "shared-templates-present-unresolved");
+});
+
+test("gli ID Elementor renderizzati distinguono documento locale e documenti condivisi effettivi", () => {
+  const evidence = elementorOwnershipEvidence(
+    { id: 42 },
+    { elementor: true, elementorSharedTemplateTypes: ["header", "footer", "single"] },
+    {
+      elementorDocuments: [
+        { id: 42, type: "wp-page" },
+        { id: 88, type: "header" },
+        { id: 91, type: "footer" },
+      ],
+    },
+  );
+  assert.equal(evidence.elementorEvidenceStatus, "rendered-shared-documents");
+  assert.equal(evidence.elementorLocalDocumentRendered, true);
+  assert.deepEqual(evidence.elementorExternalRenderedDocuments, [
+    { id: 88, type: "header" },
+    { id: 91, type: "footer" },
+  ]);
+});
+
+test("template presenti nel sito non bloccano genericamente una pagina quando il frontend mostra solo il documento locale", () => {
+  const entity = filterConnectorOwnedMeta({
+    id: 42,
+    meta: { _elementor_data: "[]" },
+  }, {
+    elementor: true,
+    elementorPro: true,
+    elementorSharedTemplateTypes: ["header", "footer", "popup"],
+    rankMath: false,
+    yoast: false,
+  }, {
+    elementorDocuments: [{ id: 42, type: "wp-page" }],
+  });
+  assert.equal(entity._seogrowOwnership.elementorEvidenceStatus, "local-document-only-observed");
+  assert.equal(entity._seogrowOwnership.elementorExternalRenderedDocuments.length, 0);
+  assert.equal(entity._seogrowOwnership.elementorLocalDocumentRendered, true);
 });
 
 test("l'ispezione WordPress conserva la sottocartella dell'installazione", () => {
