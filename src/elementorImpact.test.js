@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { summarizeElementorImpact } from "../server/elementorImpact.js";
+import { summarizeElementorImpact } from "./elementorImpact.js";
 
 test("un documento Elementor solo locale non viene confuso con impatto condiviso", () => {
   const impact = summarizeElementorImpact({
