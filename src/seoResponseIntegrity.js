@@ -79,6 +79,7 @@ const toReviewItem = (issue, reason) => ({
 
 const normalizeSiteAnalysis = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) return data;
+  if (data.evidencePolicy === "confirmed-issues-only" && data.scoreSource === "seogrow-derived") return data;
 
   const rawInternal = Array.isArray(data.brokenLinks) ? data.brokenLinks : [];
   const rawExternal = Array.isArray(data.brokenExternalLinks) ? data.brokenExternalLinks : [];
