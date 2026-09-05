@@ -224,6 +224,8 @@ async function verifyCoreOwnership(kind, targetUrl, inspected) {
 const alreadyResolvedReason = (kind, issue, ownership) => {
   const frontend = ownership?.frontend;
   if (!frontend) return "";
+  const verificationSafe = frontend.verificationSafe !== false && frontend.requiresBrowserVerification !== true;
+  if (!verificationSafe && ["h1", "content"].includes(kind)) return "";
   if (kind === "h1") {
     const label = String(issue?.label || "");
     if ((/\b0\s*H1\b/i.test(label) || /\b(?:[2-9]|[1-9]\d+)\s*H1\b/i.test(label)) && Number(frontend.h1) === 1)
