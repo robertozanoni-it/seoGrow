@@ -120,31 +120,45 @@ function instruction(kind, issue, page) {
   return `Migliora il contenuto esistente per risolvere: ${label}. Mantieni le informazioni e i link utili, amplia solo quanto necessario, conserva il formato HTML esistente e non inventare dati, persone, statistiche o testimonianze.${feedback ? ` Vincolo aggiuntivo: ${feedback}` : ""}`;
 }
 
-function aiContext(page) {
-  const context = {
+export function aiContext(page, kind) {
+  const raw = {
     title: String(page?.title || ""),
     excerpt: String(page?.excerpt || ""),
     content: String(page?.content || ""),
     url: String(page?.url || ""),
   };
-  if (
-    context.title.length > 800 ||
-    context.excerpt.length > 1200 ||
-    context.content.length > 16000 ||
-    context.url.length > 800
-  ) {
-    throw new Error(
-      "Contesto troppo grande per una sostituzione integrale sicura. SeoGrow non tronca il contenuto prima di generare la patch.",
-    );
+
+  if (kind === "content") {
+    if (
+      raw.title.length > 800 ||
+      raw.excerpt.length > 1200 ||
+      raw.content.length > 16000 ||
+      raw.url.length > 800
+    ) {
+      throw new Error(
+        "Contesto troppo grande per una sostituzione integrale sicura. SeoGrow non tronca il contenuto prima di generare la patch.",
+      );
+    }
+    return raw;
   }
-  return context;
+
+  const content = raw.content.length <= 8000
+    ? raw.content
+    : `${raw.content.slice(0, 6000)}\n…\n${raw.content.slice(-1500)}`;
+
+  return {
+    title: raw.title.slice(0, 800),
+    excerpt: raw.excerpt.slice(0, 1200),
+    content,
+    url: raw.url.slice(0, 800),
+  };
 }
 
 async function aiValue(kind, issue, page) {
   if (!process.env.OPENAI_API_KEY)
     throw new Error("OpenAI non è configurata. Inserisci OPENAI_API_KEY nel file .env e riavvia seoGrow.");
 
-  const context = aiContext(page);
+  const context = aiContext(page, kind);
   const configured = Number(process.env.OPENAI_MAX_OUTPUT_TOKENS || 3000);
   const minTokens = kind === "content" ? 1600 : 512;
   const maxOutputTokens = Number.isFinite(configured)
