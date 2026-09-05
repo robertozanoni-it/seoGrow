@@ -34,34 +34,44 @@ export function elementorSourceDocuments(entity) {
   return [...unique.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
 }
 
+const failedEvidence = (error) => ({
+  ok: false,
+  readOnly: true,
+  sharedWriteAllowed: false,
+  displayConditionsResolved: false,
+  affectedPagesEnumerated: false,
+  documents: [],
+  error: error instanceof Error ? error.message : String(error || "Impact analysis Elementor non disponibile."),
+});
+
 export async function inspectElementorImpactEvidence(entity, credentials) {
   const documents = elementorSourceDocuments(entity);
   if (!documents.length) return null;
-  const response = await apiFetch("/api/wordpress/elementor-impact-inspect", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      siteUrl: credentials?.url || "",
-      username: credentials?.username || "",
-      applicationPassword: credentials?.applicationPassword || "",
-      documents,
-    }),
-  });
-  const data = await response.json();
-  if (!response.ok) {
+  try {
+    const response = await apiFetch("/api/wordpress/elementor-impact-inspect", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        siteUrl: credentials?.url || "",
+        username: credentials?.username || "",
+        applicationPassword: credentials?.applicationPassword || "",
+        documents,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) return failedEvidence(data?.error || "Impact analysis Elementor non disponibile.");
     return {
-      ok: false,
+      ...data,
       readOnly: true,
       sharedWriteAllowed: false,
-      documents: [],
-      error: data?.error || "Impact analysis Elementor non disponibile.",
+      displayConditionsResolved: data?.displayConditionsResolved === true ? true : false,
+      affectedPagesEnumerated: data?.affectedPagesEnumerated === true ? true : false,
     };
+  } catch (error) {
+    // L'impact analysis è diagnostica read-only: un timeout/rete non deve mai
+    // trasformarsi in autorizzazione implicita né nascondere il blocco ownership.
+    return failedEvidence(error);
   }
-  return {
-    ...data,
-    readOnly: true,
-    sharedWriteAllowed: false,
-  };
 }
 
 export function attachElementorImpactEvidence(entity, evidence) {
