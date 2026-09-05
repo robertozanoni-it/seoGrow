@@ -208,6 +208,7 @@ function visibleH1Count(html) {
 
 function signals(page) {
   const title = firstMatch(page.html, /<title[^>]*>([\s\S]*?)<\/title>/i);
+  const metaDescription = metaContent(page.html, "description");
   const conservativeMarkup = stripAlwaysHiddenMarkup(page.html);
   const h1 = visibleH1Count(conservativeMarkup);
   const text = visibleText(conservativeMarkup);
@@ -222,6 +223,7 @@ function signals(page) {
   const responsiveHiddenMarkupDetected = new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}`, "i").test(page.html);
   return {
     title,
+    metaDescription,
     h1,
     text,
     words,
@@ -248,6 +250,7 @@ async function inspect(url) {
     contentType: page.contentType,
     isHtml: page.isHtml,
     title: result.title,
+    metaDescription: result.metaDescription,
     h1: result.h1,
     words: result.words,
     pageKind: result.pageKind,
