@@ -6,6 +6,7 @@ import './liveRollbackRouter';
 import './wordpressRemediationRuntimePatch';
 import './wordpressSeoRuntimePatch';
 import './remediationUiOrderPatch';
+import './remediationCompletionUxPatch';
 import './seoResponseIntegrity';
 import './remediationReportUx';
 import React from 'react';
