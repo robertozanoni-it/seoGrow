@@ -196,16 +196,21 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   };
 
   useEffect(() => {
-    try {
-      const raw = sessionStorage.getItem(FOCUS_KEY);
-      if (raw) {
-        const request = JSON.parse(raw);
-        if (locateFocusedIssue(request)) sessionStorage.removeItem(FOCUS_KEY);
-      }
-    } catch { sessionStorage.removeItem(FOCUS_KEY); }
+    const initialTimer = window.setTimeout(() => {
+      try {
+        const raw = sessionStorage.getItem(FOCUS_KEY);
+        if (raw) {
+          const request = JSON.parse(raw);
+          if (locateFocusedIssue(request)) sessionStorage.removeItem(FOCUS_KEY);
+        }
+      } catch { sessionStorage.removeItem(FOCUS_KEY); }
+    }, 0);
     const onFocus = (event) => locateFocusedIssue(event.detail);
     window.addEventListener("seogrow-remediation-focus", onFocus);
-    return () => window.removeEventListener("seogrow-remediation-focus", onFocus);
+    return () => {
+      window.clearTimeout(initialTimer);
+      window.removeEventListener("seogrow-remediation-focus", onFocus);
+    };
   }, [clientId]);
 
   const askAgent = (issue, result) => {
