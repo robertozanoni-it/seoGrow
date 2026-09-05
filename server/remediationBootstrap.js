@@ -34,6 +34,7 @@ const remediationModules = await Promise.all([
   import("./wordpressPatchV2Hook.js"),
   import("./elementorPublicCoverageHook.js"),
   import("./elementorCoverageAttestationHook.js"),
+  import("./elementorReferenceImpactHook.js"),
 ]);
 
 const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
@@ -58,6 +59,7 @@ export function registerRemediationRoutes(app) {
         "elementor-public-coverage-read-only",
         "wordpress-public-inventory-read-only",
         "elementor-coverage-attestation",
+        "elementor-reference-impact-read-only",
         "taxonomy-preview",
         "taxonomy-apply",
         "taxonomy-rollback-preview",
@@ -74,8 +76,10 @@ export function registerRemediationRoutes(app) {
       elementorImpactMode: "read-only-server-attested-coverage-no-shared-write",
       elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write",
       elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match-no-shared-write",
+      elementorReferenceImpactMode: "connector-inventory-plus-rest-meta-read-only-page-post-fail-closed-custom-types",
       taxonomyConnectorMinimum: "1.3.0",
       elementorInventoryConnectorMinimum: "1.3.0",
+      elementorReferenceImpactConnectorMinimum: "1.3.0",
       draftCopyCompatibility: false,
     });
   });
