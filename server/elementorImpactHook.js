@@ -115,7 +115,10 @@ export function interpretElementorConditions(input, targetEntity = null) {
     const entireSite = operator === "include" && general;
     const finalToken = path.at(-1) || "";
     const explicitNumericTarget = /^\d+$/.test(finalToken) ? Number(finalToken) : null;
-    const explicitSingularTarget = operator !== "unknown" && path[0] === "singular" && explicitNumericTarget !== null;
+    // Only the exact singular/<post-type>/<numeric-id> shape is safe to interpret.
+    // Nested rules such as singular/page/by-author/12 remain unresolved instead of
+    // accidentally treating the final numeric token as a WordPress entity ID.
+    const explicitSingularTarget = operator !== "unknown" && path[0] === "singular" && path.length === 3 && explicitNumericTarget !== null;
     const targetMatches = explicitSingularTarget && target.id !== null
       ? explicitNumericTarget === target.id
       : null;
