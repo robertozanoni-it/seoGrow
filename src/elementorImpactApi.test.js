@@ -85,6 +85,8 @@ test("target WordPress esplicito risolve include/general più exclude singular p
   assert.equal(excluded.semanticStatus, "resolved");
   assert.equal(excluded.targetApplicability, "excluded");
   assert.equal(excluded.entries[1].semanticStatus, "resolved-explicit-singular-target");
+  assert.equal(excluded.entries[1].explicitTargetType, "post");
+  assert.equal(excluded.entries[1].targetTypeMatches, true);
   assert.equal(excluded.entries[1].targetMatches, true);
   assert.equal(excluded.entries[1].targetEffect, "exclude");
 
@@ -98,14 +100,26 @@ test("target WordPress esplicito risolve include/general più exclude singular p
   assert.equal(included.entries[1].targetEffect, "no-match");
 });
 
-test("include singular con ID esplicito distingue target incluso e target non applicato", () => {
+test("include singular con ID esplicito distingue target incluso, tipo errato e target non applicato", () => {
   const applies = interpretElementorConditions(["include/singular/page/44"], { id: 44, type: "page" });
   assert.equal(applies.displayConditionsResolved, true);
   assert.equal(applies.targetApplicability, "applies");
+  assert.equal(applies.entries[0].explicitTargetType, "page");
+  assert.equal(applies.entries[0].targetTypeMatches, true);
 
   const notApplied = interpretElementorConditions(["include/singular/page/44"], { id: 45, type: "page" });
   assert.equal(notApplied.displayConditionsResolved, true);
   assert.equal(notApplied.targetApplicability, "not-applied");
+
+  const wrongType = interpretElementorConditions(["include/singular/page/44"], { id: 44, type: "post" });
+  assert.equal(wrongType.displayConditionsResolved, true);
+  assert.equal(wrongType.targetApplicability, "not-applied");
+  assert.equal(wrongType.entries[0].targetTypeMatches, false);
+  assert.equal(wrongType.entries[0].targetMatches, false);
+
+  const missingType = interpretElementorConditions(["include/singular/page/44"], { id: 44 });
+  assert.equal(missingType.displayConditionsResolved, false);
+  assert.equal(missingType.targetApplicability, "unknown");
 
   const unknownRule = interpretElementorConditions(
     ["include/general", "include/singular/page/by-author/12"],
