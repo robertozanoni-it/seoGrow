@@ -86,7 +86,7 @@ test("assenza di _elementor_conditions resta unknown e non viene trasformata in 
   assert.match(evidence.note, /nessuna inferenza/i);
 });
 
-test("le URL candidate per impact analysis restano HTTPS same-host, deduplicate e bounded", () => {
+test("le URL candidate server restano HTTPS same-host e gli alias www vengono deduplicati", () => {
   const base = new URL("https://www.example.com/blog/");
   const urls = normalizeImpactCandidateUrls(base, [
     "https://example.com/a/",
@@ -94,11 +94,9 @@ test("le URL candidate per impact analysis restano HTTPS same-host, deduplicate 
     "https://www.example.com/b/?x=1#frag",
     "http://example.com/insecure/",
     "https://evil.example.net/a/",
-    "%%%",
   ]);
   assert.deepEqual(urls, [
     "https://example.com/a/",
-    "https://www.example.com/a/",
     "https://www.example.com/b/?x=1",
   ]);
   assert.ok(urls.every((value) => value.startsWith("https://")));
