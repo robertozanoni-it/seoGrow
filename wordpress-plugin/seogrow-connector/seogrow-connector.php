@@ -518,6 +518,95 @@ function seogrow_connector_taxonomy_write(WP_REST_Request $request) {
     ));
 }
 
+function seogrow_connector_public_queryable_post_types() {
+    $objects = get_post_types(array(
+        'public' => true,
+        'publicly_queryable' => true,
+    ), 'objects');
+    if (!is_array($objects)) {
+        return array();
+    }
+
+    $post_types = array();
+    foreach ($objects as $object) {
+        $name = isset($object->name) ? sanitize_key((string) $object->name) : '';
+        if ($name !== '') {
+            $post_types[$name] = $name;
+        }
+    }
+    $post_types = array_values($post_types);
+    sort($post_types, SORT_STRING);
+    return $post_types;
+}
+
+function seogrow_connector_wordpress_public_inventory() {
+    $limit = 30;
+    $post_types = seogrow_connector_public_queryable_post_types();
+    if (!$post_types) {
+        return rest_ensure_response(array(
+            'ok' => true,
+            'source' => 'seogrow-connector',
+            'connectorVersion' => SEOGROW_CONNECTOR_VERSION,
+            'inventoryScope' => 'all-public-queryable-post-types',
+            'readOnly' => true,
+            'complete' => false,
+            'truncated' => false,
+            'totalResources' => 0,
+            'postTypes' => array(),
+            'resources' => array(),
+            'sharedWriteAllowed' => false,
+        ));
+    }
+
+    $query = new WP_Query(array(
+        'post_type' => $post_types,
+        'post_status' => 'publish',
+        'fields' => 'ids',
+        'posts_per_page' => 31,
+        'no_found_rows' => false,
+        'orderby' => 'ID',
+        'order' => 'ASC',
+        'ignore_sticky_posts' => true,
+    ));
+
+    $total_resources = max(0, (int) $query->found_posts);
+    $ids = array_values(array_filter(array_map('absint', (array) $query->posts)));
+    $truncated = $total_resources > $limit || count($ids) > $limit;
+    $ids = array_slice($ids, 0, $limit);
+    $resources = array();
+
+    foreach ($ids as $id) {
+        $post = get_post($id);
+        if (!$post || $post->post_status !== 'publish' || !in_array($post->post_type, $post_types, true)) {
+            continue;
+        }
+        $permalink = get_permalink($id);
+        if (!is_string($permalink) || !wp_http_validate_url($permalink)) {
+            continue;
+        }
+        $resources[] = array(
+            'id' => (int) $id,
+            'postType' => (string) $post->post_type,
+            'status' => 'publish',
+            'url' => esc_url_raw($permalink),
+        );
+    }
+
+    return rest_ensure_response(array(
+        'ok' => true,
+        'source' => 'seogrow-connector',
+        'connectorVersion' => SEOGROW_CONNECTOR_VERSION,
+        'inventoryScope' => 'all-public-queryable-post-types',
+        'readOnly' => true,
+        'complete' => !$truncated && count($resources) === $total_resources,
+        'truncated' => $truncated,
+        'totalResources' => $total_resources,
+        'postTypes' => $post_types,
+        'resources' => $resources,
+        'sharedWriteAllowed' => false,
+    ));
+}
+
 function seogrow_connector_status() {
     $has_elementor = defined('ELEMENTOR_VERSION') || class_exists('Elementor\\Plugin');
     return rest_ensure_response(array(
@@ -528,6 +617,7 @@ function seogrow_connector_status() {
         'elementorPro' => defined('ELEMENTOR_PRO_VERSION'),
         'elementorSharedTemplateTypes' => $has_elementor ? seogrow_connector_elementor_shared_template_types() : array(),
         'elementorImpactReadOnly' => true,
+        'wordpressPublicInventoryReadOnly' => true,
         'taxonomyInspect' => true,
         'taxonomyWriteSingleField' => true,
         'rankMath' => defined('RANK_MATH_VERSION') || class_exists('RankMath\\Helper'),
@@ -557,6 +647,14 @@ add_action('rest_api_init', static function () {
                 'sanitize_callback' => 'sanitize_text_field',
             ),
         ),
+    ));
+
+    register_rest_route('seogrow/v1', '/wordpress-public-inventory', array(
+        'methods' => WP_REST_Server::READABLE,
+        'callback' => 'seogrow_connector_wordpress_public_inventory',
+        'permission_callback' => static function () {
+            return current_user_can('edit_posts') || current_user_can('edit_pages');
+        },
     ));
 
     register_rest_route('seogrow/v1', '/taxonomy-inspect', array(
