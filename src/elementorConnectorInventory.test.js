@@ -17,17 +17,21 @@ test("Connector espone inventario WordPress autorevole strettamente read-only", 
 });
 
 test("inventario usa post type pubblici e publicly_queryable e solo risorse publish", () => {
-  const start = connector.indexOf("function seogrow_connector_wordpress_public_inventory");
-  const end = connector.indexOf("function seogrow_connector_status", start);
-  assert.ok(start >= 0 && end > start);
-  const inventory = connector.slice(start, end);
-  assert.match(inventory, /get_post_types/);
-  assert.match(inventory, /'public' => true/);
-  assert.match(inventory, /'publicly_queryable' => true/);
+  const discoveryStart = connector.indexOf("function seogrow_connector_public_queryable_post_types");
+  const inventoryStart = connector.indexOf("function seogrow_connector_wordpress_public_inventory", discoveryStart);
+  const inventoryEnd = connector.indexOf("function seogrow_connector_status", inventoryStart);
+  assert.ok(discoveryStart >= 0 && inventoryStart > discoveryStart && inventoryEnd > inventoryStart);
+
+  const typeDiscovery = connector.slice(discoveryStart, inventoryStart);
+  const inventory = connector.slice(inventoryStart, inventoryEnd);
+  assert.match(typeDiscovery, /get_post_types/);
+  assert.match(typeDiscovery, /'public' => true/);
+  assert.match(typeDiscovery, /'publicly_queryable' => true/);
   assert.match(inventory, /'post_status' => 'publish'/);
   assert.match(inventory, /'posts_per_page' => 31/);
   assert.match(inventory, /'no_found_rows' => false/);
   assert.match(inventory, /get_permalink/);
+  assert.doesNotMatch(typeDiscovery, /update_post_meta|delete_post_meta|wp_update_post|update_option|set_value/i);
   assert.doesNotMatch(inventory, /update_post_meta|delete_post_meta|wp_update_post|update_option|set_value/i);
 });
 
