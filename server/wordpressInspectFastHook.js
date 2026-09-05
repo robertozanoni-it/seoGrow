@@ -1,6 +1,7 @@
 import dns from "node:dns/promises";
 import net from "node:net";
 import express from "express";
+import { pickExactWordPressEntity } from "./wordpressEntityIdentity.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressInspectFastHook");
 const USE_PATCHED = Symbol.for("seogrow.wordpressInspectFastUsePatched");
@@ -83,7 +84,7 @@ function rateLimit(req) {
 
 async function resolveEntity(base, headers, requestedUrl) {
   const target = new URL(String(requestedUrl || base.href));
-  const pathname = target.pathname.replace(/\/+$/, "");
+  const pathname = target.pathname.replace(/\/+$/, "") || "/";
   const segments = pathname.split("/").filter(Boolean);
   const slug = decodeURIComponent(segments.at(-1) || "");
 
@@ -96,22 +97,22 @@ async function resolveEntity(base, headers, requestedUrl) {
     return { resource: "pages", entity };
   }
 
+  let candidatesFound = 0;
   for (const resource of ["pages", "posts"]) {
     const url = endpoint(base, resource);
     url.searchParams.set("slug", slug);
     url.searchParams.set("context", "edit");
     url.searchParams.set("per_page", "10");
     const rows = await json(await wpFetch(url, { headers }));
-    const match = Array.isArray(rows)
-      ? rows.find((row) => {
-          try {
-            return new URL(row.link).pathname.replace(/\/+$/, "") === pathname;
-          } catch {
-            return false;
-          }
-        }) || rows[0]
-      : null;
+    if (Array.isArray(rows)) candidatesFound += rows.length;
+    const match = pickExactWordPressEntity(rows, pathname);
     if (match) return { resource, entity: match };
+  }
+
+  if (candidatesFound > 0) {
+    throw new Error(
+      `WordPress ha restituito ${candidatesFound} contenuti con slug compatibile, ma nessun permalink coincide esattamente con ${target.pathname}. SeoGrow blocca l'ispezione per evitare di modificare la risorsa sbagliata.`,
+    );
   }
   throw new Error(`Nessuna pagina o articolo WordPress trovato per ${target.href}`);
 }
@@ -140,6 +141,8 @@ function registerRoutes(app) {
     }
   });
 }
+
+export { registerRoutes, resolveEntity };
 
 const originalUse = express.application.use;
 if (!originalUse[USE_PATCHED]) {
