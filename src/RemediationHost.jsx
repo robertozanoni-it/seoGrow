@@ -187,6 +187,20 @@ export default function RemediationHost() {
     }));
   };
 
+  const selectIssue = (index) => {
+    const nextIndex = Number(index);
+    if (!Number.isSafeInteger(nextIndex) || !selectedAudit) return;
+    setSelectedIndex(nextIndex);
+    window.dispatchEvent(new CustomEvent("seogrow-remediation-open", {
+      detail: {
+        clientId,
+        issueIndex: nextIndex,
+        auditType: selectedAudit.type,
+        analyzedAt: auditTimestamp(selectedAudit),
+      },
+    }));
+  };
+
   const askAgent = () => {
     if (!selectedIssue) return;
     const detail = {
@@ -233,7 +247,7 @@ export default function RemediationHost() {
         <section className="audit-context-card issue-select-card">
           <div className="audit-card-title purple"><ListChecks /><strong>Problema da correggere</strong></div>
           <label className="audit-issue-select">
-            <select value={selectedEntry?.index ?? 0} onChange={(event) => setSelectedIndex(Number(event.target.value))}>
+            <select value={selectedEntry?.index ?? 0} onChange={(event) => selectIssue(event.target.value)}>
               {issueEntries.map((entry) => (
                 <option key={`${entry.key}-${entry.index}`} value={entry.index} disabled={verifiedKeys.has(entry.key)}>
                   {entry.index + 1}. {entry.issue?.label || "Problema SEO"}{verifiedKeys.has(entry.key) ? " · verificato" : ""}
