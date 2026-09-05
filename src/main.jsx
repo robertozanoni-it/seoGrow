@@ -15,6 +15,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import GuidedUxLayer from './GuidedUxLayer';
+import ProblemsWorkspace from './ProblemsWorkspace';
 import AuditWorkspace from './AuditWorkspace';
 import AuditUnifiedRemediation from './AuditUnifiedRemediation';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
@@ -51,6 +52,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AppErrorBoundary>
       <App />
       <GuidedUxLayer />
+      <ProblemsWorkspace />
       <AuditWorkspace />
       <AuditUnifiedRemediation />
       <WordPressConnectionControl />
