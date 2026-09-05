@@ -130,36 +130,34 @@ const clickSidebar = async (label) => {
 try {
   await command("Page.enable");
   await command("Runtime.enable");
-  await command("Page.navigate", { url: appUrl });
-  await waitFor("document.readyState === 'complete' && document.querySelector('#root')", "root React iniziale");
 
-  await evaluate(`(() => {
-    const client = { id: 9001, name: 'Browser QA', url: 'https://example.com/' };
-    const audit = {
-      url: 'https://example.com/pagina-test/',
-      analyzedAt: '2026-09-05T18:50:00.000Z',
-      score: 88,
-      issues: [{
-        type: 'h1',
-        label: '0 H1',
-        detail: 'Pagina di test senza H1 rilevato.',
-        severity: 'alta',
-        targetUrl: 'https://example.com/pagina-test/'
-      }]
-    };
-    localStorage.setItem('seogrow-clients', JSON.stringify([client]));
-    localStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
-    localStorage.setItem('seogrow-page-audit-history-v2', JSON.stringify({ [client.id]: [audit] }));
-    localStorage.setItem('seogrow-analyses-v2', JSON.stringify({ [client.id]: [] }));
-    history.replaceState(null, '', '#Audit%20SEO');
-    return true;
-  })()`);
+  // Inietta i dati QA prima che React venga inizializzato. Scrivere localStorage dopo
+  // il mount produceva un falso negativo perché i pagehide handler del vecchio stato
+  // ripristinavano il progetto di esempio durante il reload.
+  await command("Page.addScriptToEvaluateOnNewDocument", {
+    source: `(() => {
+      const client = { id: 9001, name: 'Browser QA', url: 'https://example.com/' };
+      const audit = {
+        url: 'https://example.com/pagina-test/',
+        analyzedAt: '2026-09-05T18:50:00.000Z',
+        score: 88,
+        issues: [{
+          type: 'h1',
+          label: '0 H1',
+          detail: 'Pagina di test senza H1 rilevato.',
+          severity: 'alta',
+          targetUrl: 'https://example.com/pagina-test/'
+        }]
+      };
+      localStorage.setItem('seogrow-clients', JSON.stringify([client]));
+      localStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
+      localStorage.setItem('seogrow-page-audit-history-v2', JSON.stringify({ [client.id]: [audit] }));
+      localStorage.setItem('seogrow-analyses-v2', JSON.stringify({ [client.id]: [] }));
+    })();`,
+  });
 
-  // Ricarica davvero il documento: il core App deve inizializzarsi dagli stessi dati
-  // locali usati dai layer Audit/Remediation, evitando un falso test con stato React
-  // precedente ancora puntato al progetto di esempio.
-  await command("Page.reload", { ignoreCache: true });
-  await waitFor("document.readyState === 'complete' && document.querySelector('#root')", "reload progetto QA");
+  await command("Page.navigate", { url: `${appUrl}#Audit%20SEO` });
+  await waitFor("document.readyState === 'complete' && document.querySelector('#root')", "root React con progetto QA");
   await waitFor(
     "document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')",
     "RemediationHost nativo in Audit SEO",
