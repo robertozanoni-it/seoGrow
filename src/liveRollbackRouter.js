@@ -40,21 +40,19 @@ if (typeof window !== "undefined" && !window.fetch[PATCHED]) {
     const { pathname, method } = requestInfo(input, init);
     if (pathname === "/api/wordpress/remediate" && method === "POST" && isRollback(init)) {
       const body = typeof init?.body === "string" ? parseJson(init.body, {}) : {};
-      const keys = Object.keys(body?.changes || {});
-      if (keys.some((key) => key.startsWith("meta."))) {
-        return previousFetch("/api/wordpress/live-rollback", {
-          ...init,
-          body: JSON.stringify({
-            siteUrl: body.url,
-            targetUrl: body.url,
-            username: body.username,
-            applicationPassword: body.applicationPassword,
-            resource: body.resource,
-            id: body.id,
-            changes: nestedRollbackChanges(body.changes),
-          }),
-        });
-      }
+      return previousFetch("/api/wordpress/live-rollback", {
+        ...init,
+        body: JSON.stringify({
+          siteUrl: body.url,
+          targetUrl: body.url,
+          username: body.username,
+          applicationPassword: body.applicationPassword,
+          resource: body.resource,
+          id: body.id,
+          changes: nestedRollbackChanges(body.changes),
+          expectedCurrent: body.expectedCurrent,
+        }),
+      });
     }
     return previousFetch(input, init);
   };
