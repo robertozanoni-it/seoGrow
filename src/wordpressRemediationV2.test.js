@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { shouldPreferElementorOwnership } from "./wordpressRemediationRuntimePatch.js";
 
 const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./wordpressRemediationRuntimePatch.js", import.meta.url), "utf8");
@@ -52,6 +53,15 @@ test("l'anteprima live ha un fallback locale e mostra i campi interessati", () =
   assert.match(liveControl, /const localPreview =/);
   assert.match(liveControl, /if \(!hasUsefulPreview\(data\.previewBefore\)\) data\.previewBefore = fallback\.before/);
   assert.match(liveControl, /Campi interessati:/);
+});
+
+test("una pagina Elementor non viene instradata al content WordPress core", () => {
+  const inspected = { entity: { meta: { _elementor_data: "[]" } } };
+  assert.equal(shouldPreferElementorOwnership(inspected, { expected: { content: "testo" } }), true);
+  assert.equal(shouldPreferElementorOwnership(inspected, { expected: { title: "titolo" } }), false);
+  assert.equal(shouldPreferElementorOwnership({ entity: { meta: {} } }, { expected: { content: "testo" } }), false);
+  assert.match(runtime, /data\.contentProbeVisible = false/);
+  assert.match(runtime, /data\.seogrowOwnership = "elementor"/);
 });
 
 test("la cache runtime non include mai la password applicativa", () => {
