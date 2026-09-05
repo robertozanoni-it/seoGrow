@@ -49,6 +49,8 @@ const IMPACT_BY_TYPE = {
   },
 };
 
+const THEME_BUILDER_TYPES = new Set(["header", "footer", "single", "archive"]);
+
 const normalizedType = (value) => {
   const type = String(value || "unknown").trim().toLowerCase();
   return IMPACT_BY_TYPE[type] ? type : "unknown";
@@ -90,20 +92,39 @@ const normalizeSources = (ownership) => {
     const key = `${id}:${type}`;
     const impact = IMPACT_BY_TYPE[type];
     const evidence = byId.get(id);
+    const origins = Array.isArray(row?.origins) ? [...new Set(row.origins.map((value) => String(value)))] : [];
+    const typeEvidenceStatus = String(
+      evidence?.typeEvidence?.status || row?.typeEvidence?.status || "",
+    );
+    const targetApplicability = String(
+      evidence?.targetApplicability || evidence?.conditionInterpretation?.targetApplicability || "unknown",
+    );
+    const displayConditionsResolved = evidence?.ok === true && evidence?.displayConditionsResolved === true;
+    const renderedOnTarget = origins.includes("frontend-rendered");
+    const targetOwnershipCandidate = THEME_BUILDER_TYPES.has(type) &&
+      row?.resolved === true &&
+      renderedOnTarget &&
+      typeEvidenceStatus === "verified" &&
+      displayConditionsResolved &&
+      targetApplicability === "applies";
     const incoming = {
       id,
       type,
       title: String(row?.title || "").trim(),
       resolved: row?.resolved === true,
-      origins: Array.isArray(row?.origins) ? [...new Set(row.origins.map((value) => String(value)))] : [],
+      origins,
       scope: impact.scope,
       risk: impact.risk,
       label: impact.label,
       reason: impact.reason,
-      displayConditionsResolved: evidence?.ok === true && evidence?.displayConditionsResolved === true,
+      displayConditionsResolved,
       conditionsObserved: evidence?.conditionsObserved === true,
       conditionSemanticStatus: String(evidence?.conditionInterpretation?.semanticStatus || ""),
       entireSiteIncluded: evidence?.conditionInterpretation?.entireSiteIncluded === true,
+      targetApplicability,
+      typeEvidenceStatus,
+      renderedOnTarget,
+      targetOwnershipCandidate,
       observedRenderedCount: Number.isFinite(Number(evidence?.observedRenderedCount))
         ? Math.max(0, Number(evidence.observedRenderedCount))
         : 0,
@@ -125,12 +146,54 @@ const normalizeSources = (ownership) => {
       conditionsObserved: previous.conditionsObserved || incoming.conditionsObserved,
       conditionSemanticStatus: previous.conditionSemanticStatus || incoming.conditionSemanticStatus,
       entireSiteIncluded: previous.entireSiteIncluded || incoming.entireSiteIncluded,
+      targetApplicability: previous.targetApplicability !== "unknown" ? previous.targetApplicability : incoming.targetApplicability,
+      typeEvidenceStatus: previous.typeEvidenceStatus || incoming.typeEvidenceStatus,
+      renderedOnTarget: previous.renderedOnTarget || incoming.renderedOnTarget,
+      targetOwnershipCandidate: previous.targetOwnershipCandidate || incoming.targetOwnershipCandidate,
       observedRenderedCount: Math.max(previous.observedRenderedCount, incoming.observedRenderedCount),
       observedRenderedUrls: [...new Set([...previous.observedRenderedUrls, ...incoming.observedRenderedUrls])],
     });
   }
 
   return [...unique.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
+};
+
+const summarizeThemeBuilderTargetOwnership = (sources) => {
+  const themeSources = sources.filter((source) => THEME_BUILDER_TYPES.has(source.type));
+  if (!themeSources.length) {
+    return {
+      status: "not-observed",
+      confirmedSources: [],
+      unresolvedSources: [],
+      ambiguousTypes: [],
+    };
+  }
+
+  const candidatesByType = new Map();
+  for (const source of themeSources) {
+    if (!source.targetOwnershipCandidate) continue;
+    const rows = candidatesByType.get(source.type) || [];
+    rows.push(source);
+    candidatesByType.set(source.type, rows);
+  }
+
+  const ambiguousTypes = [...candidatesByType.entries()]
+    .filter(([, rows]) => rows.length > 1)
+    .map(([type]) => type)
+    .toSorted();
+  const ambiguousSet = new Set(ambiguousTypes);
+  const confirmedSources = themeSources.filter((source) =>
+    source.targetOwnershipCandidate && !ambiguousSet.has(source.type),
+  );
+  const confirmedKeys = new Set(confirmedSources.map((source) => `${source.id}:${source.type}`));
+  const unresolvedSources = themeSources.filter((source) => !confirmedKeys.has(`${source.id}:${source.type}`));
+
+  let status = "unresolved";
+  if (ambiguousTypes.length) status = "ambiguous";
+  else if (confirmedSources.length === themeSources.length) status = "confirmed";
+  else if (confirmedSources.length) status = "partial";
+
+  return { status, confirmedSources, unresolvedSources, ambiguousTypes };
 };
 
 export function summarizeElementorImpact(input) {
@@ -148,6 +211,7 @@ export function summarizeElementorImpact(input) {
     sources.every((source) => source.displayConditionsResolved === true);
   const affectedPagesEnumerated = displayConditionsResolved && evidence?.affectedPagesEnumerated === true &&
     evidence?.observedUrlCoverage?.completeSiteEnumeration === true;
+  const themeBuilderTargetOwnership = summarizeThemeBuilderTargetOwnership(sources);
 
   let status = "not-elementor";
   let summary = "Nessuna ownership Elementor condivisa rilevata.";
@@ -156,7 +220,14 @@ export function summarizeElementorImpact(input) {
     const conditionNote = displayConditionsResolved
       ? " Le Display Conditions note risultano semanticamente risolte, ma il raggio completo sulle altre URL non è ancora enumerato."
       : " Le condizioni applicative o il raggio sulle altre URL non sono ancora completamente risolti.";
-    summary = `SeoGrow ha identificato ${sources.length} sorgent${sources.length === 1 ? "e" : "i"} Elementor condivis${sources.length === 1 ? "a" : "e"}.${conditionNote} Nessuna scrittura condivisa è autorizzata.`;
+    const targetNote = themeBuilderTargetOwnership.status === "confirmed"
+      ? " Per i documenti Theme Builder osservati, sorgente, tipo, rendering sulla URL e applicabilità delle condizioni coincidono in modo univoco."
+      : themeBuilderTargetOwnership.status === "partial"
+        ? " Una parte dell'ownership Theme Builder sulla URL è confermata, mentre altre sorgenti restano non risolte."
+        : themeBuilderTargetOwnership.status === "ambiguous"
+          ? ` L'ownership Theme Builder resta ambigua per: ${themeBuilderTargetOwnership.ambiguousTypes.join(", ")}.`
+          : "";
+    summary = `SeoGrow ha identificato ${sources.length} sorgent${sources.length === 1 ? "e" : "i"} Elementor condivis${sources.length === 1 ? "a" : "e"}.${conditionNote}${targetNote} Nessuna scrittura condivisa è autorizzata.`;
   } else if (unresolvedSiteWideRisk) {
     status = "shared-risk-unresolved";
     summary = `Nel sito esistono template Elementor condivisi${siteWideTypes.length ? ` (${siteWideTypes.join(", ")})` : ""}, ma SeoGrow non ha identificato con certezza quali governino questa URL.`;
@@ -173,6 +244,7 @@ export function summarizeElementorImpact(input) {
     summary,
     sources,
     siteWideTypes,
+    themeBuilderTargetOwnership,
     sharedWriteAllowed: false,
     requiresImpactReview: hasSharedSources || unresolvedSiteWideRisk,
     affectedPagesEnumerated,
