@@ -32,6 +32,9 @@ jobs:
       - name: Unit and integration tests
         run: npm test
 
+      - name: Lint SeoGrow Connector PHP
+        run: php -l wordpress-plugin/seogrow-connector/seogrow-connector.php
+
       - name: Install zsh for macOS launcher syntax check
         run: |
           sudo apt-get update -qq
@@ -174,8 +177,8 @@ jobs:
           curl -fsS "http://localhost:$port/api/health"
 
           remediation="$(curl -fsS "http://localhost:$port/api/wordpress/remediation-capabilities")"
-          if ! printf '%s' "$remediation" | grep -q '"ok":true' || ! printf '%s' "$remediation" | grep -q '"inspect"'; then
-            echo "macOS runtime is healthy but remediation routes are not registered."
+          if ! printf '%s' "$remediation" | grep -q '"ok":true' || ! printf '%s' "$remediation" | grep -q '"taxonomy-preview"'; then
+            echo "macOS runtime is healthy but taxonomy remediation routes are not registered."
             printf '%s\n' "$remediation"
             cat "$RUNNER_TEMP/seogrow-launcher.log"
             exit 1
