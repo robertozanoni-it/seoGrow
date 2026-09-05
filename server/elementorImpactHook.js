@@ -9,6 +9,9 @@ const HOOKED = Symbol.for("seogrow.elementorImpactHook");
 const MAX_DOCUMENTS = 20;
 const MAX_CONDITION_NODES = 2_000;
 const MAX_STRING = 1_000;
+const RATE_WINDOW_MS = 10 * 60_000;
+const RATE_MAX = 60;
+const RATE = new Map();
 
 function authHeaders(username, password) {
   return {
@@ -117,6 +120,28 @@ function typesEndpoint(base) {
   return new URL(`${basePath(base)}/wp-json/wp/v2/types?context=edit`, base.origin);
 }
 
+export function impactRateAllowed(key, now = Date.now()) {
+  const safeKey = String(key || "local").slice(0, 200);
+  const recent = (RATE.get(safeKey) || []).filter((time) => now - time < RATE_WINDOW_MS);
+  if (recent.length >= RATE_MAX) {
+    RATE.set(safeKey, recent);
+    return false;
+  }
+  recent.push(now);
+  RATE.set(safeKey, recent);
+  if (RATE.size > 5_000) {
+    for (const [candidate, timestamps] of RATE.entries()) {
+      if (!timestamps.some((time) => now - time < RATE_WINDOW_MS)) RATE.delete(candidate);
+      if (RATE.size <= 4_000) break;
+    }
+  }
+  return true;
+}
+
+export function resetImpactRateForTests() {
+  RATE.clear();
+}
+
 async function inspectImpact({ siteUrl, username, applicationPassword, documents }) {
   if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
   const requested = normalizeImpactDocuments(documents);
@@ -153,6 +178,7 @@ async function inspectImpact({ siteUrl, username, applicationPassword, documents
     mode: "elementor-impact-evidence",
     documents: results,
     conditionsSemantics: "unresolved",
+    displayConditionsResolved: false,
     affectedPagesEnumerated: false,
     sharedWriteAllowed: false,
   };
@@ -162,6 +188,15 @@ function registerRoutes(app) {
   if (app[HOOKED]) return;
   app[HOOKED] = true;
   app.post("/api/wordpress/elementor-impact-inspect", async (req, res) => {
+    if (!impactRateAllowed(req.ip || req.socket?.remoteAddress || "local")) {
+      return res.status(429).json({
+        error: "Limite impact analysis Elementor raggiunto. Riprova più tardi.",
+        readOnly: true,
+        sharedWriteAllowed: false,
+        displayConditionsResolved: false,
+        affectedPagesEnumerated: false,
+      });
+    }
     try {
       return res.json(await inspectImpact(req.body || {}));
     } catch (error) {
@@ -169,6 +204,8 @@ function registerRoutes(app) {
         error: error instanceof Error ? error.message : "Impact analysis Elementor non riuscita.",
         readOnly: true,
         sharedWriteAllowed: false,
+        displayConditionsResolved: false,
+        affectedPagesEnumerated: false,
       });
     }
   });
