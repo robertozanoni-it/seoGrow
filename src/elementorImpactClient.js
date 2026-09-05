@@ -62,7 +62,20 @@ const normalizeSuccessfulEvidence = (data) => {
   };
 };
 
-export async function inspectElementorImpactEvidence(entity, credentials, candidateUrls = []) {
+const normalizeCoverageProofForRequest = (coverageProof) => {
+  if (!coverageProof || typeof coverageProof !== "object" || Array.isArray(coverageProof)) {
+    return { source: "manual-candidate-set", complete: false, verified: false };
+  }
+  return {
+    source: String(coverageProof.source || "manual-candidate-set"),
+    totalUrls: Number.isSafeInteger(Number(coverageProof.totalUrls)) ? Number(coverageProof.totalUrls) : undefined,
+    complete: coverageProof.complete === true,
+    verified: coverageProof.verified === true,
+    provenanceId: String(coverageProof.provenanceId || "").slice(0, 200),
+  };
+};
+
+export async function inspectElementorImpactEvidence(entity, credentials, candidateUrls = [], coverageProof = null) {
   const documents = elementorSourceDocuments(entity);
   if (!documents.length) return null;
   try {
@@ -78,7 +91,8 @@ export async function inspectElementorImpactEvidence(entity, credentials, candid
           type: String(entity?.type || "").trim().toLowerCase(),
         },
         documents,
-        candidateUrls: Array.isArray(candidateUrls) ? candidateUrls.slice(0, 30) : [],
+        candidateUrls: Array.isArray(candidateUrls) ? candidateUrls : [],
+        coverageProof: normalizeCoverageProofForRequest(coverageProof),
       }),
     });
     const data = await response.json();
