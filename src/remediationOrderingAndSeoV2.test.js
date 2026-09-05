@@ -19,7 +19,8 @@ test("la generazione SEO usa il nuovo endpoint robusto", () => {
   assert.match(seoRuntime, /generate-seo-value-v2/);
   assert.match(seoServer, /collectOutputText/);
   assert.match(seoServer, /parseStructuredValue/);
-  assert.match(seoServer, /max_output_tokens:\s*900/);
+  assert.match(seoServer, /max_output_tokens:\s*retry\s*\?\s*1200\s*:\s*900/);
+  assert.match(seoServer, /deterministicMetaDescription/);
   assert.match(main, /wordpressSeoRuntimePatch/);
   assert.match(bootstrap, /wordpressSeoAdapterV2Hook/);
 });
