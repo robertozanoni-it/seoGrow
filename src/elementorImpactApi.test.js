@@ -7,6 +7,7 @@ import {
   interpretElementorConditions,
   normalizeImpactCandidateUrls,
   normalizeImpactDocuments,
+  normalizeImpactTarget,
 } from "../server/elementorImpactHook.js";
 
 const source = await readFile(new URL("../server/elementorImpactHook.js", import.meta.url), "utf8");
@@ -31,6 +32,7 @@ test("include/general viene interpretata come intero sito senza autorizzare scri
   assert.equal(interpretation.semanticStatus, "resolved");
   assert.equal(interpretation.displayConditionsResolved, true);
   assert.equal(interpretation.entries[0].semanticStatus, "resolved-entire-site");
+  assert.equal(interpretation.targetApplicability, "unknown");
 
   const evidence = extractElementorConditionEvidence({
     id: 88,
@@ -47,7 +49,7 @@ test("include/general viene interpretata come intero sito senza autorizzare scri
   assert.equal(evidence.sharedWriteAllowed, false);
 });
 
-test("condizioni Elementor miste restano evidenza bounded e semanticamente parziale", () => {
+test("condizioni Elementor miste restano evidenza bounded e semanticamente parziale senza identità target", () => {
   const evidence = extractElementorConditionEvidence({
     id: 120,
     type: "elementor_library",
@@ -70,6 +72,65 @@ test("condizioni Elementor miste restano evidenza bounded e semanticamente parzi
   assert.equal(evidence.displayConditionsResolved, false);
   assert.equal(evidence.affectedPagesEnumerated, false);
   assert.equal(evidence.sharedWriteAllowed, false);
+});
+
+test("target WordPress esplicito risolve include/general più exclude singular per la risorsa corrente", () => {
+  assert.deepEqual(normalizeImpactTarget({ id: "44", type: "post" }), { id: 44, type: "post" });
+
+  const excluded = interpretElementorConditions(
+    ["include/general", "exclude/singular/post/44"],
+    { id: 44, type: "post" },
+  );
+  assert.equal(excluded.displayConditionsResolved, true);
+  assert.equal(excluded.semanticStatus, "resolved");
+  assert.equal(excluded.targetApplicability, "excluded");
+  assert.equal(excluded.entries[1].semanticStatus, "resolved-explicit-singular-target");
+  assert.equal(excluded.entries[1].targetMatches, true);
+  assert.equal(excluded.entries[1].targetEffect, "exclude");
+
+  const included = interpretElementorConditions(
+    ["include/general", "exclude/singular/post/44"],
+    { id: 55, type: "post" },
+  );
+  assert.equal(included.displayConditionsResolved, true);
+  assert.equal(included.targetApplicability, "applies");
+  assert.equal(included.entries[1].targetMatches, false);
+  assert.equal(included.entries[1].targetEffect, "no-match");
+});
+
+test("include singular con ID esplicito distingue target incluso e target non applicato", () => {
+  const applies = interpretElementorConditions(["include/singular/page/44"], { id: 44, type: "page" });
+  assert.equal(applies.displayConditionsResolved, true);
+  assert.equal(applies.targetApplicability, "applies");
+
+  const notApplied = interpretElementorConditions(["include/singular/page/44"], { id: 45, type: "page" });
+  assert.equal(notApplied.displayConditionsResolved, true);
+  assert.equal(notApplied.targetApplicability, "not-applied");
+
+  const unknownRule = interpretElementorConditions(
+    ["include/general", "include/singular/page/by-author/12"],
+    { id: 44, type: "page" },
+  );
+  assert.equal(unknownRule.displayConditionsResolved, false);
+  assert.equal(unknownRule.targetApplicability, "unknown");
+});
+
+test("extract evidence espone applicabilità target ma mantiene la scrittura condivisa bloccata", () => {
+  const evidence = extractElementorConditionEvidence({
+    id: 88,
+    title: { raw: "Header principale" },
+    status: "publish",
+    meta: {
+      _elementor_template_type: "header",
+      _elementor_conditions: ["include/general", "exclude/singular/page/99"],
+    },
+  }, { id: 88, type: "header" }, { id: 42, type: "page" });
+
+  assert.equal(evidence.displayConditionsResolved, true);
+  assert.equal(evidence.targetApplicability, "applies");
+  assert.equal(evidence.conditionInterpretation.target.id, 42);
+  assert.equal(evidence.sharedWriteAllowed, false);
+  assert.equal(evidence.affectedPagesEnumerated, false);
 });
 
 test("assenza di _elementor_conditions resta unknown e non viene trasformata in condizione globale", () => {
@@ -116,6 +177,8 @@ test("la route Elementor impact è solo POST read-only ed è dichiarata nelle ca
   assert.match(source, /readOnly:\s*true/);
   assert.match(source, /sharedWriteAllowed:\s*false/);
   assert.match(source, /affectedPagesEnumerated:\s*false/);
+  assert.match(source, /targetEntity/);
+  assert.match(source, /targetApplicabilityResolved/);
   assert.doesNotMatch(source, /sharedWriteAllowed:\s*true/);
   assert.doesNotMatch(source, /affectedPagesEnumerated:\s*true/);
   assert.doesNotMatch(source, /app\.(?:put|patch|delete)\(/);
