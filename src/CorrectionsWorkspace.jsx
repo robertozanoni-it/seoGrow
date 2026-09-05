@@ -20,12 +20,12 @@ import {
   REMEDIATION_LAST_BATCH_KEY,
   updateCorrection,
 } from "./remediationStore";
+import { rollbackRequest } from "./rollbackPayload";
 import "./CorrectionsWorkspace.css";
 
 const fetch = apiFetch;
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const WORDPRESS_PROFILES_KEY = "seogrow-wordpress-profiles-v1";
-const OPENED_BATCH_KEY = "seogrow-remediation-opened-batch-v1";
 
 const readJson = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
@@ -60,22 +60,33 @@ export default function CorrectionsWorkspace() {
   const profile = readJson(WORDPRESS_PROFILES_KEY, {})[selectedClientId] || null;
 
   useEffect(() => {
+    let frame = 0;
+    let attempts = 0;
     const syncTargets = () => {
-      setNavTarget(document.querySelector(".sidebar nav"));
-      setMainTarget(document.querySelector(".app main"));
+      const nav = document.querySelector(".sidebar nav");
+      const main = document.querySelector(".app main");
+      setNavTarget((current) => current === nav ? current : nav);
+      setMainTarget((current) => current === main ? current : main);
       const nextActive = currentHash() === "Correzioni";
       setActive(nextActive);
       window.__seogrowCorrectionsMode = nextActive;
+      if ((!nav || !main) && attempts < 120) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(syncTargets);
+      }
     };
-    syncTargets();
-    const observer = new MutationObserver(syncTargets);
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("hashchange", syncTargets);
-    window.addEventListener("seogrow-locationchange", syncTargets);
+    const refreshNavigation = () => {
+      window.cancelAnimationFrame(frame);
+      attempts = 0;
+      frame = window.requestAnimationFrame(syncTargets);
+    };
+    frame = window.requestAnimationFrame(syncTargets);
+    window.addEventListener("hashchange", refreshNavigation);
+    window.addEventListener("seogrow-locationchange", refreshNavigation);
     return () => {
-      observer.disconnect();
-      window.removeEventListener("hashchange", syncTargets);
-      window.removeEventListener("seogrow-locationchange", syncTargets);
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", refreshNavigation);
+      window.removeEventListener("seogrow-locationchange", refreshNavigation);
     };
   }, []);
 
@@ -86,9 +97,11 @@ export default function CorrectionsWorkspace() {
     };
     window.addEventListener("storage", storage);
     window.addEventListener("seogrow-remediation-history", refresh);
+    window.addEventListener("seogrow-remediation-applied", refresh);
     return () => {
       window.removeEventListener("storage", storage);
       window.removeEventListener("seogrow-remediation-history", refresh);
+      window.removeEventListener("seogrow-remediation-applied", refresh);
     };
   }, []);
 
@@ -102,29 +115,10 @@ export default function CorrectionsWorkspace() {
 
   useEffect(() => {
     if (!mainTarget) return undefined;
-    const main = document.querySelector(".app main");
-    if (!main) return undefined;
-    if (active) main.dataset.correctionsOpen = "true";
-    else delete main.dataset.correctionsOpen;
-    return () => { delete main.dataset.correctionsOpen; };
+    if (active) mainTarget.dataset.correctionsOpen = "true";
+    else delete mainTarget.dataset.correctionsOpen;
+    return () => { delete mainTarget.dataset.correctionsOpen; };
   }, [active, mainTarget]);
-
-  useEffect(() => {
-    const checkCompletion = () => {
-      const node = document.querySelector(".audit-remediation-message");
-      const text = String(node?.textContent || "");
-      if (!text.startsWith("Remediation completata:")) return;
-      const currentBatch = lastBatch();
-      if (!currentBatch) return;
-      if (sessionStorage.getItem(OPENED_BATCH_KEY) === currentBatch) return;
-      sessionStorage.setItem(OPENED_BATCH_KEY, currentBatch);
-      window.location.hash = encodeURIComponent("Correzioni");
-    };
-    const observer = new MutationObserver(checkCompletion);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    checkCompletion();
-    return () => observer.disconnect();
-  }, []);
 
   const stats = useMemo(() => ({
     total: rows.length,
@@ -173,18 +167,13 @@ export default function CorrectionsWorkspace() {
     setRollingBack(id);
     setMessage("Controllo stale-state e rollback in corso…");
     try {
-      const response = await fetch("/api/wordpress/remediate", {
+      const response = await fetch("/api/wordpress/live-rollback", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-seogrow-rollback": "1" },
-        body: JSON.stringify({
-          url: record.sourceUrl,
-          username: record.username || profile?.username || "",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(rollbackRequest(record, {
+          username: profile?.username || "",
           applicationPassword: password,
-          resource: record.resource,
-          id: record.entityId,
-          changes,
-          expectedCurrent,
-        }),
+        })),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Rollback WordPress non riuscito");
