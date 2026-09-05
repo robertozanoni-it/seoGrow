@@ -68,8 +68,18 @@ const walk = (items, visitor, depth = 0, state = { nodes: 0 }) => {
 };
 
 const elementorRaw = (entity) => pluginMeta(entity)._elementor_data;
+const sharedElementorTemplateTypes = (entity) => {
+  const values = entity?._seogrowOwnership?.elementorSharedTemplateTypes;
+  return Array.isArray(values)
+    ? [...new Set(values.map((value) => String(value || "").trim().toLowerCase()).filter(Boolean))]
+    : [];
+};
+
+const externalSharedReferences = (entity) => sharedElementorTemplateTypes(entity)
+  .map((templateType) => ({ type: "theme-template", templateType, id: "" }));
 
 export function hasElementorDocument(entity) {
+  if (externalSharedReferences(entity).length) return true;
   const raw = elementorRaw(entity);
   if (raw === undefined || raw === null || raw === "") return false;
   try {
@@ -82,18 +92,38 @@ export function hasElementorDocument(entity) {
 
 export function inspectEditableElementor(kind, entity) {
   const raw = elementorRaw(entity);
+  const sharedReferences = externalSharedReferences(entity);
   if (raw === undefined || raw === null || raw === "") {
-    return { state: "absent", parsed: null, widgets: [], hasDocument: false };
+    if (sharedReferences.length) {
+      return {
+        state: "valid",
+        parsed: null,
+        widgets: [],
+        hasDocument: true,
+        sharedReferences,
+      };
+    }
+    return { state: "absent", parsed: null, widgets: [], hasDocument: false, sharedReferences: [] };
   }
 
   try {
     const data = typeof raw === "string" ? JSON.parse(raw) : clone(raw);
-    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true };
+    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences };
 
     const widgets = [];
     const valid = walk(data, (item) => {
       const settings = item?.settings;
       if (!settings || typeof settings !== "object" || Array.isArray(settings)) return;
+
+      const widgetType = String(item.widgetType || "").toLowerCase();
+      const templateId = String(settings.template_id || settings.templateId || "").trim();
+      const globalId = String(settings.global_widget_id || settings.globalWidgetId || "").trim();
+      if (widgetType === "template" && templateId) {
+        sharedReferences.push({ type: "template", templateType: "reusable", id: templateId });
+      }
+      if (widgetType === "global" || globalId) {
+        sharedReferences.push({ type: "global-widget", templateType: "widget", id: globalId || String(item.id || "") });
+      }
 
       if (
         kind === "content" &&
@@ -122,10 +152,30 @@ export function inspectEditableElementor(kind, entity) {
       }
     });
 
-    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0 };
-    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0 };
+    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0, sharedReferences };
+
+    const uniqueSharedReferences = [...new Map(sharedReferences.map((reference) => [
+      `${reference.type}:${reference.templateType}:${reference.id}`,
+      reference,
+    ])).values()];
+
+    // Se il documento dipende da template/widget condivisi, SeoGrow non può
+    // attribuire con certezza il markup pubblico a un singolo widget locale.
+    // Nascondiamo quindi i candidati modificabili al piano automatico e
+    // lasciamo il flusso V2 in fail-closed invece di scegliere il widget locale.
+    if (uniqueSharedReferences.length) {
+      return {
+        state: "valid",
+        parsed: { data },
+        widgets: [],
+        hasDocument: true,
+        sharedReferences: uniqueSharedReferences,
+      };
+    }
+
+    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0, sharedReferences: [] };
   } catch {
-    return { state: "invalid", parsed: null, widgets: [], hasDocument: true };
+    return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences };
   }
 }
 
@@ -162,7 +212,7 @@ export function assessCoreOwnership(kind, entity, frontend) {
       ok: false,
       frontend,
       coreWords,
-      reason: "La pagina contiene un documento Elementor non vuoto: il fallback su post_content è bloccato.",
+      reason: "La pagina contiene ownership Elementor locale o condivisa: il fallback su post_content è bloccato.",
     };
   }
 
