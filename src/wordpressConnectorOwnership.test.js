@@ -44,6 +44,15 @@ test("due plugin SEO attivi restano entrambi visibili senza prova frontend univo
   assert.equal(entity.meta._yoast_wpseo_title, "Yoast");
 });
 
+test("due plugin attivi con un solo campo salvato forzano comunque l'ambiguità", () => {
+  const entity = filterConnectorOwnedMeta({
+    meta: { rank_math_title: "Titolo pubblico" },
+  }, { rankMath: true, yoast: true, elementor: false }, { title: "Titolo pubblico" });
+  assert.equal(entity.meta.rank_math_title, "Titolo pubblico");
+  assert.equal(Object.prototype.hasOwnProperty.call(entity.meta, "_yoast_wpseo_title"), true);
+  assert.equal(entity.meta._yoast_wpseo_title, null);
+});
+
 test("con due plugin attivi elimina soltanto il campo concorrente smentito dal frontend", () => {
   const entity = filterConnectorOwnedMeta({
     meta: {
