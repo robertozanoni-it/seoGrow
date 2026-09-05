@@ -71,7 +71,7 @@ export default function WordPressConnectionControl() {
     setConnecting(true);
     setStatus({ state: "loading", message: "Connessione a WordPress in corso…" });
     try {
-      const response = await apiFetch("/api/wordpress/inspect", {
+      const response = await apiFetch("/api/wordpress/inspect-fast", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(credentials),
