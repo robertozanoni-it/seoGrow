@@ -151,7 +151,7 @@ try {
     localStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
     localStorage.setItem('seogrow-page-audit-history-v2', JSON.stringify({ [client.id]: [audit] }));
     localStorage.setItem('seogrow-analyses-v2', JSON.stringify({ [client.id]: [] }));
-    history.replaceState(null, '', `#${encodeURIComponent('Audit SEO')}`);
+    history.replaceState(null, '', '#Audit%20SEO');
     return true;
   })()`);
 
