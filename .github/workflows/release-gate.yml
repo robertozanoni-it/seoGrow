@@ -68,6 +68,52 @@ jobs:
           console.log(`Version ${pkg.version} is consistent.`);
           NODE
 
+  browser-ui-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Start SeoGrow runtime
+        run: |
+          npm run dev > "$RUNNER_TEMP/seogrow-browser-runtime.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/seogrow-browser-runtime.pid"
+          healthy=0
+          for attempt in {1..80}; do
+            if curl -fsS http://127.0.0.1:5176/api/health 2>/dev/null | grep -q '"ok":true'; then
+              healthy=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$healthy" -ne 1 ]; then
+            echo "SeoGrow runtime did not become healthy for browser smoke."
+            cat "$RUNNER_TEMP/seogrow-browser-runtime.log"
+            exit 1
+          fi
+
+      - name: Headless Chrome UI smoke
+        run: node scripts/browser-smoke.mjs http://127.0.0.1:5176/
+
+      - name: Stop SeoGrow runtime
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/seogrow-browser-runtime.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/seogrow-browser-runtime.pid")" 2>/dev/null || true
+          fi
+          pkill -f "vite --host" 2>/dev/null || true
+          pkill -f "node server/index.js" 2>/dev/null || true
+
   macos-launcher-smoke:
     runs-on: macos-latest
     timeout-minutes: 12
