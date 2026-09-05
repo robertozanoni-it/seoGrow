@@ -154,6 +154,19 @@ test("Elementor Library viene risolta tramite la REST base dichiarata da WordPre
   );
 });
 
+test("descriptor REST Elementor con traversal o segmenti vuoti viene rifiutato", () => {
+  assert.equal(elementorLibraryRestDescriptor({
+    elementor_library: { slug: "elementor_library", rest_namespace: "wp/../v2", rest_base: "elementor_library" },
+  }), null);
+  assert.equal(elementorLibraryRestDescriptor({
+    elementor_library: { slug: "elementor_library", rest_namespace: "wp/v2", rest_base: "elementor_library//private" },
+  }), null);
+  assert.throws(
+    () => elementorLibraryEndpoint(new URL("https://example.com/"), { namespace: "wp/v2", restBase: "../users" }, 88),
+    /REST base Elementor Library non disponibile/,
+  );
+});
+
 test("template presenti nel sito non bloccano genericamente una pagina quando il frontend mostra solo il documento locale", () => {
   const entity = filterConnectorOwnedMeta({
     id: 42,
