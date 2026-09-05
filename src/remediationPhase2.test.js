@@ -80,6 +80,16 @@ test("Correzioni espone una Riverifica esplicita collegata al verificatore corre
   assert.match(corrections, /serve ancora un nuovo audit mirato o completo/);
 });
 
+test("la navigazione fallback Correzioni entra nell'overlay prima del cambio URL", () => {
+  assert.match(corrections, /const openCorrections = \(\) =>/);
+  const mode = corrections.indexOf("window.__seogrowCorrectionsMode = true");
+  const navigation = corrections.indexOf('window.history.pushState(null, "", next)');
+  assert.ok(mode >= 0, "flag overlay Correzioni assente");
+  assert.ok(navigation >= 0, "navigazione Correzioni assente");
+  assert.ok(mode < navigation, "la modalità overlay deve essere attiva prima del cambio URL");
+  assert.match(corrections, /onClick=\{openCorrections\}/);
+});
+
 test("IndexedDB resta source of truth quando localStorage fallisce", () => {
   assert.match(store, /writeJsonBestEffort/);
   assert.match(store, /IndexedDB resta la source of truth/);
