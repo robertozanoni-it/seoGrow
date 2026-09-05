@@ -1,4 +1,5 @@
 const RESOLVED_EVIDENCE_KEY = "seogrow-remediation-resolved-evidence-v2";
+const LEGACY_RESOLVED_EVIDENCE_KEY = "seogrow-remediation-resolved-evidence-v1";
 
 const readJson = (key, fallback) => {
   try {
@@ -34,6 +35,8 @@ const normalizedText = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const legacyText = (value) => String(value || "").trim().toLocaleLowerCase("it");
+
 export function issueFamily(issue) {
   const text = normalizedText(`${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`);
   if (/title duplic|titolo duplic/.test(text)) return "title-duplicate";
@@ -65,13 +68,26 @@ export function clientIssueKey(clientId, issue, fallbackUrl = "") {
   return `${Number(clientId) || 0}|${issueKey(issue, fallbackUrl)}`;
 }
 
+const legacyIssueKey = (clientId, issue, fallbackUrl = "") => {
+  const url = normalizeIssueUrl(issue?.targetUrl || issue?.url || issue?.sourceUrl || fallbackUrl);
+  return `${Number(clientId) || 0}|${legacyText(issue?.label || "")}|${url}`;
+};
+
 export function resolvedEvidence() {
   const value = readJson(RESOLVED_EVIDENCE_KEY, {});
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
 }
 
 export function isIssueResolved(clientId, issue, fallbackUrl = "") {
-  return Boolean(resolvedEvidence()[clientIssueKey(clientId, issue, fallbackUrl)]?.verifiedAt);
+  const current = resolvedEvidence();
+  if (current[clientIssueKey(clientId, issue, fallbackUrl)]?.verifiedAt) return true;
+  const legacy = readJson(LEGACY_RESOLVED_EVIDENCE_KEY, {});
+  return Boolean(
+    legacy &&
+    typeof legacy === "object" &&
+    !Array.isArray(legacy) &&
+    legacy[legacyIssueKey(clientId, issue, fallbackUrl)]?.verifiedAt,
+  );
 }
 
 export function rememberResolvedIssue(clientId, issue, fallbackUrl = "", details = {}) {
@@ -97,10 +113,18 @@ export function rememberResolvedIssue(clientId, issue, fallbackUrl = "", details
 export function forgetResolvedIssue(clientId, issue, fallbackUrl = "") {
   const current = resolvedEvidence();
   const key = clientIssueKey(clientId, issue, fallbackUrl);
-  if (!(key in current)) return;
-  const next = { ...current };
-  delete next[key];
-  writeJson(RESOLVED_EVIDENCE_KEY, next);
+  if (key in current) {
+    const next = { ...current };
+    delete next[key];
+    writeJson(RESOLVED_EVIDENCE_KEY, next);
+  }
+  const legacy = readJson(LEGACY_RESOLVED_EVIDENCE_KEY, {});
+  const oldKey = legacyIssueKey(clientId, issue, fallbackUrl);
+  if (legacy && typeof legacy === "object" && !Array.isArray(legacy) && oldKey in legacy) {
+    const nextLegacy = { ...legacy };
+    delete nextLegacy[oldKey];
+    writeJson(LEGACY_RESOLVED_EVIDENCE_KEY, nextLegacy);
+  }
 }
 
-export { RESOLVED_EVIDENCE_KEY };
+export { LEGACY_RESOLVED_EVIDENCE_KEY, RESOLVED_EVIDENCE_KEY };
