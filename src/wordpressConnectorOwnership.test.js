@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import { basePath, filterConnectorOwnedMeta } from "../server/wordpressInspectFastHook.js";
+
+const inspectSource = await readFile(new URL("../server/wordpressInspectFastHook.js", import.meta.url), "utf8");
 
 test("senza conferma del Connector i meta protetti non diventano scrivibili", () => {
   const entity = filterConnectorOwnedMeta({
@@ -112,4 +115,8 @@ test("l'ispezione conserva separatamente il rischio di ownership Elementor condi
 test("l'ispezione WordPress conserva la sottocartella dell'installazione", () => {
   assert.equal(basePath(new URL("https://example.com/wordpress/")), "/wordpress");
   assert.equal(basePath(new URL("https://example.com/")), "");
+  assert.match(inspectSource, /const \{ siteUrl, url, username, applicationPassword \}/);
+  assert.match(inspectSource, /safeBase\(siteUrl \|\| target\.origin\)/);
+  assert.match(inspectSource, /resolveEntity\(base, headers, target\.href\)/);
+  assert.match(inspectSource, /appartengono a host diversi/);
 });
