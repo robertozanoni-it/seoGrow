@@ -17,6 +17,7 @@ const migratedHooks = await Promise.all([
   "wordpressTaxonomyHook.js",
   "wordpressPatchV2Hook.js",
   "elementorPublicCoverageHook.js",
+  "elementorCoverageAttestationHook.js",
 ].map(readServer));
 
 test("server/index registra esplicitamente le route remediation prima del fallback API", () => {
@@ -39,8 +40,11 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
   assert.match(bootstrap, /"elementor-impact-read-only"/);
   assert.match(bootstrap, /"elementor-impact-server-attested-coverage"/);
   assert.match(bootstrap, /"elementor-public-coverage-read-only"/);
+  assert.match(bootstrap, /"wordpress-public-inventory-read-only"/);
+  assert.match(bootstrap, /"elementor-coverage-attestation"/);
   assert.match(bootstrap, /elementorImpactMode: "read-only-server-attested-coverage-no-shared-write"/);
   assert.match(bootstrap, /elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write"/);
+  assert.match(bootstrap, /elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match-no-shared-write"/);
   assert.match(bootstrap, /taxonomyMode: "single-field-explicit-approval-stale-safe"/);
   assert.match(bootstrap, /"live-preview"/);
   assert.match(bootstrap, /"live-apply"/);
@@ -49,7 +53,7 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
 });
 
 test("tutti gli hook remediation attivi esportano route esplicite senza patchare express.application", () => {
-  assert.equal(migratedHooks.length, 10);
+  assert.equal(migratedHooks.length, 11);
   for (const source of migratedHooks) {
     assert.match(source, /function registerRoutes\(app\)/);
     assert.match(source, /export\s+(?:function\s+registerRoutes\s*\(|\{[^}]*registerRoutes)/);
