@@ -3,7 +3,6 @@ import './remediationVerificationMigration';
 import './remediationIntegrity';
 import './locationEvents';
 import './liveRollbackRouter';
-import './wordpressSeoRuntimePatch';
 import './seoResponseIntegrity';
 import './backupImportGuard';
 import React from 'react';
