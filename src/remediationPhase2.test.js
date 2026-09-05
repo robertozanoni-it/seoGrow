@@ -2,25 +2,26 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const live = await readFile(new URL("./WordPressLiveRemediationControl.jsx", import.meta.url), "utf8");
+const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 const location = await readFile(new URL("./locationEvents.js", import.meta.url), "utf8");
 const rollbackRouter = await readFile(new URL("./liveRollbackRouter.js", import.meta.url), "utf8");
 const rollbackServer = await readFile(new URL("../server/wordpressLiveRollbackHook.js", import.meta.url), "utf8");
 const corrections = await readFile(new URL("./CorrectionsWorkspace.jsx", import.meta.url), "utf8");
 const store = await readFile(new URL("./remediationStore.js", import.meta.url), "utf8");
-const guard = await readFile(new URL("./legacyRemediationGuard.js", import.meta.url), "utf8");
 
-test("bulk live lavora sui soli problemi attivi e non sull'intero storico audit", () => {
+test("bulk preview V2 lavora sui soli problemi attivi e non sull'intero storico audit", () => {
   assert.match(live, /const activeIssues = issues\.filter/);
-  assert.match(live, /all\s*\? context\.activeIssues/);
+  assert.match(live, /const selected = all \? context\.activeIssues/);
   assert.doesNotMatch(live, /const selected = all \? context\.issues/);
 });
 
-test("il bulk live non transazionale non può applicare più elementi", () => {
-  assert.match(guard, /const count = liveBatchCount/);
-  assert.match(guard, /if \(count <= 1\) return/);
-  assert.match(guard, /Applicazione bulk live bloccata per sicurezza/);
-  assert.match(guard, /event\.stopImmediatePropagation\(\)/);
+test("il bulk live non transazionale è stato sostituito da approvazione singola", () => {
+  assert.match(live, /const applyOne = async/);
+  assert.match(live, /Approva e applica questa modifica/);
+  assert.match(live, /Le anteprime si applicano una alla volta per sicurezza/);
+  assert.doesNotMatch(live, /Approva e applica al sito live \(/);
 });
 
 test("apply invalida preview stale su client auditType e analyzedAt", () => {
@@ -30,13 +31,14 @@ test("apply invalida preview stale su client auditType e analyzedAt", () => {
 });
 
 test("preview approvabile mantiene il payload completo", () => {
-  assert.doesNotMatch(live, /compactPreviewValue/);
-  assert.match(live, /payload completo che verrà approvato/);
-  assert.match(live, /after\[key\] = changes\[key\]/);
+  assert.match(live, /Prima → Dopo · payload completo/);
+  assert.match(live, /previewText\(item\.data\.previewBefore\)/);
+  assert.match(live, /previewText\(item\.data\.previewAfter\)/);
+  assert.doesNotMatch(live, /compactPreviewValue|differenceWindow/);
 });
 
-test("gli errori di prepare hanno categorie distinte", () => {
-  for (const status of ["ownership_error", "auth_error", "timeout_error", "generation_error", "adapter_error"]) {
+test("gli errori di prepare V2 hanno categorie distinte", () => {
+  for (const status of ["quality_error", "context_error", "ownership_error", "auth_error", "timeout_error", "generation_error", "adapter_error"]) {
     assert.match(live, new RegExp(status));
   }
   assert.doesNotMatch(live, /status: "unsupported"/);
@@ -69,4 +71,12 @@ test("IndexedDB resta source of truth quando localStorage fallisce", () => {
   assert.match(store, /writeJsonBestEffort/);
   assert.match(store, /IndexedDB resta la source of truth/);
   assert.match(store, /export async function rebuildRemediationIndex/);
+});
+
+test("il runtime principale non monta più motore, guard e observer legacy", () => {
+  assert.doesNotMatch(main, /AuditUnifiedRemediation/);
+  assert.doesNotMatch(main, /legacyRemediationGuard/);
+  assert.doesNotMatch(main, /remediationCompletionUxPatch|remediationUiOrderPatch|remediationReportUx/);
+  assert.match(main, /RemediationRuntime/);
+  assert.doesNotMatch(host, /MutationObserver|window\.fetch\s*=/);
 });
