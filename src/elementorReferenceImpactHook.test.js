@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { extractRestElementorData } from "../server/elementorReferenceImpactHook.js";
+import {
+  extractRestElementorData,
+  normalizeRestBase,
+} from "../server/elementorReferenceImpactHook.js";
 
 const source = await readFile(
   new URL("../server/elementorReferenceImpactHook.js", import.meta.url),
@@ -21,11 +24,42 @@ test("meta Elementor non esposto resta fail-closed", () => {
   assert.equal(extractRestElementorData({}).status, "elementor-meta-unavailable");
 });
 
-test("hook usa inventario Connector autorevole e supporta solo page/post", () => {
+test("page e post usano rest base core note", () => {
+  assert.deepEqual(normalizeRestBase("page", null), {
+    ok: true,
+    restBase: "pages",
+    source: "core-known",
+  });
+  assert.deepEqual(normalizeRestBase("post", null), {
+    ok: true,
+    restBase: "posts",
+    source: "core-known",
+  });
+});
+
+test("custom post type usa solo rest_base dichiarata e sicura", () => {
+  assert.deepEqual(normalizeRestBase("product", { rest_base: "products" }), {
+    ok: true,
+    restBase: "products",
+    source: "wordpress-type-descriptor",
+  });
+  assert.equal(normalizeRestBase("product", { rest_base: "../users" }).ok, false);
+  assert.equal(normalizeRestBase("product", { rest_base: "products/v2" }).ok, false);
+  assert.equal(normalizeRestBase("product", {}).ok, false);
+});
+
+test("hook usa inventario Connector autorevole e risolve i CPT via type descriptor", () => {
   assert.match(source, /wordpress-public-inventory/);
   assert.match(source, /validateAuthoritativeWordPressInventory/);
-  assert.match(source, /new Set\(\["page", "post"\]\)/);
+  assert.match(source, /\/wp-json\/wp\/v2\/types\//);
+  assert.match(source, /rest_base/);
   assert.match(source, /unsupported-authoritative-post-types/);
+});
+
+test("CPT senza rest_base sicura resta fail-closed in attesa del Connector diretto", () => {
+  assert.match(source, /Restano fail-closed finché il Connector non fornisce _elementor_data direttamente/);
+  assert.match(source, /unsupportedPostTypes/);
+  assert.match(source, /affectedPagesEnumerated:\s*false/);
 });
 
 test("lettura documenti usa context edit e meta _elementor_data", () => {
