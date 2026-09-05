@@ -36,16 +36,55 @@
   overflow-wrap: anywhere;
 }
 
+.seogrow-bulk-total {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 26px;
+  margin-left: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .20);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .wp-live-preview-row.resolved,
-.wp-live-preview-row.verified {
+.wp-live-preview-row.verified,
+.wp-live-preview-row.applied {
   border-color: rgba(22, 163, 74, .34);
   background: rgba(220, 252, 231, .52);
+}
+
+.wp-live-preview-row.unsupported,
+.wp-live-preview-row.error {
+  border-color: rgba(217, 119, 6, .40) !important;
+  background: rgba(254, 243, 199, .74) !important;
+}
+
+.seogrow-blocked-badge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  margin-top: 3px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(217, 119, 6, .14);
+  color: #92400e;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
 }
 
 .audit-issues-list > div.seogrow-issue-resolved {
   border-radius: 10px;
   background: rgba(220, 252, 231, .58);
   box-shadow: inset 3px 0 0 rgba(22, 163, 74, .42);
+}
+
+.audit-issues-list > div.seogrow-issue-resolved button {
+  display: none !important;
 }
 
 .seogrow-resolved-badge {
@@ -74,8 +113,14 @@
   .wp-live-selected-issue,
   .wp-live-preview-row.resolved,
   .wp-live-preview-row.verified,
+  .wp-live-preview-row.applied,
   .audit-issues-list > div.seogrow-issue-resolved {
     background: rgba(20, 83, 45, .22);
+  }
+
+  .wp-live-preview-row.unsupported,
+  .wp-live-preview-row.error {
+    background: rgba(120, 53, 15, .30) !important;
   }
 
   .wp-live-selected-issue strong,
@@ -86,5 +131,10 @@
 
   .wp-live-selected-issue-url {
     color: #86efac;
+  }
+
+  .seogrow-blocked-badge {
+    color: #fde68a;
+    background: rgba(217, 119, 6, .20);
   }
 }
