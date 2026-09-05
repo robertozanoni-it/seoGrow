@@ -60,7 +60,7 @@ const version = await waitForJson(`http://127.0.0.1:${debuggingPort}/json/versio
 if (!version.Browser) throw new Error("Chrome DevTools non ha restituito la versione browser.");
 
 const targetResponse = await fetch(
-  `http://127.0.0.1:${debuggingPort}/json/new?${encodeURIComponent(appUrl)}`,
+  `http://127.0.0.1:${debuggingPort}/json/new?${encodeURIComponent("about:blank")}`,
   { method: "PUT" },
 );
 if (!targetResponse.ok) throw new Error(`Impossibile creare la pagina CDP: HTTP ${targetResponse.status}`);
@@ -131,9 +131,8 @@ try {
   await command("Page.enable");
   await command("Runtime.enable");
 
-  // Inietta i dati QA prima che React venga inizializzato. Scrivere localStorage dopo
-  // il mount produceva un falso negativo perché i pagehide handler del vecchio stato
-  // ripristinavano il progetto di esempio durante il reload.
+  // Il target parte da about:blank: così lo script di inizializzazione viene eseguito
+  // prima del primo mount React dell'app, senza che lo stato di esempio possa sovrascriverlo.
   await command("Page.addScriptToEvaluateOnNewDocument", {
     source: `(() => {
       const client = { id: 9001, name: 'Browser QA', url: 'https://example.com/' };
@@ -151,6 +150,7 @@ try {
       };
       localStorage.setItem('seogrow-clients', JSON.stringify([client]));
       localStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
+      localStorage.setItem('seogrow-selected-page-v1', JSON.stringify('Audit SEO'));
       localStorage.setItem('seogrow-page-audit-history-v2', JSON.stringify({ [client.id]: [audit] }));
       localStorage.setItem('seogrow-analyses-v2', JSON.stringify({ [client.id]: [] }));
     })();`,
