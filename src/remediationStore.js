@@ -21,6 +21,19 @@ const writeJson = (key, value) => {
   window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
 };
 
+const writeJsonBestEffort = (key, value, detail = {}) => {
+  try {
+    writeJson(key, value);
+    return true;
+  } catch (error) {
+    console.warn(`Indice locale ${key} non aggiornato; IndexedDB resta la source of truth.`, error);
+    window.dispatchEvent(new CustomEvent("seogrow-remediation-index-warning", {
+      detail: { key, message: error?.message || String(error), ...detail },
+    }));
+    return false;
+  }
+};
+
 const openDb = () => new Promise((resolve, reject) => {
   if (!window.indexedDB) {
     reject(new Error("IndexedDB non disponibile: impossibile salvare snapshot di rollback."));
@@ -96,16 +109,20 @@ const syncIndex = (record) => {
   const current = readJson(REMEDIATION_INDEX_KEY, []);
   const next = [metadataOf(record), ...current.filter((item) => item.id !== record.id)]
     .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
-  writeJson(REMEDIATION_INDEX_KEY, next);
-  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: record.id } }));
+  const written = writeJsonBestEffort(REMEDIATION_INDEX_KEY, next, { id: record.id });
+  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", {
+    detail: { id: record.id, indexUpdated: written },
+  }));
 };
 
 const replaceIndex = (records) => {
   const index = records
     .map(metadataOf)
     .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
-  writeJson(REMEDIATION_INDEX_KEY, index);
-  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { restored: true } }));
+  const written = writeJsonBestEffort(REMEDIATION_INDEX_KEY, index, { restored: true });
+  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", {
+    detail: { restored: true, indexUpdated: written },
+  }));
 };
 
 const activeClientIds = () => {
@@ -146,6 +163,12 @@ export const stableIssueKey = (record = {}) => {
 };
 
 export const remediationIndex = () => readJson(REMEDIATION_INDEX_KEY, []);
+
+export async function rebuildRemediationIndex() {
+  const records = await readAllCorrections();
+  replaceIndex(records);
+  return records.length;
+}
 
 export async function saveCorrection(record) {
   const next = { ...record, issueKey: record.issueKey || stableIssueKey(record) };
@@ -224,7 +247,7 @@ export async function purgeOrphanCorrections() {
 }
 
 export function setLastBatch(batchId) {
-  writeJson(REMEDIATION_LAST_BATCH_KEY, batchId || "");
+  writeJsonBestEffort(REMEDIATION_LAST_BATCH_KEY, batchId || "", { kind: "batch" });
 }
 
 export function lastBatch() {
@@ -251,7 +274,7 @@ export function removeVerifiedTask(record) {
       completionReason: "Correzione verificata da SeoGrow",
     };
   });
-  if (changed) writeJson(TASKS_KEY, next);
+  if (changed) writeJsonBestEffort(TASKS_KEY, next, { kind: "task-completion" });
 }
 
 export function reopenTask(record) {
@@ -276,7 +299,7 @@ export function reopenTask(record) {
       completionReason: "",
       reopenedAt: new Date().toISOString(),
     };
-    writeJson(TASKS_KEY, next);
+    writeJsonBestEffort(TASKS_KEY, next, { kind: "task-reopen" });
     return;
   }
   const priority = ["alta", "high", "critical", "critica"].includes(String(record.severity || "").toLowerCase())
@@ -284,7 +307,7 @@ export function reopenTask(record) {
     : ["bassa", "low"].includes(String(record.severity || "").toLowerCase())
       ? "Bassa"
       : "Media";
-  writeJson(TASKS_KEY, [{
+  writeJsonBestEffort(TASKS_KEY, [{
     id: `rollback-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     title: record.issueLabel || "Ricontrolla correzione ripristinata",
     client: record.clientName || "",
@@ -299,7 +322,7 @@ export function reopenTask(record) {
     detail: `Task riaperta automaticamente dopo rollback della correzione del ${new Date(record.appliedAt).toLocaleString("it-IT")}.`,
     notes: "",
     createdAt: new Date().toISOString(),
-  }, ...tasks]);
+  }, ...tasks], { kind: "task-reopen-create" });
 }
 
 if (typeof window !== "undefined") {
