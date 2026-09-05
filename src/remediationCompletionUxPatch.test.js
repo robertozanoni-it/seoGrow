@@ -27,26 +27,34 @@ test("una nuova task successiva alla verifica non viene chiusa da una vecchia co
   assert.match(source, /activeTasks\.every/);
 });
 
-test("la remediation mostra quale problema è selezionato", () => {
+test("la remediation mostra quale problema attivo è selezionato", () => {
   assert.match(source, /Problema selezionato/);
   assert.match(source, /wp-live-selected-issue-label/);
   assert.match(source, /Prepara solo il problema selezionato/);
+  assert.match(source, /activeAuditIssueRows\(\)\[0\]/);
+  assert.match(source, /!row\.classList\.contains\("seogrow-issue-resolved"\)/);
   assert.match(source, /seogrow-remediation-open/);
 });
 
-test("il pulsante bulk mostra il numero totale dei problemi dell'audit", () => {
+test("il pulsante bulk mostra il numero dei problemi ancora da correggere", () => {
   assert.match(source, /syncBulkActionTotal/);
-  assert.match(source, /auditIssueRows\(\)\.length/);
+  assert.match(source, /const totalAudit = allAuditIssueRows\(\)\.length/);
+  assert.match(source, /const totalActive = activeAuditIssueRows\(\)\.length/);
   assert.match(source, /seogrow-bulk-total/);
-  assert.match(source, /problemi nell'audit corrente/);
+  assert.match(source, /problemi ancora da correggere su/);
 });
 
-test("problemi risolti e problemi bloccati sono visivamente distinti", () => {
+test("i problemi verificati spariscono dalla lista attiva invece di restare tra i problemi rilevati", () => {
+  assert.match(source, /row\.hidden = true/);
+  assert.match(source, /row\.setAttribute\("aria-hidden", "true"\)/);
+  assert.match(source, /row\.style\.setProperty\("display", "none", "important"\)/);
+  assert.match(source, /risolti dopo l’audit e rimossi da questa lista/);
+  assert.match(source, /I problemi risolti restano disponibili nello storico audit/);
+});
+
+test("problemi bloccati restano visivamente distinti", () => {
   assert.match(css, /\.wp-live-remediation\.panel/);
   assert.match(css, /rgba\(240, 253, 244/);
-  assert.match(css, /seogrow-issue-resolved/);
-  assert.match(css, /seogrow-issue-resolved button/);
-  assert.match(css, /display: none !important/);
   assert.match(css, /wp-live-preview-row\.unsupported/);
   assert.match(source, /seogrow-blocked-badge/);
   assert.match(source, /Non corretto/);
