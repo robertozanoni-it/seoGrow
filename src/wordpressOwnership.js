@@ -30,26 +30,41 @@ const isDynamic = (settings, key) => {
   );
 };
 
-const walk = (items, visitor) => {
-  if (!Array.isArray(items)) return false;
+const walk = (items, visitor, depth = 0, state = { nodes: 0 }) => {
+  if (!Array.isArray(items) || depth > 80) return false;
   for (const item of items) {
+    state.nodes += 1;
+    if (state.nodes > 5000) return false;
     if (!item || typeof item !== "object" || Array.isArray(item)) return false;
     visitor(item);
     if (item.elements !== undefined && !Array.isArray(item.elements)) return false;
-    if (item.elements && !walk(item.elements, visitor)) return false;
+    if (item.elements && !walk(item.elements, visitor, depth + 1, state)) return false;
   }
   return true;
 };
 
+const elementorRaw = (entity) => pluginMeta(entity)._elementor_data;
+
+export function hasElementorDocument(entity) {
+  const raw = elementorRaw(entity);
+  if (raw === undefined || raw === null || raw === "") return false;
+  try {
+    const data = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return Array.isArray(data) && data.length > 0;
+  } catch {
+    return true;
+  }
+}
+
 export function inspectEditableElementor(kind, entity) {
-  const raw = pluginMeta(entity)._elementor_data;
+  const raw = elementorRaw(entity);
   if (raw === undefined || raw === null || raw === "") {
-    return { state: "absent", parsed: null, widgets: [] };
+    return { state: "absent", parsed: null, widgets: [], hasDocument: false };
   }
 
   try {
     const data = typeof raw === "string" ? JSON.parse(raw) : clone(raw);
-    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [] };
+    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true };
 
     const widgets = [];
     const valid = walk(data, (item) => {
@@ -63,7 +78,12 @@ export function inspectEditableElementor(kind, entity) {
         settings.editor.trim() &&
         !isDynamic(settings, "editor")
       ) {
-        widgets.push({ item, value: settings.editor, words: countTextWords(settings.editor) });
+        widgets.push({
+          id: String(item.id || ""),
+          item,
+          value: settings.editor,
+          words: countTextWords(settings.editor),
+        });
       }
 
       if (
@@ -74,18 +94,23 @@ export function inspectEditableElementor(kind, entity) {
         !isDynamic(settings, "title") &&
         !isDynamic(settings, "header_size")
       ) {
-        widgets.push({ item, value: settings.title });
+        widgets.push({ id: String(item.id || ""), item, value: settings.title });
       }
     });
 
-    if (!valid) return { state: "invalid", parsed: null, widgets: [] };
-    return { state: "valid", parsed: { data }, widgets };
+    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0 };
+    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0 };
   } catch {
-    return { state: "invalid", parsed: null, widgets: [] };
+    return { state: "invalid", parsed: null, widgets: [], hasDocument: true };
   }
 }
 
-export const serializeElementor = (parsed) => JSON.stringify(parsed?.data || []);
+export function serializeElementor(parsed) {
+  if (!parsed || !Array.isArray(parsed.data)) {
+    throw new Error("Documento Elementor non valido: serializzazione bloccata.");
+  }
+  return JSON.stringify(parsed.data);
+}
 
 export function assessCoreOwnership(kind, entity, frontend) {
   if (kind === "title") {
@@ -108,6 +133,15 @@ export function assessCoreOwnership(kind, entity, frontend) {
     expectedWords / frontendWords >= 0.55,
   );
 
+  if (hasElementorDocument(entity)) {
+    return {
+      ok: false,
+      frontend,
+      coreWords,
+      reason: "La pagina contiene un documento Elementor non vuoto: il fallback su post_content è bloccato.",
+    };
+  }
+
   if (kind === "h1") {
     const coreH1 = countH1(coreContent);
     const frontendH1 = Number(frontend?.h1);
@@ -123,25 +157,28 @@ export function assessCoreOwnership(kind, entity, frontend) {
   return { ok: strongCoverage, frontend, coreWords };
 }
 
-export function chooseElementorContentCandidate(candidates, probeResults, frontendWords) {
-  const visible = candidates
+export function chooseElementorContentCandidate(candidates, probeResults) {
+  const confirmed = candidates
     .map((candidate, index) => ({ ...candidate, probe: probeResults[index] }))
-    .filter((candidate) => candidate.probe?.contentProbeVisible === true)
-    .sort((a, b) => b.words - a.words);
+    .filter((candidate) => {
+      const probeCount = Number(candidate.probe?.contentProbeCount);
+      const probeMatches = Number(candidate.probe?.contentProbeMatches);
+      return candidate.probe?.contentCoverageStrong === true &&
+        Number.isFinite(probeCount) && probeCount >= 1 &&
+        probeMatches === probeCount;
+    });
 
-  if (visible.length === 0) return { candidate: null, reason: "Nessun text-editor Elementor candidato è confermato nel frontend pubblico." };
-  if (visible.length === 1) return { candidate: visible[0], reason: "" };
+  if (confirmed.length === 0) {
+    return {
+      candidate: null,
+      reason: "Nessun text-editor Elementor candidato è confermato integralmente nel frontend pubblico.",
+    };
+  }
 
-  const total = Number(frontendWords);
-  const first = visible[0];
-  const second = visible[1];
-  const dominant = Number.isFinite(total) && total > 0 &&
-    first.words >= Math.max(20, total * 0.45) &&
-    second.words <= first.words * 0.6;
+  if (confirmed.length === 1) return { candidate: confirmed[0], reason: "" };
 
-  if (dominant) return { candidate: first, reason: "" };
   return {
     candidate: null,
-    reason: "Più text-editor Elementor risultano visibili e nessuno è abbastanza dominante da essere modificato senza ambiguità.",
+    reason: "Più text-editor Elementor risultano confermati nel frontend: la sola lunghezza non è sufficiente per scegliere il widget da modificare.",
   };
 }
