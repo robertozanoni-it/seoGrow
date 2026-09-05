@@ -4,6 +4,12 @@ import { AlertTriangle, CheckCircle2, Eye, ShieldCheck, Wrench } from "lucide-re
 import { apiFetch } from "./api";
 import { normalizeAnalysisHistory } from "./platform";
 import { saveCorrection, setLastBatch } from "./remediationStore";
+import {
+  assessCoreOwnership,
+  chooseElementorContentCandidate,
+  inspectEditableElementor,
+  serializeElementor,
+} from "./wordpressOwnership";
 import "./WordPressLiveRemediationControl.css";
 
 const CLIENTS_KEY = "seogrow-clients";
@@ -100,34 +106,20 @@ const metaKey = (entity, kind) => {
   return (candidatesByKind[kind] || []).find(([key]) => has(key)) || null;
 };
 
-const parseElementor = (entity) => {
-  const raw = pluginMeta(entity)._elementor_data;
-  if (!raw) return null;
-  try {
-    const data = typeof raw === "string" ? JSON.parse(raw) : structuredClone(raw);
-    return { data, rawType: typeof raw };
-  } catch {
-    return null;
-  }
-};
-
-const walkElementor = (items, visitor) => {
-  if (!Array.isArray(items)) return;
-  for (const item of items) {
-    visitor(item);
-    walkElementor(item?.elements, visitor);
-  }
-};
-
-const serializeElementor = (parsed) => JSON.stringify(parsed.data);
-const countH1 = (value) => (String(value || "").match(/<h1\b[^>]*>/gi) || []).length;
-
 const pageContext = (entity, targetUrl, contentOverride) => ({
   title: entity?.title?.raw || entity?.title?.rendered || "",
   content: contentOverride ?? entity?.content?.raw ?? entity?.content?.rendered ?? "",
   excerpt: entity?.excerpt?.raw || entity?.excerpt?.rendered || "",
   url: targetUrl,
 });
+
+const ownershipUndetermined = (kind, detail) => {
+  const error = new Error(
+    `Ownership frontend non determinabile per "${kind}". ${detail} Nessuna modifica è stata autorizzata.`,
+  );
+  error.code = "OWNERSHIP_UNDETERMINED";
+  return error;
+};
 
 async function inspectWordPress(targetUrl, credentials) {
   const response = await apiFetch("/api/wordpress/inspect", {
@@ -144,12 +136,7 @@ async function inspectWordPress(targetUrl, credentials) {
   return data;
 }
 
-async function verifyCoreOwnership(kind, targetUrl, inspected) {
-  if (!["title", "content", "h1"].includes(kind)) return { ok: true, frontend: null };
-  const entity = inspected.entity || {};
-  const expected = kind === "title"
-    ? { title: entity.title?.raw || entity.title?.rendered || "" }
-    : { content: entity.content?.raw || entity.content?.rendered || "" };
+async function verifyFrontend(targetUrl, expected) {
   const response = await apiFetch("/api/wordpress/verify-frontend", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -157,18 +144,17 @@ async function verifyCoreOwnership(kind, targetUrl, inspected) {
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data.error || "Controllo ownership frontend non riuscito.");
-  if (kind === "title") return { ok: data.titleMatchesExpected === true, frontend: data };
-  if (kind === "h1") {
-    const coreH1 = countH1(entity.content?.raw || entity.content?.rendered || "");
-    const frontendH1 = Number(data.h1);
-    return {
-      ok: data.contentProbeVisible === true && frontendH1 === coreH1,
-      frontend: data,
-      coreH1,
-      frontendH1,
-    };
-  }
-  return { ok: data.contentProbeVisible === true, frontend: data };
+  return data;
+}
+
+async function verifyCoreOwnership(kind, targetUrl, inspected) {
+  if (!["title", "content", "h1"].includes(kind)) return { ok: true, frontend: null };
+  const entity = inspected.entity || {};
+  const expected = kind === "title"
+    ? { title: entity.title?.raw || entity.title?.rendered || "" }
+    : { content: entity.content?.raw || entity.content?.rendered || "" };
+  const frontend = await verifyFrontend(targetUrl, expected);
+  return assessCoreOwnership(kind, entity, frontend);
 }
 
 const alreadyResolvedReason = (kind, issue, ownership) => {
@@ -224,44 +210,67 @@ async function generateSeoValue(kind, issue, entity, targetUrl) {
   return String(data.value).trim();
 }
 
-async function elementorPlan(kind, issue, entity, targetUrl) {
-  const parsed = parseElementor(entity);
-  if (!parsed) return null;
+async function chooseVerifiedElementorContentWidget(targetUrl, state, frontend) {
+  if (state.widgets.length > 8) {
+    throw ownershipUndetermined(
+      "content",
+      "La pagina contiene più di 8 text-editor Elementor candidati; il widget responsabile non può essere scelto in sicurezza.",
+    );
+  }
+  const probes = await Promise.all(
+    state.widgets.map((widget) => verifyFrontend(targetUrl, { content: widget.value })),
+  );
+  const selected = chooseElementorContentCandidate(state.widgets, probes, frontend?.words);
+  if (!selected.candidate) throw ownershipUndetermined("content", selected.reason);
+  return selected.candidate;
+}
+
+async function elementorPlan(kind, issue, entity, targetUrl, state, frontend) {
+  if (!state?.parsed || !state.widgets.length) return null;
 
   if (kind === "h1") {
-    const headings = [];
-    walkElementor(parsed.data, (item) => {
-      if (item?.widgetType === "heading" && item.settings) headings.push(item);
-    });
-    if (!headings.length) return null;
+    const headings = state.widgets.map((candidate) => candidate.item);
     const h1 = headings.filter((item) => String(item.settings?.header_size || "h2").toLowerCase() === "h1");
     const label = String(issue?.label || "");
-    if (/\b0\s*H1\b/i.test(label) || h1.length === 0) {
+    const frontendH1 = Number(frontend?.h1);
+    const missing = /\b0\s*H1\b/i.test(label);
+    const multiple = /\b(?:[2-9]|[1-9]\d+)\s*H1\b/i.test(label);
+
+    if (missing || h1.length === 0) {
+      if (frontendH1 !== 0) {
+        throw ownershipUndetermined(
+          "h1",
+          `Elementor non contiene H1 modificabili ma il frontend ne espone ${Number.isFinite(frontendH1) ? frontendH1 : "un numero non verificabile"}.`,
+        );
+      }
       headings[0].settings.header_size = "h1";
-    } else if (/\b(?:2|3|4|5|6|7|8|9)\s*H1\b/i.test(label) || h1.length > 1) {
+    } else if (multiple || h1.length > 1) {
+      if (h1.length <= 1 || frontendH1 !== h1.length) {
+        throw ownershipUndetermined(
+          "h1",
+          "Gli H1 pubblici non coincidono con gli H1 Elementor modificabili; potrebbe intervenire un template o un altro layer.",
+        );
+      }
       h1.slice(1).forEach((item) => { item.settings.header_size = "h2"; });
-    } else return null;
+    } else {
+      return null;
+    }
+
     return {
       adapter: "Elementor",
-      changes: { meta: { _elementor_data: serializeElementor(parsed) } },
+      changes: { meta: { _elementor_data: serializeElementor(state.parsed) } },
     };
   }
 
   if (kind === "content") {
-    const editors = [];
-    walkElementor(parsed.data, (item) => {
-      const editor = item?.widgetType === "text-editor" ? item.settings?.editor : "";
-      if (typeof editor === "string" && editor.trim()) editors.push({ item, editor });
-    });
-    if (!editors.length) return null;
-    editors.sort((a, b) => b.editor.length - a.editor.length);
-    const selected = editors[0];
-    const patch = await generateCorePatch("content", issue, entity, targetUrl, selected.editor);
-    if (!patch.content || patch.content === selected.editor) return null;
+    const selected = await chooseVerifiedElementorContentWidget(targetUrl, state, frontend);
+    const previous = selected.item.settings.editor;
+    const patch = await generateCorePatch("content", issue, entity, targetUrl, previous);
+    if (typeof patch?.content !== "string" || !patch.content.trim() || patch.content === previous) return null;
     selected.item.settings.editor = patch.content;
     return {
       adapter: "Elementor",
-      changes: { meta: { _elementor_data: serializeElementor(parsed) } },
+      changes: { meta: { _elementor_data: serializeElementor(state.parsed) } },
     };
   }
 
@@ -271,7 +280,39 @@ async function elementorPlan(kind, issue, entity, targetUrl) {
 async function buildPlan(kind, issue, inspected, targetUrl) {
   const entity = inspected.entity || {};
 
-  if (["content", "h1", "title"].includes(kind)) {
+  if (["content", "h1"].includes(kind)) {
+    const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
+    const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
+    if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
+
+    const elementorState = inspectEditableElementor(kind, entity);
+    if (elementorState.state === "invalid") {
+      throw ownershipUndetermined(kind, "_elementor_data è presente ma non è strutturato in modo valido e sicuro.");
+    }
+
+    if (elementorState.state === "valid" && elementorState.widgets.length > 0) {
+      const elementor = await elementorPlan(kind, issue, entity, targetUrl, elementorState, ownership.frontend);
+      if (elementor) return elementor;
+      throw ownershipUndetermined(
+        kind,
+        "Sono presenti widget Elementor pertinenti, ma non è stato possibile preparare una modifica utile senza ambiguità. Il fallback su post_content è bloccato.",
+      );
+    }
+
+    if (ownership.ok) {
+      return {
+        adapter: "WordPress core",
+        changes: await generateCorePatch(kind, issue, entity, targetUrl),
+      };
+    }
+
+    const detail = elementorState.state === "valid"
+      ? "Elementor è presente ma non contiene widget pertinenti modificabili; inoltre la verifica non dimostra ownership WordPress core."
+      : "La verifica frontend non dimostra che post_content sia la sorgente principale della pagina.";
+    throw ownershipUndetermined(kind, detail);
+  }
+
+  if (kind === "title") {
     const ownership = await verifyCoreOwnership(kind, targetUrl, inspected);
     const resolvedReason = alreadyResolvedReason(kind, issue, ownership);
     if (resolvedReason) return { alreadyResolved: true, reason: resolvedReason };
@@ -280,11 +321,6 @@ async function buildPlan(kind, issue, inspected, targetUrl) {
         adapter: "WordPress core",
         changes: await generateCorePatch(kind, issue, entity, targetUrl),
       };
-    }
-    if (["content", "h1"].includes(kind)) {
-      const elementor = await elementorPlan(kind, issue, entity, targetUrl);
-      if (elementor) return elementor;
-      throw new Error("Il frontend è gestito da Elementor/template, ma _elementor_data non è disponibile o non contiene un widget modificabile in sicurezza.");
     }
     const plugin = metaKey(entity, "title");
     if (!plugin)
