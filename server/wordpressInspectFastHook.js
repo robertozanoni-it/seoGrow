@@ -4,6 +4,8 @@ import { pickExactWordPressEntity } from "./wordpressEntityIdentity.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressInspectFastHook");
 const RATE = new Map();
+const RANK_MATH_META = ["rank_math_title", "rank_math_description", "rank_math_canonical_url", "rank_math_robots"];
+const YOAST_META = ["_yoast_wpseo_title", "_yoast_wpseo_metadesc", "_yoast_wpseo_canonical", "_yoast_wpseo_meta-robots-noindex"];
 
 async function safeBase(input) {
   const url = new URL(String(input || ""));
@@ -81,6 +83,17 @@ async function connectorStatus(base, headers) {
   };
 }
 
+function filterConnectorOwnedMeta(entity, connector) {
+  const source = entity && typeof entity === "object" ? entity : {};
+  const meta = source.meta && typeof source.meta === "object" && !Array.isArray(source.meta)
+    ? { ...source.meta }
+    : {};
+  if (connector?.elementor !== true) delete meta._elementor_data;
+  if (connector?.rankMath !== true) RANK_MATH_META.forEach((key) => delete meta[key]);
+  if (connector?.yoast !== true) YOAST_META.forEach((key) => delete meta[key]);
+  return { ...source, meta };
+}
+
 function rateLimit(req) {
   const now = Date.now();
   const key = req.ip || "local";
@@ -146,7 +159,7 @@ function registerRoutes(app) {
         fast: true,
         user: { id: 0, name: String(username) },
         resource: resolved.resource,
-        entity: resolved.entity,
+        entity: filterConnectorOwnedMeta(resolved.entity, connector),
         connector,
       });
     } catch (error) {
@@ -155,4 +168,4 @@ function registerRoutes(app) {
   });
 }
 
-export { registerRoutes, resolveEntity, safeBase, connectorStatus, basePath };
+export { registerRoutes, resolveEntity, safeBase, connectorStatus, filterConnectorOwnedMeta, basePath };
