@@ -22,6 +22,7 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
 }
 
 const remediationModules = await Promise.all([
+  import("./wordpressConnectionHook.js"),
   import("./wordpressLiveApprovalHook.js"),
   import("./wordpressLiveRollbackHook.js"),
   import("./wordpressSeoAdapterV2Hook.js"),
@@ -43,6 +44,7 @@ export function registerRemediationRoutes(app) {
       ok: true,
       engine: "v2",
       supports: [
+        "connection-check",
         "inspect",
         "inspect-fast",
         "inspect-taxonomy",
