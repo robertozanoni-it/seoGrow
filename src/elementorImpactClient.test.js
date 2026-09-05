@@ -91,9 +91,12 @@ test("il client conserva il contratto fail-closed e accetta candidate URL solo c
   assert.doesNotMatch(source, /affectedPagesEnumerated:\s*data/);
 });
 
-test("il live flow richiede impact evidence read-only prima di valutare content e H1 condivisi", () => {
-  assert.match(live, /inspectElementorImpactEvidence/);
+test("il live flow passa al diagnostico Elementor le URL del crawl disponibili", () => {
+  assert.match(live, /buildElementorImpactCandidateUrls/);
+  assert.match(live, /audit:\s*context\.audit\.item/);
+  assert.match(live, /issue:\s*currentIssue/);
+  assert.match(live, /client:\s*context\.client/);
+  assert.match(live, /inspectElementorImpactEvidence\(inspected\.entity, credentials, candidateUrls\)/);
   assert.match(live, /attachElementorImpactEvidence/);
   assert.match(live, /\["content", "h1"\]\.includes\(kind\)/);
-  assert.match(live, /const impactEvidence = await inspectElementorImpactEvidence/);
 });
