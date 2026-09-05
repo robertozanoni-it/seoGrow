@@ -35,6 +35,12 @@ const readJson = (key, fallback) => {
 const currentHash = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)); } catch { return ""; }
 };
+const openCorrections = () => {
+  const next = `#${encodeURIComponent("Correzioni")}`;
+  window.__seogrowCorrectionsMode = true;
+  if (window.location.hash !== next) window.history.pushState(null, "", next);
+  window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+};
 const preview = (value, max = 300) => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return text.length > max ? `${text.slice(0, max)}…` : text || "—";
@@ -227,7 +233,7 @@ export default function CorrectionsWorkspace() {
       type="button"
       className={active ? "active corrections-nav-button" : "corrections-nav-button"}
       aria-current={active ? "page" : undefined}
-      onClick={() => { window.location.hash = encodeURIComponent("Correzioni"); }}
+      onClick={openCorrections}
     >
       <History />
       <span>Correzioni</span>
