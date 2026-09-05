@@ -1,0 +1,3 @@
+body[data-seogrow-workspace="Problemi"] .app main > :not(.problems-workspace-root) {
+  display: none !important;
+}
