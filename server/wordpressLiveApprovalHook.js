@@ -1,11 +1,8 @@
 import crypto from "node:crypto";
 import dns from "node:dns/promises";
 import net from "node:net";
-import express from "express";
 
 const HOOKED = Symbol.for("seogrow.wordpressLiveApprovalHook");
-const USE_PATCHED = Symbol.for("seogrow.wordpressLiveApprovalUsePatched");
-const LISTEN_PATCHED = Symbol.for("seogrow.wordpressLiveApprovalListenPatched");
 const APPROVALS = new Map();
 const TTL_MS = 30 * 60_000;
 const RATE = new Map();
@@ -306,23 +303,3 @@ function registerRoutes(app) {
 }
 
 export { registerRoutes, invalidateOverlappingApprovals, changedFields };
-
-const originalUse = express.application.use;
-if (!originalUse[USE_PATCHED]) {
-  const patchedUse = function (...args) {
-    if (!this[HOOKED] && args[0] === "/api") registerRoutes(this);
-    return originalUse.apply(this, args);
-  };
-  patchedUse[USE_PATCHED] = true;
-  express.application.use = patchedUse;
-}
-
-const originalListen = express.application.listen;
-if (!originalListen[LISTEN_PATCHED]) {
-  const patchedListen = function (...args) {
-    registerRoutes(this);
-    return originalListen.apply(this, args);
-  };
-  patchedListen[LISTEN_PATCHED] = true;
-  express.application.listen = patchedListen;
-}
