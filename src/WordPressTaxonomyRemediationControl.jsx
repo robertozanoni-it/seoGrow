@@ -197,6 +197,9 @@ export default function WordPressTaxonomyRemediationControl() {
           setInspection(null);
           setDetectionError("");
           setDetecting(false);
+          setPreview(null);
+          setQuality(null);
+          setAppliedRecordId("");
         }
         return;
       }
@@ -211,11 +214,16 @@ export default function WordPressTaxonomyRemediationControl() {
         setIndexingIntent("");
         setIndexingConfirmed(false);
         setPreview(null);
+        setQuality(null);
         setAppliedRecordId("");
+        setMessage("");
       } catch (error) {
         if (cancelled) return;
         setInspection(null);
         setDetectionError(suspected ? error.message : "");
+        setPreview(null);
+        setQuality(null);
+        setAppliedRecordId("");
       } finally {
         if (!cancelled) setDetecting(false);
       }
@@ -227,18 +235,10 @@ export default function WordPressTaxonomyRemediationControl() {
   }, [signature, sourceUrl, suspected]);
 
   useEffect(() => {
-    if (!target) return undefined;
-    if (inspection?.resource === "taxonomy") target.dataset.taxonomyActive = "true";
-    else delete target.dataset.taxonomyActive;
-    return () => { delete target.dataset.taxonomyActive; };
-  }, [target, inspection]);
-
-  useEffect(() => {
-    setPreview(null);
-    setQuality(null);
-    setMessage("");
-    setAppliedRecordId("");
-  }, [sourceUrl, selectedIndex, field]);
+    if (inspection?.resource === "taxonomy") document.body.dataset.seogrowTaxonomyActive = "true";
+    else delete document.body.dataset.seogrowTaxonomyActive;
+    return () => { delete document.body.dataset.seogrowTaxonomyActive; };
+  }, [inspection]);
 
   if (!target || (!inspection && !suspected)) return null;
 
