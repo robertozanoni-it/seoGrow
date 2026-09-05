@@ -1,0 +1,42 @@
+.wp-live-remediation-v2 {
+  background: linear-gradient(180deg, #f2fff5 0%, #e9fbef 100%);
+  border-color: #b9e9c7;
+}
+
+.wp-live-remediation-v2 .wp-live-preview-row {
+  background: #f8fffa;
+  border: 1px solid #cbead4;
+}
+
+.wp-live-remediation-v2 .wp-live-preview-row.resolved,
+.wp-live-remediation-v2 .wp-live-preview-row.applied,
+.wp-live-remediation-v2 .wp-live-preview-row.rolledback {
+  background: #e9fbef;
+  border-color: #a9dfba;
+}
+
+.wp-live-remediation-v2 .wp-live-preview-row.blocked {
+  background: #fff8e8;
+  border-color: #f0cf79;
+}
+
+.wp-live-remediation-v2 .wp-live-preview-row.error,
+.wp-live-remediation-v2 .wp-live-preview-row.rollback-error {
+  background: #fff1f1;
+  border-color: #efb0b0;
+}
+
+.wp-live-remediation-v2 .wp-live-full-payload {
+  margin-top: 12px;
+}
+
+.wp-live-remediation-v2 .wp-live-full-payload pre {
+  max-height: 480px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.wp-live-remediation-v2 .wp-live-remediation-message {
+  margin-bottom: 0;
+}
