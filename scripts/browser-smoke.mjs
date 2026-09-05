@@ -2,7 +2,7 @@ import { access, rm } from "node:fs/promises";
 import { spawn } from "node:child_process";
 
 const appUrl = process.argv[2] || "http://127.0.0.1:5176/";
-const debuggingPort = 9222;
+const debuggingPort = 10_000 + (process.pid % 40_000);
 const profile = `/tmp/seogrow-browser-smoke-${process.pid}`;
 
 const candidates = [
@@ -30,6 +30,9 @@ const chrome = spawn(chromeBin, [
   "--no-sandbox",
   "--disable-gpu",
   "--disable-dev-shm-usage",
+  "--no-first-run",
+  "--no-default-browser-check",
+  "--remote-debugging-address=127.0.0.1",
   `--remote-debugging-port=${debuggingPort}`,
   `--user-data-dir=${profile}`,
   "about:blank",
@@ -41,51 +44,34 @@ chrome.stdout.on("data", (chunk) => { chromeLog += String(chunk); });
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function waitForJson(url, timeoutMs = 15_000) {
+async function waitForJson(url, timeoutMs = 30_000) {
   const started = Date.now();
   let lastError;
   while (Date.now() - started < timeoutMs) {
+    if (chrome.exitCode !== null) {
+      throw new Error(`Chrome è terminato prima di esporre DevTools (exit ${chrome.exitCode}). ${chromeLog.slice(-1200)}`);
+    }
     try {
       const response = await fetch(url);
       if (response.ok) return await response.json();
     } catch (error) {
       lastError = error;
     }
-    await sleep(150);
+    await sleep(250);
   }
-  throw new Error(`Chrome DevTools non disponibile: ${lastError?.message || "timeout"}`);
+  throw new Error(`Chrome DevTools non disponibile dopo ${timeoutMs} ms: ${lastError?.message || "timeout"}. ${chromeLog.slice(-1200)}`);
 }
 
-const version = await waitForJson(`http://127.0.0.1:${debuggingPort}/json/version`);
-if (!version.Browser) throw new Error("Chrome DevTools non ha restituito la versione browser.");
-
-const targetResponse = await fetch(
-  `http://127.0.0.1:${debuggingPort}/json/new?${encodeURIComponent("about:blank")}`,
-  { method: "PUT" },
-);
-if (!targetResponse.ok) throw new Error(`Impossibile creare la pagina CDP: HTTP ${targetResponse.status}`);
-const target = await targetResponse.json();
-if (!target.webSocketDebuggerUrl) throw new Error("WebSocket CDP mancante.");
-
-const socket = new WebSocket(target.webSocketDebuggerUrl);
-await new Promise((resolve, reject) => {
-  const timeout = setTimeout(() => reject(new Error("Timeout connessione CDP.")), 10_000);
-  socket.addEventListener("open", () => { clearTimeout(timeout); resolve(); }, { once: true });
-  socket.addEventListener("error", () => { clearTimeout(timeout); reject(new Error("Connessione CDP fallita.")); }, { once: true });
-});
-
+let socket = null;
+let version = null;
 let messageId = 0;
 const pending = new Map();
-socket.addEventListener("message", (event) => {
-  const message = JSON.parse(String(event.data));
-  if (!message.id || !pending.has(message.id)) return;
-  const { resolve, reject } = pending.get(message.id);
-  pending.delete(message.id);
-  if (message.error) reject(new Error(message.error.message || "Errore CDP"));
-  else resolve(message.result || {});
-});
 
 const command = (method, params = {}) => new Promise((resolve, reject) => {
+  if (!socket || socket.readyState !== WebSocket.OPEN) {
+    reject(new Error("Connessione CDP non disponibile."));
+    return;
+  }
   const id = ++messageId;
   pending.set(id, { resolve, reject });
   socket.send(JSON.stringify({ id, method, params }));
@@ -197,6 +183,33 @@ const assertViewportVisibility = async (width, expectedId, label) => {
 };
 
 try {
+  version = await waitForJson(`http://127.0.0.1:${debuggingPort}/json/version`);
+  if (!version.Browser) throw new Error("Chrome DevTools non ha restituito la versione browser.");
+
+  const targetResponse = await fetch(
+    `http://127.0.0.1:${debuggingPort}/json/new?${encodeURIComponent("about:blank")}`,
+    { method: "PUT" },
+  );
+  if (!targetResponse.ok) throw new Error(`Impossibile creare la pagina CDP: HTTP ${targetResponse.status}`);
+  const target = await targetResponse.json();
+  if (!target.webSocketDebuggerUrl) throw new Error("WebSocket CDP mancante.");
+
+  socket = new WebSocket(target.webSocketDebuggerUrl);
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("Timeout connessione CDP.")), 15_000);
+    socket.addEventListener("open", () => { clearTimeout(timeout); resolve(); }, { once: true });
+    socket.addEventListener("error", () => { clearTimeout(timeout); reject(new Error("Connessione CDP fallita.")); }, { once: true });
+  });
+
+  socket.addEventListener("message", (event) => {
+    const message = JSON.parse(String(event.data));
+    if (!message.id || !pending.has(message.id)) return;
+    const { resolve, reject } = pending.get(message.id);
+    pending.delete(message.id);
+    if (message.error) reject(new Error(message.error.message || "Errore CDP"));
+    else resolve(message.result || {});
+  });
+
   await command("Page.enable");
   await command("Runtime.enable");
 
@@ -262,10 +275,16 @@ try {
 
   console.log(`Browser smoke OK con ${version.Browser}. Navigazione reale Audit SEO → Correzioni → Audit SEO e visibilità desktop/tablet/mobile verificate.`);
 } finally {
-  socket.close();
-  chrome.kill("SIGTERM");
-  await sleep(200);
-  if (!chrome.killed) chrome.kill("SIGKILL");
+  if (socket) {
+    try { socket.close(); } catch { /* già chiuso */ }
+  }
+  for (const { reject } of pending.values()) reject(new Error("Browser smoke terminato."));
+  pending.clear();
+  if (chrome.exitCode === null) {
+    chrome.kill("SIGTERM");
+    await sleep(300);
+  }
+  if (chrome.exitCode === null) chrome.kill("SIGKILL");
   await rm(profile, { recursive: true, force: true });
   if (chrome.exitCode && chrome.exitCode !== 0 && !chromeLog.includes("DevTools listening")) {
     console.warn(chromeLog.slice(-1500));
