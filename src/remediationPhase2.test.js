@@ -73,6 +73,13 @@ test("rollback usa direttamente la route stale-safe senza fetch router", () => {
   assert.doesNotMatch(main, /liveRollbackRouter/);
 });
 
+test("Correzioni espone una Riverifica esplicita collegata al verificatore corrente", () => {
+  assert.match(corrections, /recheckCorrectionById/);
+  assert.match(corrections, /const reverify = async/);
+  assert.match(corrections, /"Riverifica"/);
+  assert.match(corrections, /serve ancora un nuovo audit mirato o completo/);
+});
+
 test("IndexedDB resta source of truth quando localStorage fallisce", () => {
   assert.match(store, /writeJsonBestEffort/);
   assert.match(store, /IndexedDB resta la source of truth/);
