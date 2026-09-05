@@ -33,8 +33,10 @@ test("il bulk V2 prepara soltanto problemi attivi e applica una modifica alla vo
 test("il runtime corrente separa scrittura WordPress e verifica SEO", () => {
   assert.match(live, /Scrittura e risoluzione SEO restano stati distinti/);
   assert.match(live, /Stato: Da verificare/);
-  assert.match(integrity, /status: "Verificato"/);
-  assert.match(integrity, /status: "Da verificare"/);
+  assert.match(integrity, /status:\s*fixed\s*\?\s*"Verificato"\s*:\s*"Da verificare"/);
+  assert.match(integrity, /frontendConfirmed:\s*fixed/);
+  assert.match(integrity, /verifiedAt:\s*fixed\s*\?/);
+  assert.match(integrity, /status:\s*"Da verificare"/);
 });
 
 test("gli errori remediation sono classificati esplicitamente nel V2", () => {
