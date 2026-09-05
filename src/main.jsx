@@ -8,7 +8,6 @@ import './remediationUiOrderPatch';
 import './remediationCompletionUxPatch';
 import './seoResponseIntegrity';
 import './remediationReportUx';
-import './legacyRemediationGuard';
 import './backupImportGuard';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -17,7 +16,7 @@ import GuidedUxLayer from './GuidedUxLayer';
 import ProblemsNavBridge from './ProblemsNavBridge';
 import ProblemsWorkspace from './ProblemsWorkspace';
 import AuditWorkspace from './AuditWorkspace';
-import AuditUnifiedRemediation from './AuditUnifiedRemediation';
+import RemediationHost from './RemediationHost';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
 import WordPressConnectionControl from './WordPressConnectionControl';
 import WordPressLiveRemediationControlV2 from './WordPressLiveRemediationControlV2';
@@ -55,7 +54,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ProblemsNavBridge />
       <ProblemsWorkspace />
       <AuditWorkspace />
-      <AuditUnifiedRemediation />
+      <RemediationHost />
       <WordPressConnectionControl />
       <WordPressLiveRemediationControlV2 />
       <WordPressConnectorControl />
