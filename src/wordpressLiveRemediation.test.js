@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const client = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const impactClient = await readFile(new URL("./elementorImpactClient.js", import.meta.url), "utf8");
 const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.url), "utf8");
 const server = await readFile(new URL("../server/wordpressLiveApprovalHook.js", import.meta.url), "utf8");
 const rollback = await readFile(new URL("./rollbackPayload.js", import.meta.url), "utf8");
@@ -50,9 +51,11 @@ test("Elementor viene modificato solo tramite il meta REST dedicato", () => {
 });
 
 test("i blocchi Elementor spiegano gli ID dei documenti condivisi quando disponibili", () => {
-  assert.match(client, /elementorResolvedExternalDocuments/);
-  assert.match(client, /documenti Elementor condivisi/);
-  assert.match(client, /non modifica automaticamente un template condiviso/);
+  assert.match(client, /elementorOwnershipDetail/);
+  assert.match(impactClient, /elementorResolvedSourceDocuments/);
+  assert.match(impactClient, /elementorExternalRenderedDocuments/);
+  assert.match(impactClient, /documenti Elementor condivisi/);
+  assert.match(impactClient, /non modifica automaticamente un template condiviso/);
 });
 
 test("il rollback V2 ricostruisce i meta annidati e conserva lo snapshot stale-safe", () => {
