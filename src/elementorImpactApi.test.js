@@ -186,7 +186,7 @@ test("payload condizioni enorme viene limitato senza perdere il fail-closed", ()
   assert.equal(bounded.nested.length, 200);
 });
 
-test("la route Elementor impact è solo POST read-only ed è dichiarata nelle capabilities", () => {
+test("la route Elementor impact è solo POST read-only ed espone coverage attestata dal server senza shared write", () => {
   assert.match(source, /app\.post\("\/api\/wordpress\/elementor-impact-inspect"/);
   assert.match(source, /readOnly:\s*true/);
   assert.match(source, /sharedWriteAllowed:\s*false/);
@@ -198,5 +198,7 @@ test("la route Elementor impact è solo POST read-only ed è dichiarata nelle ca
   assert.doesNotMatch(source, /app\.(?:put|patch|delete)\(/);
   assert.doesNotMatch(source, /update_post_meta|delete_post_meta|wp_update_post/i);
   assert.match(bootstrap, /elementor-impact-read-only/);
-  assert.match(bootstrap, /read-only-evidence-no-shared-write/);
+  assert.match(bootstrap, /elementor-impact-server-attested-coverage/);
+  assert.match(bootstrap, /read-only-server-attested-coverage-no-shared-write/);
+  assert.match(bootstrap, /registerElementorImpactRoutesWithCoverage/);
 });
