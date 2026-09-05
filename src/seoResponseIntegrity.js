@@ -1,15 +1,5 @@
-const PATCHED = Symbol.for("seogrow.seoResponseIntegrityV3");
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
 const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v3";
-
-const requestPath = (input) => {
-  try {
-    const raw = typeof input === "string" ? input : input?.url;
-    return new URL(String(raw || ""), window.location.href).pathname;
-  } catch {
-    return String(input || "").split("?")[0];
-  }
-};
 
 const normalizeUrl = (value) => {
   try {
@@ -32,16 +22,14 @@ const robotsExclusion = (failure) =>
 const scoreFromVerifiedEvidence = (data, issues, failedPages) => {
   const pages = Math.max(1, Number(data.pagesChecked || data.pages?.length || 1));
   const penalty = issues.reduce(
-    (sum, issue) =>
-      sum + (issue?.severity === "alta" ? 5 : issue?.severity === "media" ? 2 : 1),
+    (sum, issue) => sum + (issue?.severity === "alta" ? 5 : issue?.severity === "media" ? 2 : 1),
     0,
   );
   const strongest = issues.reduce(
-    (maximum, issue) =>
-      Math.max(
-        maximum,
-        issue?.severity === "alta" ? 5 : issue?.severity === "media" ? 2 : 1,
-      ),
+    (maximum, issue) => Math.max(
+      maximum,
+      issue?.severity === "alta" ? 5 : issue?.severity === "media" ? 2 : 1,
+    ),
     0,
   );
   const normalizedPenalty = Math.round(
@@ -143,7 +131,9 @@ const normalizeSiteAnalysis = (data) => {
   data.issues = confirmed;
   data.reviewItems = [...reviewItems, ...previousReviewItems].filter((item, index, rows) => {
     const key = `${item?.type || ""}|${item?.label || ""}|${normalizeUrl(item?.targetUrl || item?.url || "")}`;
-    return rows.findIndex((candidate) => `${candidate?.type || ""}|${candidate?.label || ""}|${normalizeUrl(candidate?.targetUrl || candidate?.url || "")}` === key) === index;
+    return rows.findIndex((candidate) =>
+      `${candidate?.type || ""}|${candidate?.label || ""}|${normalizeUrl(candidate?.targetUrl || candidate?.url || "")}` === key,
+    ) === index;
   });
 
   data.summary = data.issues.reduce((summary, issue) => {
@@ -163,6 +153,21 @@ const normalizeSiteAnalysis = (data) => {
   data.evidencePolicy = "confirmed-issues-only";
   return data;
 };
+
+export async function normalizeSiteAnalysisResponse(response) {
+  if (!response?.ok) return response;
+  let data;
+  try { data = await response.clone().json(); }
+  catch { return response; }
+  const normalized = normalizeSiteAnalysis(data);
+  const headers = new Headers(response.headers);
+  headers.set("content-type", "application/json; charset=utf-8");
+  return new Response(JSON.stringify(normalized), {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
 
 const normalizeStoredHistory = () => {
   if (typeof window === "undefined") return;
@@ -194,33 +199,6 @@ const normalizeStoredHistory = () => {
   }
 };
 
-if (typeof window !== "undefined") {
-  normalizeStoredHistory();
-  const originalFetch = window.fetch.bind(window);
-  if (!window.fetch[PATCHED]) {
-    const integrityFetch = async (input, init = {}) => {
-      const response = await originalFetch(input, init);
-      if (!response.ok || requestPath(input) !== "/api/site-analysis") return response;
-
-      let data;
-      try {
-        data = await response.clone().json();
-      } catch {
-        return response;
-      }
-
-      const normalized = normalizeSiteAnalysis(data);
-      const headers = new Headers(response.headers);
-      headers.set("content-type", "application/json; charset=utf-8");
-      return new Response(JSON.stringify(normalized), {
-        status: response.status,
-        statusText: response.statusText,
-        headers,
-      });
-    };
-    integrityFetch[PATCHED] = true;
-    window.fetch = integrityFetch;
-  }
-}
+if (typeof window !== "undefined") normalizeStoredHistory();
 
 export { normalizeSiteAnalysis, reviewOnlyReason, scoreFromVerifiedEvidence };
