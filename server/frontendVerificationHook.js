@@ -66,11 +66,15 @@ function decodeEntity(entity) {
 
 const responsiveHiddenClass = "(?:elementor-hidden(?:-(?:desktop|tablet(?:_extra)?|mobile(?:_extra)?))?|e-con--hidden)";
 
+export function hasResponsiveHiddenMarkup(html) {
+  return new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}`, "i").test(String(html || ""));
+}
+
 function stripAlwaysHiddenMarkup(html) {
   let value = String(html || "")
     .replace(/<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi, " ");
   const hiddenBlock = new RegExp(
-    `<([a-z][\\w:-]*)\\b(?=[^>]*(?:\\bhidden(?:\\s|=|>)|aria-hidden\\s*=\\s*["']?true\\b|style\\s*=\\s*["'][^"']*(?:display\\s*:\\s*none\\b|visibility\\s*:\\s*hidden\\b)|class\\s*=\\s*["'][^"']*${responsiveHiddenClass}[^"']*["']))[^>]*>[\\s\\S]*?<\\/\\1\\s*>`,
+    `<([a-z][\\w:-]*)\\b(?=[^>]*(?:\\bhidden(?:\\s|=|>)|aria-hidden\\s*=\\s*["']?true\\b|style\\s*=\\s*["'][^"']*(?:display\\s*:\\s*none\\b|visibility\\s*:\\s*hidden\\b)))[^>]*>[\\s\\S]*?<\\/\\1\\s*>`,
     "gi",
   );
   for (let pass = 0; pass < 6; pass += 1) {
@@ -201,7 +205,6 @@ function visibleH1Count(html) {
     if (/\bhidden(?:\s|=|$)/i.test(attrs)) return false;
     if (/aria-hidden\s*=\s*["']?true/i.test(attrs)) return false;
     if (/style\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(attrs)) return false;
-    if (new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}[^"']*["']`, "i").test(attrs)) return false;
     return true;
   }).length;
 }
@@ -220,7 +223,8 @@ function signals(page) {
   const directives = `${robots},${googlebot},${page.xRobotsTag}`;
   const noindex = /(?:^|[,;\s])noindex(?:$|[,;\s])/i.test(directives);
   const canonical = canonicalHref(page.html);
-  const responsiveHiddenMarkupDetected = new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}`, "i").test(page.html);
+  const responsiveHiddenMarkupDetected = hasResponsiveHiddenMarkup(page.html);
+  const requiresBrowserVerification = responsiveHiddenMarkupDetected;
   return {
     title,
     metaDescription,
@@ -236,7 +240,9 @@ function signals(page) {
     indexable: page.isHtml && !noindex,
     canonical,
     visibilityModel: "conservative-static-markup",
+    visibilityConfidence: requiresBrowserVerification ? "low" : "medium",
     responsiveHiddenMarkupDetected,
+    requiresBrowserVerification,
   };
 }
 
@@ -262,7 +268,9 @@ async function inspect(url) {
     indexable: result.indexable,
     canonical: result.canonical,
     visibilityModel: result.visibilityModel,
+    visibilityConfidence: result.visibilityConfidence,
     responsiveHiddenMarkupDetected: result.responsiveHiddenMarkupDetected,
+    requiresBrowserVerification: result.requiresBrowserVerification,
     _visibleText: result.text,
   };
 }
@@ -297,9 +305,12 @@ function registerRoutes(app) {
       const normalizedVisible = normalizeText(result._visibleText);
       const contentProbe = expectedContent ? expectedContent.slice(0, Math.min(180, expectedContent.length)) : "";
       const ownership = contentOwnershipEvidence(expected.content, result._visibleText, result.words);
+      const verificationSafe = result.requiresBrowserVerification !== true;
       return res.json({
         ...publicResult(result),
         ...ownership,
+        contentCoverageStrong: verificationSafe && ownership.contentCoverageStrong,
+        verificationSafe,
         titleMatchesExpected: expectedTitle ? normalizeText(result.title) === expectedTitle : null,
         contentProbeVisible: contentProbe ? normalizedVisible.includes(contentProbe) : null,
       });
