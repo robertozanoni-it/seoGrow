@@ -99,13 +99,6 @@ export default function AuditRemediationShell() {
     return { clients, clientId, client, audit, allIssues, activeIssues, profile };
   }, [requested, revision]);
 
-  useEffect(() => {
-    if (!model.activeIssues.length) return;
-    if (!model.activeIssues.some((entry) => entry.index === selectedOriginalIndex)) {
-      setSelectedOriginalIndex(model.activeIssues[0].index);
-    }
-  }, [model.activeIssues, selectedOriginalIndex]);
-
   if (!target || !model.client || !model.audit) return null;
 
   const selectedEntry = model.activeIssues.find((entry) => entry.index === selectedOriginalIndex) || model.activeIssues[0] || null;
