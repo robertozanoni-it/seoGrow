@@ -44,6 +44,7 @@ export function registerRemediationRoutes(app) {
       ok: true,
       engine: "v2",
       supports: [
+        "inspect",
         "inspect-fast",
         "frontend-verification",
         "patch-v2",
