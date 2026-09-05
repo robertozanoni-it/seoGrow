@@ -1,11 +1,19 @@
 import dns from "node:dns/promises";
+import { inspect as inspectFrontend } from "./frontendVerificationHook.js";
 import { isPrivateOrReservedAddress } from "./networkSafety.js";
 import { pickExactWordPressEntity } from "./wordpressEntityIdentity.js";
+import { resolveSeoPluginOwner } from "../src/seoPluginOwnership.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressInspectFastHook");
 const RATE = new Map();
 const RANK_MATH_META = ["rank_math_title", "rank_math_description", "rank_math_canonical_url", "rank_math_robots"];
 const YOAST_META = ["_yoast_wpseo_title", "_yoast_wpseo_metadesc", "_yoast_wpseo_canonical", "_yoast_wpseo_meta-robots-noindex"];
+const SEO_META_CHOICES = {
+  title: [["rank_math_title", "Rank Math"], ["_yoast_wpseo_title", "Yoast"]],
+  meta_description: [["rank_math_description", "Rank Math"], ["_yoast_wpseo_metadesc", "Yoast"]],
+  canonical: [["rank_math_canonical_url", "Rank Math"], ["_yoast_wpseo_canonical", "Yoast"]],
+  noindex: [["rank_math_robots", "Rank Math"], ["_yoast_wpseo_meta-robots-noindex", "Yoast"]],
+};
 
 async function safeBase(input) {
   const url = new URL(String(input || ""));
@@ -83,7 +91,7 @@ async function connectorStatus(base, headers) {
   };
 }
 
-function filterConnectorOwnedMeta(entity, connector) {
+function filterConnectorOwnedMeta(entity, connector, frontend = null) {
   const source = entity && typeof entity === "object" ? entity : {};
   const meta = source.meta && typeof source.meta === "object" && !Array.isArray(source.meta)
     ? { ...source.meta }
@@ -91,6 +99,18 @@ function filterConnectorOwnedMeta(entity, connector) {
   if (connector?.elementor !== true) delete meta._elementor_data;
   if (connector?.rankMath !== true) RANK_MATH_META.forEach((key) => delete meta[key]);
   if (connector?.yoast !== true) YOAST_META.forEach((key) => delete meta[key]);
+
+  if (connector?.rankMath === true && connector?.yoast === true && frontend) {
+    for (const [kind, choices] of Object.entries(SEO_META_CHOICES)) {
+      const decision = resolveSeoPluginOwner({ ...source, meta }, kind, frontend);
+      if (!decision.owner) continue;
+      const [ownedKey] = decision.owner;
+      for (const [key] of choices) {
+        if (key !== ownedKey) delete meta[key];
+      }
+    }
+  }
+
   return { ...source, meta };
 }
 
@@ -154,13 +174,29 @@ function registerRoutes(app) {
         resolveEntity(base, headers, url),
         connectorStatus(base, headers),
       ]);
+
+      let frontend = null;
+      if (connector?.rankMath === true && connector?.yoast === true) {
+        try {
+          frontend = await inspectFrontend(url);
+        } catch {
+          // Se il frontend non è verificabile, conserviamo entrambi i campi.
+          // Il live flow bloccherà l'ownership invece di scegliere per priorità.
+        }
+      }
+
       return res.json({
         ok: true,
         fast: true,
         user: { id: 0, name: String(username) },
         resource: resolved.resource,
-        entity: filterConnectorOwnedMeta(resolved.entity, connector),
-        connector,
+        entity: filterConnectorOwnedMeta(resolved.entity, connector, frontend),
+        connector: connector
+          ? {
+              ...connector,
+              seoOwnershipEvidence: frontend ? "frontend-value-match" : "plugin-availability-only",
+            }
+          : null,
       });
     } catch (error) {
       return res.status(400).json({ error: error instanceof Error ? error.message : "Ispezione WordPress non riuscita." });
