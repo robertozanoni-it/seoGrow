@@ -91,6 +91,8 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   const [selectedResult, setSelectedResult] = useState(initial ? { type: initial.type, data: initial.item } : null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const requestRef = useRef(null);
+  const focusContextRef = useRef({ clientId, history, client });
+  focusContextRef.current = { clientId, history, client };
 
   useEffect(() => () => requestRef.current?.abort(), []);
 
@@ -174,28 +176,38 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
     }));
   };
 
-  const locateFocusedIssue = (request) => {
-    if (!request || normalizeClientId(request.clientId) !== normalizeClientId(clientId)) return false;
-    const wantedType = String(request.issueType || "").toLowerCase();
-    const wantedUrl = normalizeHttpUrl(request.sourceUrl || "", { stripSlash: false });
-    for (const entry of history) {
-      const issues = Array.isArray(entry.item?.issues) ? entry.item.issues : [];
-      const index = issues.findIndex((issue) => {
-        const typeMatches = !wantedType || String(issue?.type || "").toLowerCase() === wantedType;
-        const issueUrl = normalizeHttpUrl(resultSourceUrl(issue, entry.item, client), { stripSlash: false });
-        return typeMatches && (!wantedUrl || wantedUrl === issueUrl);
-      });
-      if (index >= 0) {
-        const target = { type: entry.type, data: entry.item };
-        setSelectedResult(target);
-        window.setTimeout(() => openRemediation(index, target), 0);
-        return true;
-      }
-    }
-    return false;
-  };
-
   useEffect(() => {
+    const locateFocusedIssue = (request) => {
+      const { clientId: activeClientId, history: activeHistory, client: activeClient } = focusContextRef.current;
+      if (!request || normalizeClientId(request.clientId) !== normalizeClientId(activeClientId)) return false;
+      const wantedType = String(request.issueType || "").toLowerCase();
+      const wantedUrl = normalizeHttpUrl(request.sourceUrl || "", { stripSlash: false });
+      for (const entry of activeHistory) {
+        const issues = Array.isArray(entry.item?.issues) ? entry.item.issues : [];
+        const index = issues.findIndex((issue) => {
+          const typeMatches = !wantedType || String(issue?.type || "").toLowerCase() === wantedType;
+          const issueUrl = normalizeHttpUrl(resultSourceUrl(issue, entry.item, activeClient), { stripSlash: false });
+          return typeMatches && (!wantedUrl || wantedUrl === issueUrl);
+        });
+        if (index >= 0) {
+          const targetResult = { type: entry.type, data: entry.item };
+          setSelectedResult(targetResult);
+          window.setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("seogrow-remediation-open", {
+              detail: {
+                clientId: activeClientId,
+                issueIndex: index,
+                auditType: targetResult.type,
+                analyzedAt: resultTimestamp(targetResult.data),
+              },
+            }));
+          }, 0);
+          return true;
+        }
+      }
+      return false;
+    };
+
     const initialTimer = window.setTimeout(() => {
       try {
         const raw = sessionStorage.getItem(FOCUS_KEY);
@@ -211,7 +223,7 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
       window.clearTimeout(initialTimer);
       window.removeEventListener("seogrow-remediation-focus", onFocus);
     };
-  }, [clientId]);
+  }, []);
 
   const askAgent = (issue, result) => {
     const detail = {
