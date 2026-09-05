@@ -121,9 +121,6 @@ function filterConnectorOwnedMeta(entity, connector, frontend = null) {
         continue;
       }
 
-      // Entrambi i plugin risultano attivi, ma il frontend non identifica in modo
-      // univoco l'owner. Manteniamo (o aggiungiamo come sentinel null) entrambi i
-      // campi così il client V2 vede l'ambiguità e blocca la scrittura.
       for (const [key] of choices) {
         if (!Object.prototype.hasOwnProperty.call(meta, key)) meta[key] = null;
       }
@@ -196,22 +193,25 @@ function registerRoutes(app) {
   app.post("/api/wordpress/inspect-fast", async (req, res) => {
     if (!rateLimit(req)) return res.status(429).json({ error: "Limite ispezioni WordPress raggiunto. Riprova più tardi." });
     try {
-      const { url, username, applicationPassword } = req.body || {};
+      const { siteUrl, url, username, applicationPassword } = req.body || {};
       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
-      const base = await safeBase(url);
+      const target = new URL(String(url || ""));
+      if (target.protocol !== "https:") throw new Error("La pagina WordPress deve usare HTTPS.");
+      const base = await safeBase(siteUrl || target.origin);
+      if (base.hostname.toLowerCase() !== target.hostname.toLowerCase())
+        throw new Error("Il sito WordPress collegato e la pagina da correggere appartengono a host diversi.");
       const headers = authHeaders(username, applicationPassword);
       const [resolved, connector] = await Promise.all([
-        resolveEntity(base, headers, url),
+        resolveEntity(base, headers, target.href),
         connectorStatus(base, headers),
       ]);
 
       let frontend = null;
       if (connector?.rankMath === true && connector?.yoast === true) {
         try {
-          frontend = await inspectFrontend(url);
+          frontend = await inspectFrontend(target.href);
         } catch {
-          // Se il frontend non è verificabile, filterConnectorOwnedMeta forza
-          // l'ambiguità e il live flow blocca invece di scegliere per priorità.
+          // Se il frontend non è verificabile, filterConnectorOwnedMeta forza l'ambiguità.
         }
       }
 
