@@ -13,6 +13,7 @@ const migratedHooks = await Promise.all([
   "wordpressDraftCopyHook.js",
   "frontendVerificationHook.js",
   "wordpressInspectFastHook.js",
+  "wordpressPatchV2Hook.js",
 ].map(readServer));
 
 test("il bootstrap remediation centralizza la compatibilità Express", () => {
