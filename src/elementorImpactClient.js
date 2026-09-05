@@ -44,7 +44,21 @@ const failedEvidence = (error) => ({
   error: error instanceof Error ? error.message : String(error || "Impact analysis Elementor non disponibile."),
 });
 
-export async function inspectElementorImpactEvidence(entity, credentials) {
+const normalizeSuccessfulEvidence = (data) => {
+  const documents = Array.isArray(data?.documents) ? data.documents : [];
+  const displayConditionsResolved = documents.length > 0 &&
+    documents.every((row) => row?.ok === true && row?.displayConditionsResolved === true);
+  return {
+    ...(data && typeof data === "object" ? data : {}),
+    documents,
+    readOnly: true,
+    sharedWriteAllowed: false,
+    displayConditionsResolved,
+    affectedPagesEnumerated: false,
+  };
+};
+
+export async function inspectElementorImpactEvidence(entity, credentials, candidateUrls = []) {
   const documents = elementorSourceDocuments(entity);
   if (!documents.length) return null;
   try {
@@ -56,17 +70,12 @@ export async function inspectElementorImpactEvidence(entity, credentials) {
         username: credentials?.username || "",
         applicationPassword: credentials?.applicationPassword || "",
         documents,
+        candidateUrls: Array.isArray(candidateUrls) ? candidateUrls.slice(0, 30) : [],
       }),
     });
     const data = await response.json();
     if (!response.ok) return failedEvidence(data?.error || "Impact analysis Elementor non disponibile.");
-    return {
-      ...data,
-      readOnly: true,
-      sharedWriteAllowed: false,
-      displayConditionsResolved: false,
-      affectedPagesEnumerated: false,
-    };
+    return normalizeSuccessfulEvidence(data);
   } catch (error) {
     // L'impact analysis è diagnostica read-only: un timeout/rete non deve mai
     // trasformarsi in autorizzazione implicita né nascondere il blocco ownership.
@@ -108,20 +117,30 @@ export function elementorOwnershipDetail(entity) {
       const id = Number(item?.id);
       const title = String(item?.title || "").trim();
       const condition = Number.isSafeInteger(id) ? conditionById.get(id) : null;
-      const conditionLabel = condition?.ok && condition?.conditionsObserved
-        ? " · condizioni lette (semantica da verificare)"
-        : condition?.ok
-          ? " · condizioni non esposte"
-          : condition?.error
-            ? " · condizioni non verificabili"
-            : "";
-      return `${type}${Number.isSafeInteger(id) ? ` #${id}` : ""}${title ? ` “${title}”` : ""}${conditionLabel}`;
+      const observedCount = Number(condition?.observedRenderedCount || 0);
+      const conditionLabel = condition?.ok && condition?.displayConditionsResolved && condition?.conditionInterpretation?.entireSiteIncluded
+        ? " · ambito intero sito confermato"
+        : condition?.ok && condition?.conditionsObserved
+          ? " · condizioni lette (semantica parziale/da verificare)"
+          : condition?.ok
+            ? " · condizioni non esposte"
+            : condition?.error
+              ? " · condizioni non verificabili"
+              : "";
+      const observedLabel = observedCount > 0 ? ` · osservato su ${observedCount} URL del crawl disponibile` : "";
+      return `${type}${Number.isSafeInteger(id) ? ` #${id}` : ""}${title ? ` “${title}”` : ""}${conditionLabel}${observedLabel}`;
     });
+    const coverage = impactEvidence?.observedUrlCoverage;
+    const coverageNote = coverage?.inspected > 0
+      ? ` Sono state controllate ${coverage.inspected} URL candidate${coverage.failed ? `; ${coverage.failed} non verificabili` : ""}. Questo non equivale a una enumerazione completa del sito.`
+      : "";
     const evidenceNote = impactEvidence?.ok === false
       ? ` La lettura read-only delle condizioni non è riuscita: ${impactEvidence.error}`
-      : impactEvidence
-        ? " Le condizioni disponibili sono state lette in sola lettura, ma SeoGrow non ne considera ancora risolta la semantica né enumera automaticamente tutte le URL coinvolte."
-        : " Le Display Conditions e il raggio sulle altre URL non sono ancora dimostrati.";
+      : impactEvidence?.displayConditionsResolved
+        ? ` La semantica delle condizioni note è risolta per il sottoinsieme supportato, ma il raggio completo sulle URL non è enumerato.${coverageNote}`
+        : impactEvidence
+          ? ` Le condizioni disponibili sono state lette in sola lettura; le regole non riconosciute restano semanticamente non risolte.${coverageNote}`
+          : " Le Display Conditions e il raggio sulle altre URL non sono ancora dimostrati.";
     return `Il frontend della URL usa anche documenti Elementor condivisi: ${labels.join(", ")}. SeoGrow ha identificato l'ownership esterna ma non modifica automaticamente un template condiviso senza analizzarne l'impatto sulle altre pagine.${evidenceNote}`;
   }
 
