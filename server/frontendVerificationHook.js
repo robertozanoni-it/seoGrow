@@ -65,6 +65,7 @@ function decodeEntity(entity) {
 }
 
 const responsiveHiddenClass = "(?:elementor-hidden(?:-(?:desktop|tablet(?:_extra)?|mobile(?:_extra)?))?|e-con--hidden)";
+const inertMarkupPattern = /<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi;
 
 export function hasResponsiveHiddenMarkup(html) {
   return new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}`, "i").test(String(html || ""));
@@ -72,7 +73,8 @@ export function hasResponsiveHiddenMarkup(html) {
 
 export function elementorRenderedDocuments(html) {
   const documents = new Map();
-  for (const match of String(html || "").matchAll(/<[^>]+\bdata-elementor-id\s*=\s*["'](\d+)["'][^>]*>/gi)) {
+  const renderedMarkup = String(html || "").replace(inertMarkupPattern, " ");
+  for (const match of renderedMarkup.matchAll(/<[^>]+\bdata-elementor-id\s*=\s*["'](\d+)["'][^>]*>/gi)) {
     const id = Number(match[1]);
     if (!Number.isSafeInteger(id) || id <= 0) continue;
     const tag = String(match[0] || "");
@@ -84,7 +86,7 @@ export function elementorRenderedDocuments(html) {
 
 function stripAlwaysHiddenMarkup(html) {
   let value = String(html || "")
-    .replace(/<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi, " ");
+    .replace(inertMarkupPattern, " ");
   const hiddenBlock = new RegExp(
     `<([a-z][\\w:-]*)\\b(?=[^>]*(?:\\bhidden(?:\\s|=|>)|aria-hidden\\s*=\\s*["']?true\\b|style\\s*=\\s*["'][^"']*(?:display\\s*:\\s*none\\b|visibility\\s*:\\s*hidden\\b)))[^>]*>[\\s\\S]*?<\\/\\1\\s*>`,
     "gi",
