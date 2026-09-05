@@ -48,13 +48,17 @@ const normalizeSuccessfulEvidence = (data) => {
   const documents = Array.isArray(data?.documents) ? data.documents : [];
   const displayConditionsResolved = documents.length > 0 &&
     documents.every((row) => row?.ok === true && row?.displayConditionsResolved === true);
+  const completeSiteEnumeration = data?.observedUrlCoverage?.completeSiteEnumeration === true;
+  const affectedPagesEnumerated = data?.affectedPagesEnumerated === true &&
+    completeSiteEnumeration &&
+    displayConditionsResolved;
   return {
     ...(data && typeof data === "object" ? data : {}),
     documents,
     readOnly: true,
     sharedWriteAllowed: false,
     displayConditionsResolved,
-    affectedPagesEnumerated: false,
+    affectedPagesEnumerated,
   };
 };
 
@@ -143,7 +147,9 @@ export function elementorOwnershipDetail(entity) {
     });
     const coverage = impactEvidence?.observedUrlCoverage;
     const coverageNote = coverage?.inspected > 0
-      ? ` Sono state controllate ${coverage.inspected} URL candidate${coverage.failed ? `; ${coverage.failed} non verificabili` : ""}. Questo non equivale a una enumerazione completa del sito.`
+      ? coverage?.completeSiteEnumeration === true && impactEvidence?.affectedPagesEnumerated === true
+        ? ` Sono state controllate tutte le ${coverage.inspected} URL dichiarate come enumerazione completa del sito, senza promuovere questa evidenza a permesso di scrittura condivisa.`
+        : ` Sono state controllate ${coverage.inspected} URL candidate${coverage.failed ? `; ${coverage.failed} non verificabili` : ""}. Questo non equivale a una enumerazione completa del sito.`
       : "";
     const targetNote = impactEvidence?.targetApplicabilityResolved
       ? " L'applicazione alla risorsa WordPress target è stata valutata per tutte le condizioni del sottoinsieme supportato."
@@ -151,7 +157,9 @@ export function elementorOwnershipDetail(entity) {
     const evidenceNote = impactEvidence?.ok === false
       ? ` La lettura read-only delle condizioni non è riuscita: ${impactEvidence.error}`
       : impactEvidence?.displayConditionsResolved
-        ? ` La semantica delle condizioni note è risolta per il sottoinsieme supportato, ma il raggio completo sulle URL non è enumerato.${targetNote}${coverageNote}`
+        ? impactEvidence?.affectedPagesEnumerated === true
+          ? ` La semantica delle condizioni note e l'enumerazione completa dichiarata delle URL risultano risolte.${targetNote}${coverageNote}`
+          : ` La semantica delle condizioni note è risolta per il sottoinsieme supportato, ma il raggio completo sulle URL non è enumerato.${targetNote}${coverageNote}`
         : impactEvidence
           ? ` Le condizioni disponibili sono state lette in sola lettura; le regole non riconosciute restano semanticamente non risolte.${coverageNote}`
           : " Le Display Conditions e il raggio sulle altre URL non sono ancora dimostrati.";
