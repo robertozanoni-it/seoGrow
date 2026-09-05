@@ -156,7 +156,7 @@ test("il runtime browser non carica più il monkey-patch remediation legacy", ()
 test("archivi e query WordPress non editabili vengono esclusi prima dell'ispezione", () => {
   assert.match(liveControl, /const isNonEditableWordPressUrl =/);
   assert.match(liveControl, /category\|categoria\|tag\|author\|autore\|date\|feed/);
-  assert.match(liveControl, /\/page\\\/\\d\+\$/);
+  assert.equal(liveControl.includes('/\\/page\\/\\d+$/i'), true);
   assert.match(liveControl, /\["s", "cat", "tag", "paged", "author", "feed"\]/);
   assert.match(liveControl, /if \(isNonEditableWordPressUrl\(targetUrl\)\)/);
 });
