@@ -7,11 +7,10 @@ import {
   chooseElementorContentCandidate,
   inspectEditableElementor,
 } from "./wordpressOwnership.js";
-import { isNonEditableWordPressUrl } from "./wordpressRemediationRuntimePatch.js";
 
 const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
-const runtime = await readFile(new URL("./wordpressRemediationRuntimePatch.js", import.meta.url), "utf8");
-const liveControl = await readFile(new URL("./WordPressLiveRemediationControl.jsx", import.meta.url), "utf8");
+const liveControl = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 const connector = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url), "utf8");
 
 const words = (count) => Array.from({ length: count }, (_, index) => `parola${index}`).join(" ");
@@ -123,7 +122,7 @@ test("il patch engine rifiuta output AI incompleti o semanticamente più corti",
   assert.doesNotMatch(patchServer, /CONTENUTO RIDOTTO PER GENERAZIONE/);
 });
 
-test("il live planner passa la misura frontend al generatore e blocca Elementor non risolvibile", () => {
+test("il live planner V2 passa la misura frontend al generatore e blocca Elementor non risolvibile", () => {
   assert.match(liveControl, /const contentMeasurement =/);
   assert.match(liveControl, /frontendWords/);
   assert.match(liveControl, /fieldWords/);
@@ -134,42 +133,32 @@ test("il live planner passa la misura frontend al generatore e blocca Elementor 
 
 test("un audit richiesto non ricade silenziosamente sull'ultimo audit", () => {
   assert.match(liveControl, /if \(!requested\) return list\[0\] \|\| null/);
-  assert.match(liveControl, /if \(Number\(requested\.clientId\) !== Number\(clientId\)\) return null/);
+  assert.match(liveControl, /normalizeClientId\(requested\.clientId\) !== normalizeClientId\(clientId\)/);
   assert.match(liveControl, /return matches\.length === 1 \? matches\[0\] : null/);
   assert.doesNotMatch(liveControl, /\) \|\| list\[0\] \|\| null/);
 });
 
-test("le anteprime restano legate al cliente e all'audit con cui sono state preparate", () => {
+test("le anteprime V2 restano legate al cliente e all'audit con cui sono state preparate", () => {
   assert.match(liveControl, /contextSnapshot/);
-  assert.match(liveControl, /Cliente o audit sono cambiati dopo la preparazione/);
+  assert.match(liveControl, /Progetto o audit sono cambiati dopo la preparazione/);
   assert.match(liveControl, /contextSnapshot\?\.auditType/);
   assert.match(liveControl, /contextSnapshot\?\.analyzedAt/);
   assert.match(liveControl, /clientId: snapshot\.clientId/);
 });
 
-test("le evidenze di ownership non vengono più cacheate nel runtime browser", () => {
-  assert.doesNotMatch(runtime, /CACHE_TTL_MS/);
-  assert.doesNotMatch(runtime, /const cache = new Map/);
-  assert.doesNotMatch(runtime, /const inFlight = new Map/);
-  assert.match(runtime, /inspectedByUrl/);
+test("il runtime browser non carica più il monkey-patch remediation legacy", () => {
+  assert.doesNotMatch(main, /import ['"]\.\/wordpressRemediationRuntimePatch['"]/);
+  assert.match(liveControl, /\/api\/wordpress\/inspect-fast/);
+  assert.match(liveControl, /\/api\/wordpress\/generate-patch-v2/);
+  assert.match(liveControl, /\/api\/wordpress\/generate-seo-value-v2/);
 });
 
 test("archivi e query WordPress non editabili vengono esclusi prima dell'ispezione", () => {
-  for (const url of [
-    "https://example.com/category/news/",
-    "https://example.com/tag/seo/",
-    "https://example.com/author/admin/",
-    "https://example.com/page/2/",
-    "https://example.com/feed/",
-    "https://example.com/?s=seo",
-    "https://example.com/?cat=1",
-    "https://example.com/?tag=seo",
-    "https://example.com/?paged=2",
-    "https://example.com/?author=1",
-  ]) {
-    assert.equal(isNonEditableWordPressUrl(url), true, url);
-  }
-  assert.equal(isNonEditableWordPressUrl("not a url"), true);
+  assert.match(liveControl, /const isNonEditableWordPressUrl =/);
+  assert.match(liveControl, /category\|categoria\|tag\|author\|autore\|date\|feed/);
+  assert.equal(liveControl.includes('/\\/page\\/\\d+$/i'), true);
+  assert.match(liveControl, /\["s", "cat", "tag", "paged", "author", "feed"\]/);
+  assert.match(liveControl, /if \(isNonEditableWordPressUrl\(targetUrl\)\)/);
 });
 
 test("il Connector espone solo meta dei plugin rilevati e richiede edit_post", () => {

@@ -1,4 +1,5 @@
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
+import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const requestUserAgent = (input, options) => {
@@ -21,12 +22,78 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
   globalThis.fetch = guardedFetch;
 }
 
-await import("./wordpressLiveApprovalHook.js");
-await import("./wordpressLiveRollbackHook.js");
-await import("./wordpressSeoAdapterHook.js");
-await import("./wordpressSeoAdapterV2Hook.js");
-await import("./wordpressDraftCopyHook.js");
-await import("./wordpressRemediationHook.js");
-await import("./frontendVerificationHook.js");
-await import("./wordpressInspectFastHook.js");
-await import("./wordpressPatchV2Hook.js");
+const remediationModules = await Promise.all([
+  import("./wordpressConnectionHook.js"),
+  import("./wordpressLiveApprovalHook.js"),
+  import("./wordpressLiveRollbackHook.js"),
+  import("./wordpressSeoAdapterV2Hook.js"),
+  import("./frontendVerificationHook.js"),
+  import("./wordpressInspectFastHook.js"),
+  import("./elementorImpactHook.js"),
+  import("./wordpressTaxonomyHook.js"),
+  import("./wordpressPatchV2Hook.js"),
+  import("./elementorPublicCoverageHook.js"),
+  import("./elementorCoverageAttestationHook.js"),
+  import("./elementorReferenceImpactHook.js"),
+]);
+
+const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
+const ROUTES_ATTACHED = Symbol.for("seogrow.remediationRoutesAttached");
+
+export function registerRemediationRoutes(app) {
+  if (!app || typeof app.post !== "function") throw new Error("Express app non valida per le route remediation.");
+  if (app[ROUTES_ATTACHED]) return;
+  app[ROUTES_ATTACHED] = true;
+
+  app.get("/api/wordpress/remediation-capabilities", (_req, res) => {
+    res.json({
+      ok: true,
+      engine: "v2",
+      supports: [
+        "connection-check",
+        "inspect",
+        "inspect-fast",
+        "inspect-taxonomy",
+        "elementor-impact-read-only",
+        "elementor-impact-server-attested-coverage",
+        "elementor-public-coverage-read-only",
+        "wordpress-public-inventory-read-only",
+        "elementor-coverage-attestation",
+        "elementor-reference-impact-read-only",
+        "taxonomy-preview",
+        "taxonomy-apply",
+        "taxonomy-rollback-preview",
+        "taxonomy-verify",
+        "frontend-verification",
+        "patch-v2",
+        "seo-value-v2",
+        "live-preview",
+        "live-apply",
+        "live-rollback",
+      ],
+      liveMode: "single-explicit-approval",
+      taxonomyMode: "single-field-explicit-approval-stale-safe",
+      elementorImpactMode: "read-only-server-attested-coverage-no-shared-write",
+      elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write",
+      elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match-no-shared-write",
+      elementorReferenceImpactMode: "connector-inventory-plus-rest-meta-read-only-page-post-fail-closed-custom-types",
+      taxonomyConnectorMinimum: "1.3.0",
+      elementorInventoryConnectorMinimum: "1.3.0",
+      elementorReferenceImpactConnectorMinimum: "1.3.0",
+      draftCopyCompatibility: false,
+    });
+  });
+
+  for (const [index, module] of remediationModules.entries()) {
+    if (typeof module.registerRoutes !== "function") continue;
+    if (index === ELEMENTOR_IMPACT_MODULE_INDEX) {
+      registerElementorImpactRoutesWithCoverage(app, module);
+      continue;
+    }
+    module.registerRoutes(app);
+  }
+}
+
+export const explicitRemediationRouteModules = remediationModules
+  .filter((module) => typeof module.registerRoutes === "function")
+  .length;

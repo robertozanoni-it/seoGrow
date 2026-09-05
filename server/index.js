@@ -15,6 +15,7 @@ import {
   dataDir,
   localApiToken,
 } from "./localSecurity.js";
+import { registerRemediationRoutes } from "./remediationBootstrap.js";
 
 const app = express();
 const port = Number(process.env.PORT || 8787);
@@ -3034,6 +3035,8 @@ app.post("/api/dataforseo/topical-map", dataForSeoLimit, async (req, res) => {
     res.status(400).json({ error: error.message });
   }
 });
+
+registerRemediationRoutes(app);
 
 const dist = path.resolve(dirname, "../dist");
 app.use(express.static(dist));

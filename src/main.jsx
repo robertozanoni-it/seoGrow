@@ -2,14 +2,7 @@ import './gdprSeoMigration';
 import './remediationVerificationMigration';
 import './remediationIntegrity';
 import './locationEvents';
-import './liveRollbackRouter';
-import './wordpressRemediationRuntimePatch';
-import './wordpressSeoRuntimePatch';
-import './remediationUiOrderPatch';
-import './remediationCompletionUxPatch';
 import './seoResponseIntegrity';
-import './remediationReportUx';
-import './legacyRemediationGuard';
 import './backupImportGuard';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
@@ -18,11 +11,8 @@ import GuidedUxLayer from './GuidedUxLayer';
 import ProblemsNavBridge from './ProblemsNavBridge';
 import ProblemsWorkspace from './ProblemsWorkspace';
 import AuditWorkspace from './AuditWorkspace';
-import AuditUnifiedRemediation from './AuditUnifiedRemediation';
+import RemediationRuntime from './RemediationRuntime';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
-import WordPressConnectionControl from './WordPressConnectionControl';
-import WordPressLiveRemediationControl from './WordPressLiveRemediationControl';
-import WordPressConnectorControl from './WordPressConnectorControl';
 import './styles.css';
 
 class AppErrorBoundary extends React.Component {
@@ -56,10 +46,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <ProblemsNavBridge />
       <ProblemsWorkspace />
       <AuditWorkspace />
-      <AuditUnifiedRemediation />
-      <WordPressConnectionControl />
-      <WordPressLiveRemediationControl />
-      <WordPressConnectorControl />
+      <RemediationRuntime />
       <CorrectionsWorkspace />
     </AppErrorBoundary>
   </React.StrictMode>,

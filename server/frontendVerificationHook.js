@@ -1,10 +1,7 @@
 import dns from "node:dns/promises";
 import net from "node:net";
-import express from "express";
 
 const HOOKED = Symbol.for("seogrow.frontendVerificationHook");
-const USE_PATCHED = Symbol.for("seogrow.frontendVerificationUsePatched");
-const LISTEN_PATCHED = Symbol.for("seogrow.frontendVerificationListenPatched");
 
 function privateAddress(address) {
   if (net.isIPv4(address)) {
@@ -67,10 +64,43 @@ function decodeEntity(entity) {
   return named[body.toLowerCase()] ?? " ";
 }
 
+const responsiveHiddenClass = "(?:elementor-hidden(?:-(?:desktop|tablet(?:_extra)?|mobile(?:_extra)?))?|e-con--hidden)";
+const inertMarkupPattern = /<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi;
+
+export function hasResponsiveHiddenMarkup(html) {
+  return new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}`, "i").test(String(html || ""));
+}
+
+export function elementorRenderedDocuments(html) {
+  const documents = new Map();
+  const renderedMarkup = String(html || "").replace(inertMarkupPattern, " ");
+  for (const match of renderedMarkup.matchAll(/<[^>]+\bdata-elementor-id\s*=\s*["'](\d+)["'][^>]*>/gi)) {
+    const id = Number(match[1]);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    const tag = String(match[0] || "");
+    const type = firstMatch(tag, /\bdata-elementor-type\s*=\s*["']([^"']+)["']/i).toLowerCase() || "unknown";
+    documents.set(`${id}:${type}`, { id, type });
+  }
+  return [...documents.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
+}
+
+function stripAlwaysHiddenMarkup(html) {
+  let value = String(html || "")
+    .replace(inertMarkupPattern, " ");
+  const hiddenBlock = new RegExp(
+    `<([a-z][\\w:-]*)\\b(?=[^>]*(?:\\bhidden(?:\\s|=|>)|aria-hidden\\s*=\\s*["']?true\\b|style\\s*=\\s*["'][^"']*(?:display\\s*:\\s*none\\b|visibility\\s*:\\s*hidden\\b)))[^>]*>[\\s\\S]*?<\\/\\1\\s*>`,
+    "gi",
+  );
+  for (let pass = 0; pass < 6; pass += 1) {
+    const next = value.replace(hiddenBlock, " ");
+    if (next === value) break;
+    value = next;
+  }
+  return value;
+}
+
 function visibleText(html) {
-  return String(html || "")
-    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+  return stripAlwaysHiddenMarkup(html)
     .replace(/<(?:nav|footer|aside)\b[\s\S]*?<\/(?:nav|footer|aside)>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&(?:#\d+|#x[\da-f]+|\w+);/gi, (entity) => decodeEntity(entity))
@@ -195,8 +225,10 @@ function visibleH1Count(html) {
 
 function signals(page) {
   const title = firstMatch(page.html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-  const h1 = visibleH1Count(page.html);
-  const text = visibleText(page.html);
+  const metaDescription = metaContent(page.html, "description");
+  const conservativeMarkup = stripAlwaysHiddenMarkup(page.html);
+  const h1 = visibleH1Count(conservativeMarkup);
+  const text = visibleText(conservativeMarkup);
   const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
   const kind = pageKind(new URL(page.url).pathname);
   const minimumWords = kind === "utility" ? 60 : kind === "archive" ? 80 : kind === "gdpr" ? 0 : 180;
@@ -205,8 +237,12 @@ function signals(page) {
   const directives = `${robots},${googlebot},${page.xRobotsTag}`;
   const noindex = /(?:^|[,;\s])noindex(?:$|[,;\s])/i.test(directives);
   const canonical = canonicalHref(page.html);
+  const responsiveHiddenMarkupDetected = hasResponsiveHiddenMarkup(page.html);
+  const requiresBrowserVerification = responsiveHiddenMarkupDetected;
+  const elementorDocuments = elementorRenderedDocuments(page.html);
   return {
     title,
+    metaDescription,
     h1,
     text,
     words,
@@ -218,6 +254,11 @@ function signals(page) {
     noindex,
     indexable: page.isHtml && !noindex,
     canonical,
+    visibilityModel: "conservative-static-markup",
+    visibilityConfidence: requiresBrowserVerification ? "low" : "medium",
+    responsiveHiddenMarkupDetected,
+    requiresBrowserVerification,
+    elementorDocuments,
   };
 }
 
@@ -231,6 +272,7 @@ async function inspect(url) {
     contentType: page.contentType,
     isHtml: page.isHtml,
     title: result.title,
+    metaDescription: result.metaDescription,
     h1: result.h1,
     words: result.words,
     pageKind: result.pageKind,
@@ -241,6 +283,11 @@ async function inspect(url) {
     noindex: result.noindex,
     indexable: result.indexable,
     canonical: result.canonical,
+    visibilityModel: result.visibilityModel,
+    visibilityConfidence: result.visibilityConfidence,
+    responsiveHiddenMarkupDetected: result.responsiveHiddenMarkupDetected,
+    requiresBrowserVerification: result.requiresBrowserVerification,
+    elementorDocuments: result.elementorDocuments,
     _visibleText: result.text,
   };
 }
@@ -275,9 +322,12 @@ function registerRoutes(app) {
       const normalizedVisible = normalizeText(result._visibleText);
       const contentProbe = expectedContent ? expectedContent.slice(0, Math.min(180, expectedContent.length)) : "";
       const ownership = contentOwnershipEvidence(expected.content, result._visibleText, result.words);
+      const verificationSafe = result.requiresBrowserVerification !== true;
       return res.json({
         ...publicResult(result),
         ...ownership,
+        contentCoverageStrong: verificationSafe && ownership.contentCoverageStrong,
+        verificationSafe,
         titleMatchesExpected: expectedTitle ? normalizeText(result.title) === expectedTitle : null,
         contentProbeVisible: contentProbe ? normalizedVisible.includes(contentProbe) : null,
       });
@@ -289,22 +339,4 @@ function registerRoutes(app) {
   });
 }
 
-const originalUse = express.application.use;
-if (!originalUse[USE_PATCHED]) {
-  const patchedUse = function (...args) {
-    if (!this[HOOKED] && args[0] === "/api") registerRoutes(this);
-    return originalUse.apply(this, args);
-  };
-  patchedUse[USE_PATCHED] = true;
-  express.application.use = patchedUse;
-}
-
-const originalListen = express.application.listen;
-if (!originalListen[LISTEN_PATCHED]) {
-  const patchedListen = function (...args) {
-    registerRoutes(this);
-    return originalListen.apply(this, args);
-  };
-  patchedListen[LISTEN_PATCHED] = true;
-  express.application.listen = patchedListen;
-}
+export { inspect, registerRoutes, visibleText, stripAlwaysHiddenMarkup, visibleH1Count };

@@ -13,7 +13,8 @@
     "preview": "vite preview --host 127.0.0.1 --port 5176 --strictPort",
     "lint": "eslint .",
     "test": "node --test src/*.test.js",
-    "test:launcher": "zsh -n AVVIA.command"
+    "test:launcher": "zsh -n AVVIA.command",
+    "test:wordpress-taxonomy-e2e": "node scripts/wordpress-taxonomy-e2e.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "6.1.1",

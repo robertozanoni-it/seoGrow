@@ -99,6 +99,10 @@ const readPage = () => {
 const navigate = (page) => {
   const next = `#${encodeURIComponent(page)}`;
   if (page === "Correzioni") {
+    // Il core App non possiede questa pagina: il workspace Correzioni è un overlay.
+    // Entriamo nella modalità overlay prima di notificare la navigazione, evitando
+    // che il fallback core a Panoramica vinca la stessa transizione.
+    window.__seogrowCorrectionsMode = true;
     if (window.location.hash !== next) window.history.pushState(null, "", next);
     window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
     return;
@@ -445,13 +449,7 @@ export default function GuidedUxLayer() {
         )}
       {dashboardHost &&
         createPortal(
-          <NextActions
-            client={snapshot.client}
-            tasks={snapshot.tasks}
-            dataset={snapshot.dataset}
-            analysis={snapshot.analysis}
-            corrections={snapshot.corrections}
-          />,
+          <NextActions {...snapshot} />,
           dashboardHost,
         )}
     </>

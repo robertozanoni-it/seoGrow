@@ -14,6 +14,13 @@ test("la UX guidata espone priorità e modalità semplice/avanzata", () => {
   assert.match(layer, /\["Correzioni", CheckCircle2\]/);
 });
 
+test("la navigazione Correzioni entra nell'overlay prima del fallback dell'App core", () => {
+  assert.match(layer, /if \(page === "Correzioni"\)/);
+  assert.match(layer, /window\.__seogrowCorrectionsMode = true/);
+  assert.match(layer, /window\.history\.pushState\(null, "", next\)/);
+  assert.match(layer, /seogrow-locationchange/);
+});
+
 test("la nuova UX non introduce altri MutationObserver o monkey patch fetch", () => {
   assert.doesNotMatch(layer, /MutationObserver/);
   assert.doesNotMatch(layer, /window\.fetch\s*=/);

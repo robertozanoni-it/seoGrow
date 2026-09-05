@@ -8,29 +8,36 @@ const css = await readFile(new URL("./ProblemsWorkspace.css", import.meta.url), 
 const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 
 test("il Centro Problemi unifica Audit Task e Correzioni senza scritture", () => {
-  assert.match(workspace, /Audit SeoGrow/);
-  assert.match(workspace, /Task SeoGrow/);
-  assert.match(workspace, /Correzioni WordPress/);
-  assert.match(workspace, /Perché lo vedo\?/);
+  assert.match(workspace, /buildUnifiedProblems/);
+  assert.match(workspace, /listCorrections/);
+  assert.match(workspace, /item === "audit" \? "Audit" : item === "task" \? "Task" : "Correzioni"/);
+  assert.match(workspace, /Qual è la prova/);
+  assert.match(workspace, /Che cosa propone SeoGrow/);
   assert.match(workspace, /Prossima azione/);
   assert.doesNotMatch(workspace, /window\.fetch\s*=/);
   assert.doesNotMatch(workspace, /MutationObserver/);
 });
 
-test("gli stati visuali del Centro Problemi sono coerenti", () => {
-  for (const status of ["Da fare", "In lavorazione", "Da verificare", "Verificato"]) {
+test("gli stati visuali del Centro Problemi sono coerenti con il modello di affidabilità", () => {
+  for (const status of ["Aperto", "Da confermare", "Risolto", "Ricomparso", "Intenzionale"]) {
     assert.match(workspace, new RegExp(status));
   }
-  for (const filter of ["Tutti", "Critici", "Da verificare", "Verificati"]) {
+  for (const intervention of ["Da preparare", "Pronto", "Approvato", "Applicato", "Verificato tecnicamente", "Fallito", "Ripristinato", "Task completata"]) {
+    assert.match(workspace, new RegExp(intervention));
+  }
+  for (const filter of ["Attivi", "Alta gravità", "Ricomparsi", "Risolti", "Tutti"]) {
     assert.match(workspace, new RegExp(filter));
   }
 });
 
-test("il Centro Problemi offre vista compatta e dettagliata con drawer", () => {
+test("il Centro Problemi offre vista compatta e dettagliata con drawer accessibile", () => {
   assert.match(workspace, /Compatta/);
   assert.match(workspace, /Dettagliata/);
+  assert.match(workspace, /role="dialog"/);
+  assert.match(workspace, /aria-modal="true"/);
+  assert.match(css, /\.problem-dialog-layer/);
+  assert.match(css, /\.problem-drawer-scrim/);
   assert.match(css, /\.problem-drawer/);
-  assert.match(css, /data-problems-open/);
 });
 
 test("Problemi è montato e raggiungibile dalla navigazione guidata", () => {

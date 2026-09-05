@@ -1,10 +1,27 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Circle, LoaderCircle, Play, ShieldCheck } from "lucide-react";
 import { AgentMode, AgentStatus, SeoAgentOrchestrator, createSeoGrowToolRegistry } from "./agentRuntime";
 
+const AGENT_PREFILL_KEY = "seogrow-agent-prefill-v1";
 const quickGoals = ["Trova le 10 migliori opportunità SEO", "Perché il traffico organico è diminuito?", "Quali pagine posso portare in Top 10?", "Quali contenuti devo aggiornare?", "Trova opportunità di internal linking"];
 const statusLabel = { PLANNING: "Pianificazione", RUNNING: "Analisi in corso", WAITING_APPROVAL: "In attesa di approvazione", COMPLETED: "Completata", PARTIAL: "Risultato parziale", BLOCKED: "Dati insufficienti", FAILED: "Errore", CANCELLED: "Interrotta" };
 const toolLabels = { "data.gsc": ["Dati Search Console", "Dataset salvato del progetto"], "data.analysis": ["Audit SEO", "Ultima analisi tecnica salvata"], "data.rankings": ["Ranking DataForSEO", "Storico posizionamenti salvato"], "seo.opportunities": ["Calcolo opportunità", "Motore opportunità SeoGrow"], "seo.trafficDrop": ["Analisi calo traffico", "Confronto periodi Search Console"], "seo.contentDecay": ["Analisi content decay", "Cali e piano contenuti"], "seo.internalLinks": ["Suggerimenti link interni", "Risultati del crawl salvato"] };
+
+const problemPrompt = (detail) => {
+  const title = String(detail?.title || detail?.issueLabel || "Problema SEO").trim();
+  const url = String(detail?.sourceUrl || detail?.url || "").trim();
+  const state = String(detail?.problemState || detail?.status || "").trim();
+  const evidence = Array.isArray(detail?.evidence)
+    ? detail.evidence.map((item) => typeof item === "string" ? item : `${item?.label || item?.source || "evidenza"}: ${item?.value || item?.detail || ""}`).filter(Boolean).join("; ")
+    : String(detail?.evidence || detail?.detail || "").trim();
+  return [
+    `Analizza e aiutami a risolvere questo problema specifico: ${title}.`,
+    url ? `URL: ${url}.` : "",
+    state ? `Stato attuale: ${state}.` : "",
+    evidence ? `Evidenze disponibili: ${evidence}.` : "",
+    "Usa solo dati verificabili del progetto, distingui osservazioni da inferenze e non dichiarare risolto il problema senza una verifica recente.",
+  ].filter(Boolean).join(" ");
+};
 
 export default function AgentPage({ client, dataset, analysis, rankings, savedRuns = [], onSaveRun, onDeleteRun, onCreateTask }) {
   const [goal, setGoal] = useState("");
@@ -16,6 +33,27 @@ export default function AgentPage({ client, dataset, analysis, rankings, savedRu
   const orchestrator = useMemo(() => new SeoAgentOrchestrator({ registry: createSeoGrowToolRegistry(), onUpdate: setCurrentRun }), []);
   const run = currentRun || savedRuns.find((item) => item?.id === selectedRunId) || savedRuns[0];
   const input = { projectId: client.id, dataset, analysis, rankings, dataVersion: [dataset?.importedAt, analysis?.analyzedAt, rankings?.[0]?.checkedAt].filter(Boolean).join("|"), mode };
+
+  useEffect(() => {
+    const applyPrefill = (detail) => {
+      if (!detail || Number(detail.clientId) !== Number(client.id)) return false;
+      setGoal(problemPrompt(detail));
+      return true;
+    };
+    try {
+      const raw = sessionStorage.getItem(AGENT_PREFILL_KEY);
+      if (raw) {
+        const detail = JSON.parse(raw);
+        if (applyPrefill(detail)) sessionStorage.removeItem(AGENT_PREFILL_KEY);
+      }
+    } catch {
+      sessionStorage.removeItem(AGENT_PREFILL_KEY);
+    }
+    const onPrefill = (event) => applyPrefill(event.detail);
+    window.addEventListener("seogrow-agent-prefill", onPrefill);
+    return () => window.removeEventListener("seogrow-agent-prefill", onPrefill);
+  }, [client.id]);
+
   const start = async () => {
     if (!goal.trim() || running) return;
     setRunning(true); setActionError("");

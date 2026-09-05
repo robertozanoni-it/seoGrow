@@ -7,10 +7,12 @@ import {
   ExternalLink,
   Eye,
   History,
+  RefreshCw,
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
 import { apiFetch } from "./api";
+import { recheckCorrectionById } from "./remediationIntegrity";
 import {
   lastBatch,
   listCorrections,
@@ -20,18 +22,24 @@ import {
   REMEDIATION_LAST_BATCH_KEY,
   updateCorrection,
 } from "./remediationStore";
+import { rollbackRequest } from "./rollbackPayload";
 import "./CorrectionsWorkspace.css";
 
 const fetch = apiFetch;
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const WORDPRESS_PROFILES_KEY = "seogrow-wordpress-profiles-v1";
-const OPENED_BATCH_KEY = "seogrow-remediation-opened-batch-v1";
 
 const readJson = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
 const currentHash = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)); } catch { return ""; }
+};
+const openCorrections = () => {
+  const next = `#${encodeURIComponent("Correzioni")}`;
+  window.__seogrowCorrectionsMode = true;
+  if (window.location.hash !== next) window.history.pushState(null, "", next);
+  window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
 };
 const preview = (value, max = 300) => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -54,28 +62,40 @@ export default function CorrectionsWorkspace() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [rollingBack, setRollingBack] = useState("");
+  const [verifying, setVerifying] = useState("");
 
   const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, 0));
   const batchId = lastBatch();
   const profile = readJson(WORDPRESS_PROFILES_KEY, {})[selectedClientId] || null;
 
   useEffect(() => {
+    let frame = 0;
+    let attempts = 0;
     const syncTargets = () => {
-      setNavTarget(document.querySelector(".sidebar nav"));
-      setMainTarget(document.querySelector(".app main"));
+      const nav = document.querySelector(".sidebar nav");
+      const main = document.querySelector(".app main");
+      setNavTarget((current) => current === nav ? current : nav);
+      setMainTarget((current) => current === main ? current : main);
       const nextActive = currentHash() === "Correzioni";
       setActive(nextActive);
       window.__seogrowCorrectionsMode = nextActive;
+      if ((!nav || !main) && attempts < 120) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(syncTargets);
+      }
     };
-    syncTargets();
-    const observer = new MutationObserver(syncTargets);
-    observer.observe(document.body, { childList: true, subtree: true });
-    window.addEventListener("hashchange", syncTargets);
-    window.addEventListener("seogrow-locationchange", syncTargets);
+    const refreshNavigation = () => {
+      window.cancelAnimationFrame(frame);
+      attempts = 0;
+      frame = window.requestAnimationFrame(syncTargets);
+    };
+    frame = window.requestAnimationFrame(syncTargets);
+    window.addEventListener("hashchange", refreshNavigation);
+    window.addEventListener("seogrow-locationchange", refreshNavigation);
     return () => {
-      observer.disconnect();
-      window.removeEventListener("hashchange", syncTargets);
-      window.removeEventListener("seogrow-locationchange", syncTargets);
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("hashchange", refreshNavigation);
+      window.removeEventListener("seogrow-locationchange", refreshNavigation);
     };
   }, []);
 
@@ -86,9 +106,11 @@ export default function CorrectionsWorkspace() {
     };
     window.addEventListener("storage", storage);
     window.addEventListener("seogrow-remediation-history", refresh);
+    window.addEventListener("seogrow-remediation-applied", refresh);
     return () => {
       window.removeEventListener("storage", storage);
       window.removeEventListener("seogrow-remediation-history", refresh);
+      window.removeEventListener("seogrow-remediation-applied", refresh);
     };
   }, []);
 
@@ -108,23 +130,6 @@ export default function CorrectionsWorkspace() {
     else delete main.dataset.correctionsOpen;
     return () => { delete main.dataset.correctionsOpen; };
   }, [active, mainTarget]);
-
-  useEffect(() => {
-    const checkCompletion = () => {
-      const node = document.querySelector(".audit-remediation-message");
-      const text = String(node?.textContent || "");
-      if (!text.startsWith("Remediation completata:")) return;
-      const currentBatch = lastBatch();
-      if (!currentBatch) return;
-      if (sessionStorage.getItem(OPENED_BATCH_KEY) === currentBatch) return;
-      sessionStorage.setItem(OPENED_BATCH_KEY, currentBatch);
-      window.location.hash = encodeURIComponent("Correzioni");
-    };
-    const observer = new MutationObserver(checkCompletion);
-    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
-    checkCompletion();
-    return () => observer.disconnect();
-  }, []);
 
   const stats = useMemo(() => ({
     total: rows.length,
@@ -147,6 +152,30 @@ export default function CorrectionsWorkspace() {
       else next.add(id);
       return next;
     });
+  };
+
+  const reverify = async (id) => {
+    if (!id || verifying) return;
+    setVerifying(id);
+    setMessage("Riverifica della correzione in corso…");
+    try {
+      const result = await recheckCorrectionById(id);
+      const updated = result?.record;
+      if (result?.error) {
+        setMessage(`Riverifica non conclusa: ${result.error.message}. Lo stato precedente è stato mantenuto.`);
+      } else if (updated?.status === "Verificato") {
+        setMessage("Riverifica completata: la correzione è confermata nel frontend e la Task collegata può essere chiusa.");
+      } else if (result?.needsAudit) {
+        setMessage("Controllo frontend completato. Per confermare la risoluzione SEO serve ancora un nuovo audit mirato o completo.");
+      } else {
+        setMessage(updated?.verificationNote || "Riverifica completata. La correzione resta Da verificare.");
+      }
+      setVersion((value) => value + 1);
+    } catch (error) {
+      setMessage(`Riverifica non riuscita: ${error.message}`);
+    } finally {
+      setVerifying("");
+    }
   };
 
   const rollback = async (id) => {
@@ -173,18 +202,13 @@ export default function CorrectionsWorkspace() {
     setRollingBack(id);
     setMessage("Controllo stale-state e rollback in corso…");
     try {
-      const response = await fetch("/api/wordpress/remediate", {
+      const response = await fetch("/api/wordpress/live-rollback", {
         method: "POST",
-        headers: { "content-type": "application/json", "x-seogrow-rollback": "1" },
-        body: JSON.stringify({
-          url: record.sourceUrl,
-          username: record.username || profile?.username || "",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(rollbackRequest(record, {
+          username: profile?.username || "",
           applicationPassword: password,
-          resource: record.resource,
-          id: record.entityId,
-          changes,
-          expectedCurrent,
-        }),
+        })),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Rollback WordPress non riuscito");
@@ -209,7 +233,7 @@ export default function CorrectionsWorkspace() {
       type="button"
       className={active ? "active corrections-nav-button" : "corrections-nav-button"}
       aria-current={active ? "page" : undefined}
-      onClick={() => { window.location.hash = encodeURIComponent("Correzioni"); }}
+      onClick={openCorrections}
     >
       <History />
       <span>Correzioni</span>
@@ -278,6 +302,7 @@ export default function CorrectionsWorkspace() {
 
               <div className="correction-summary-actions">
                 <a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>
+                <button type="button" className="secondary mini" disabled={verifying === record.id || record.status === "Ripristinato"} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button>
                 <button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi dettagli" : "Vedi Prima / Dopo"}</button>
               </div>
 

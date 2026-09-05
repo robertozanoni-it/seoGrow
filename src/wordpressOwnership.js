@@ -1,3 +1,5 @@
+import { summarizeElementorImpact } from "./elementorImpact.js";
+
 const pluginMeta = (entity) => entity?.meta && typeof entity.meta === "object" ? entity.meta : {};
 
 const clone = (value) => {
@@ -68,8 +70,99 @@ const walk = (items, visitor, depth = 0, state = { nodes: 0 }) => {
 };
 
 const elementorRaw = (entity) => pluginMeta(entity)._elementor_data;
+const ownership = (entity) => entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
+  ? entity._seogrowOwnership
+  : {};
+
+const impactReferenceType = (reference) => {
+  if (reference?.type === "global-widget") return "widget";
+  if (reference?.type === "template") return "template";
+  return String(reference?.templateType || "unknown").trim().toLowerCase() || "unknown";
+};
+
+const impactFor = (entity, references = []) => {
+  const base = ownership(entity);
+  if (!Array.isArray(references) || references.length === 0) return summarizeElementorImpact(base);
+  const derived = references.flatMap((reference) => {
+    const id = Number(reference?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return [];
+    return [{
+      id,
+      type: impactReferenceType(reference),
+      resolved: false,
+      origins: ["local-runtime-reference"],
+    }];
+  });
+  const existing = Array.isArray(base.elementorResolvedSourceDocuments) ? base.elementorResolvedSourceDocuments : [];
+  return summarizeElementorImpact({
+    ...base,
+    elementorEvidenceStatus: derived.length ? "rendered-shared-documents" : base.elementorEvidenceStatus,
+    elementorResolvedSourceDocuments: [...existing, ...derived],
+  });
+};
+
+const sharedElementorTemplateTypes = (entity) => {
+  const values = ownership(entity).elementorSharedTemplateTypes;
+  return Array.isArray(values)
+    ? [...new Set(values.map((value) => String(value || "").trim().toLowerCase()).filter(Boolean))]
+    : [];
+};
+
+const renderedExternalReferences = (entity) => {
+  const values = ownership(entity).elementorExternalRenderedDocuments;
+  if (!Array.isArray(values)) return [];
+  const unique = new Map();
+  for (const value of values) {
+    const id = Number(value?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    const templateType = String(value?.type || "unknown").trim().toLowerCase() || "unknown";
+    unique.set(`${id}:${templateType}`, {
+      type: "rendered-document",
+      templateType,
+      id: String(id),
+    });
+  }
+  return [...unique.values()];
+};
+
+const localOwnershipReferences = (entity) => {
+  const values = ownership(entity).elementorLocalSourceReferences;
+  if (!Array.isArray(values)) return [];
+  const unique = new Map();
+  for (const value of values) {
+    const id = Number(value?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    const sourceType = String(value?.type || "").trim().toLowerCase();
+    const reference = sourceType === "widget"
+      ? { type: "global-widget", templateType: "widget", id: String(id) }
+      : { type: "template", templateType: "reusable", id: String(id) };
+    unique.set(`${reference.type}:${reference.templateType}:${reference.id}`, reference);
+  }
+  return [...unique.values()];
+};
+
+const externalSharedReferences = (entity) => {
+  const rendered = renderedExternalReferences(entity);
+  const local = localOwnershipReferences(entity);
+  const precise = [...rendered, ...local];
+  if (precise.length) {
+    return [...new Map(precise.map((reference) => [
+      `${reference.type}:${reference.templateType}:${reference.id}`,
+      reference,
+    ])).values()];
+  }
+
+  const evidenceStatus = String(ownership(entity).elementorEvidenceStatus || "");
+  if (["local-document-only-observed", "no-rendered-shared-document-observed"].includes(evidenceStatus)) return [];
+
+  return sharedElementorTemplateTypes(entity)
+    .map((templateType) => ({ type: "theme-template", templateType, id: "" }));
+};
+
+const localElementorDocumentObserved = (entity) => ownership(entity).elementorLocalDocumentRendered === true;
 
 export function hasElementorDocument(entity) {
+  if (externalSharedReferences(entity).length || localElementorDocumentObserved(entity)) return true;
   const raw = elementorRaw(entity);
   if (raw === undefined || raw === null || raw === "") return false;
   try {
@@ -82,18 +175,41 @@ export function hasElementorDocument(entity) {
 
 export function inspectEditableElementor(kind, entity) {
   const raw = elementorRaw(entity);
+  const sharedReferences = externalSharedReferences(entity);
+  const localObserved = localElementorDocumentObserved(entity);
+  const initialImpact = impactFor(entity, sharedReferences);
   if (raw === undefined || raw === null || raw === "") {
-    return { state: "absent", parsed: null, widgets: [], hasDocument: false };
+    if (sharedReferences.length || localObserved) {
+      return {
+        state: "valid",
+        parsed: null,
+        widgets: [],
+        hasDocument: true,
+        sharedReferences,
+        impact: initialImpact,
+      };
+    }
+    return { state: "absent", parsed: null, widgets: [], hasDocument: false, sharedReferences: [], impact: initialImpact };
   }
 
   try {
     const data = typeof raw === "string" ? JSON.parse(raw) : clone(raw);
-    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true };
+    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact: initialImpact };
 
     const widgets = [];
     const valid = walk(data, (item) => {
       const settings = item?.settings;
       if (!settings || typeof settings !== "object" || Array.isArray(settings)) return;
+
+      const widgetType = String(item.widgetType || "").toLowerCase();
+      const templateId = String(settings.template_id || settings.templateId || "").trim();
+      const globalId = String(settings.global_widget_id || settings.globalWidgetId || "").trim();
+      if (widgetType === "template" && templateId) {
+        sharedReferences.push({ type: "template", templateType: "reusable", id: templateId });
+      }
+      if (widgetType === "global" || globalId) {
+        sharedReferences.push({ type: "global-widget", templateType: "widget", id: globalId || String(item.id || "") });
+      }
 
       if (
         kind === "content" &&
@@ -122,10 +238,31 @@ export function inspectEditableElementor(kind, entity) {
       }
     });
 
-    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0 };
-    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0 };
+    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0, sharedReferences, impact: impactFor(entity, sharedReferences) };
+
+    const uniqueSharedReferences = [...new Map(sharedReferences.map((reference) => [
+      `${reference.type}:${reference.templateType}:${reference.id}`,
+      reference,
+    ])).values()];
+    const finalImpact = impactFor(entity, uniqueSharedReferences);
+
+    // Se il documento dipende da template/widget condivisi effettivamente renderizzati
+    // oppure da riferimenti interni a template/global widget, SeoGrow non può attribuire
+    // con certezza il markup pubblico a un singolo widget locale.
+    if (uniqueSharedReferences.length) {
+      return {
+        state: "valid",
+        parsed: { data },
+        widgets: [],
+        hasDocument: true,
+        sharedReferences: uniqueSharedReferences,
+        impact: finalImpact,
+      };
+    }
+
+    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0, sharedReferences: [], impact: finalImpact };
   } catch {
-    return { state: "invalid", parsed: null, widgets: [], hasDocument: true };
+    return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact: impactFor(entity, sharedReferences) };
   }
 }
 
@@ -158,11 +295,13 @@ export function assessCoreOwnership(kind, entity, frontend) {
   );
 
   if (hasElementorDocument(entity)) {
+    const impact = impactFor(entity, externalSharedReferences(entity));
     return {
       ok: false,
       frontend,
       coreWords,
-      reason: "La pagina contiene un documento Elementor non vuoto: il fallback su post_content è bloccato.",
+      impact,
+      reason: `La pagina contiene ownership Elementor locale o condivisa: il fallback su post_content è bloccato. ${impact.summary}`,
     };
   }
 

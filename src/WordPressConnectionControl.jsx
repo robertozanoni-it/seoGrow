@@ -25,17 +25,18 @@ export default function WordPressConnectionControl() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const sync = () => setTarget((current) => {
+    let frame = 0;
+    let attempts = 0;
+    const scan = () => {
       const next = resolveTarget();
-      return current === next ? current : next;
-    });
-    const observer = new MutationObserver(sync);
-    observer.observe(document.body, { childList: true, subtree: true });
-    const timer = window.setTimeout(sync, 0);
-    return () => {
-      window.clearTimeout(timer);
-      observer.disconnect();
+      setTarget((current) => current === next ? current : next);
+      if (!next && attempts < 120) {
+        attempts += 1;
+        frame = window.requestAnimationFrame(scan);
+      }
     };
+    scan();
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   useEffect(() => {
@@ -70,17 +71,22 @@ export default function WordPressConnectionControl() {
     setConnecting(true);
     setStatus({ state: "loading", message: "Connessione a WordPress in corso…" });
     try {
-      const response = await apiFetch("/api/wordpress/inspect", {
+      const response = await apiFetch("/api/wordpress/connection-check", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({
+          siteUrl: credentials.url,
+          username: credentials.username,
+          applicationPassword: credentials.applicationPassword,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Connessione WordPress non riuscita.");
       const name = data?.user?.name ? ` come ${data.user.name}` : "";
+      const connector = data?.connector?.version ? ` · Connector ${data.connector.version}` : " · Connector non rilevato";
       setStatus({
         state: "success",
-        message: `Connessione WordPress riuscita${name}. Le credenziali sono valide per questa sessione.`,
+        message: `Connessione WordPress riuscita${name}${connector}. Le credenziali sono valide per questa sessione.`,
       });
     } catch (error) {
       setStatus({

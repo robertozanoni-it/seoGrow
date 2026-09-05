@@ -32,6 +32,9 @@ jobs:
       - name: Unit and integration tests
         run: npm test
 
+      - name: Lint SeoGrow Connector PHP
+        run: php -l wordpress-plugin/seogrow-connector/seogrow-connector.php
+
       - name: Install zsh for macOS launcher syntax check
         run: |
           sudo apt-get update -qq
@@ -67,3 +70,117 @@ jobs:
           }
           console.log(`Version ${pkg.version} is consistent.`);
           NODE
+
+  browser-ui-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Start SeoGrow runtime
+        run: |
+          npm run dev > "$RUNNER_TEMP/seogrow-browser-runtime.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/seogrow-browser-runtime.pid"
+          healthy=0
+          for attempt in {1..80}; do
+            if curl -fsS http://127.0.0.1:5176/api/health 2>/dev/null | grep -q '"ok":true'; then
+              healthy=1
+              break
+            fi
+            sleep 0.25
+          done
+          if [ "$healthy" -ne 1 ]; then
+            echo "SeoGrow runtime did not become healthy for browser smoke."
+            cat "$RUNNER_TEMP/seogrow-browser-runtime.log"
+            exit 1
+          fi
+
+      - name: Headless Chrome UI smoke
+        run: node scripts/browser-smoke.mjs http://127.0.0.1:5176/
+
+      - name: Stop SeoGrow runtime
+        if: always()
+        run: |
+          if [ -f "$RUNNER_TEMP/seogrow-browser-runtime.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/seogrow-browser-runtime.pid")" 2>/dev/null || true
+          fi
+          pkill -f "vite --host" 2>/dev/null || true
+          pkill -f "node server/index.js" 2>/dev/null || true
+
+  macos-launcher-smoke:
+    runs-on: macos-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate launcher syntax on macOS
+        run: npm run test:launcher
+
+      - name: Run real macOS launcher smoke test
+        shell: zsh {0}
+        run: |
+          chmod +x ./AVVIA.command
+          rm -f .seogrow-port
+          ./AVVIA.command > "$RUNNER_TEMP/seogrow-launcher.log" 2>&1 &
+          launcher_pid=$!
+          cleanup() {
+            kill "$launcher_pid" 2>/dev/null || true
+            pkill -f "vite --port" 2>/dev/null || true
+            pkill -f "node server/index.js" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          healthy=0
+          for attempt in {1..60}; do
+            port=5176
+            if [ -s .seogrow-port ]; then
+              saved_port=$(tr -dc '0-9' < .seogrow-port)
+              if [ -n "$saved_port" ]; then port="$saved_port"; fi
+            fi
+            if curl -fsS "http://localhost:$port/api/health" 2>/dev/null | grep -q '"ok":true'; then
+              healthy=1
+              break
+            fi
+            if ! kill -0 "$launcher_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 0.5
+          done
+
+          if [ "$healthy" -ne 1 ]; then
+            echo "macOS launcher did not reach a healthy runtime."
+            cat "$RUNNER_TEMP/seogrow-launcher.log"
+            exit 1
+          fi
+
+          echo "macOS launcher reached a healthy runtime on port $port."
+          curl -fsS "http://localhost:$port/api/health"
+
+          remediation="$(curl -fsS "http://localhost:$port/api/wordpress/remediation-capabilities")"
+          if ! printf '%s' "$remediation" | grep -q '"ok":true' || ! printf '%s' "$remediation" | grep -q '"taxonomy-preview"'; then
+            echo "macOS runtime is healthy but taxonomy remediation routes are not registered."
+            printf '%s\n' "$remediation"
+            cat "$RUNNER_TEMP/seogrow-launcher.log"
+            exit 1
+          fi
+          echo "macOS remediation route registration confirmed."
