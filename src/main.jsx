@@ -8,7 +8,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import AuditWorkspace from './AuditWorkspace';
 import AuditRemediationShell from './AuditRemediationShell';
-import CorrectionsWorkspaceV2 from './CorrectionsWorkspaceV2';
+import CorrectionsWorkspaceV3 from './CorrectionsWorkspaceV3';
 import WordPressConnectionControl from './WordPressConnectionControl';
 import WordPressLiveRemediationControlV2 from './WordPressLiveRemediationControlV2';
 import WordPressConnectorControl from './WordPressConnectorControl';
@@ -46,7 +46,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <WordPressConnectionControl />
       <WordPressLiveRemediationControlV2 />
       <WordPressConnectorControl />
-      <CorrectionsWorkspaceV2 />
+      <CorrectionsWorkspaceV3 />
     </AppErrorBoundary>
   </React.StrictMode>,
 );
