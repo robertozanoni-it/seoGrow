@@ -5,11 +5,35 @@ const clone = (value) => {
   return JSON.parse(JSON.stringify(value));
 };
 
+const decodeEntity = (entity) => {
+  const named = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+    ndash: "–",
+    mdash: "—",
+    hellip: "…",
+  };
+  const body = String(entity || "").slice(1, -1);
+  if (body.startsWith("#x") || body.startsWith("#X")) {
+    const code = Number.parseInt(body.slice(2), 16);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : " ";
+  }
+  if (body.startsWith("#")) {
+    const code = Number.parseInt(body.slice(1), 10);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : " ";
+  }
+  return named[body.toLowerCase()] ?? " ";
+};
+
 const normalizeText = (value) => String(value || "")
   .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
   .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
   .replace(/<[^>]+>/g, " ")
-  .replace(/&(?:#\d+|#x[\da-f]+|\w+);/gi, " ")
+  .replace(/&(?:#\d+|#x[\da-f]+|\w+);/gi, (entity) => decodeEntity(entity))
   .replace(/\s+/g, " ")
   .trim();
 
@@ -163,15 +187,18 @@ export function chooseElementorContentCandidate(candidates, probeResults) {
     .filter((candidate) => {
       const probeCount = Number(candidate.probe?.contentProbeCount);
       const probeMatches = Number(candidate.probe?.contentProbeMatches);
-      return candidate.probe?.contentCoverageStrong === true &&
-        Number.isFinite(probeCount) && probeCount >= 1 &&
+      const expectedWords = Number(candidate.probe?.expectedWords ?? candidate.words);
+      const allProbesVisible = candidate.probe?.contentProbeVisible === true &&
+        Number.isFinite(probeCount) && probeCount >= 2 &&
         probeMatches === probeCount;
+      const enoughEvidence = Number.isFinite(expectedWords) && expectedWords >= 12;
+      return enoughEvidence && (candidate.probe?.contentCoverageStrong === true || allProbesVisible);
     });
 
   if (confirmed.length === 0) {
     return {
       candidate: null,
-      reason: "Nessun text-editor Elementor candidato è confermato integralmente nel frontend pubblico.",
+      reason: "Nessun text-editor Elementor candidato è confermato in modo univoco nel frontend pubblico.",
     };
   }
 
