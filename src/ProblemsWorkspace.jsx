@@ -389,19 +389,25 @@ export default function ProblemsWorkspace() {
   useEffect(() => {
     if (!active || !selectedClientId) return undefined;
     let cancelled = false;
-    setCorrectionsState({ loading: true, error: "" });
-    listCorrections({ clientId: selectedClientId })
-      .then((rows) => {
-        if (cancelled) return;
-        setCorrections(rows);
-        setCorrectionsState({ loading: false, error: "" });
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        setCorrections([]);
-        setCorrectionsState({ loading: false, error: `Storico correzioni non leggibile: ${error.message}` });
-      });
-    return () => { cancelled = true; };
+    const timer = window.setTimeout(() => {
+      if (cancelled) return;
+      setCorrectionsState({ loading: true, error: "" });
+      listCorrections({ clientId: selectedClientId })
+        .then((rows) => {
+          if (cancelled) return;
+          setCorrections(rows);
+          setCorrectionsState({ loading: false, error: "" });
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          setCorrections([]);
+          setCorrectionsState({ loading: false, error: `Storico correzioni non leggibile: ${error.message}` });
+        });
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, [active, selectedClientId, revision]);
 
   const storeErrors = [clientsStore, tasksStore, analysesStore, pagesStore, selectedStore]
@@ -417,7 +423,7 @@ export default function ProblemsWorkspace() {
       tasks: tasksStore.value,
       corrections,
     });
-  }, [client, analysesStore.value, pagesStore.value, tasksStore.value, corrections, revision]);
+  }, [client, analysesStore.value, pagesStore.value, tasksStore.value, corrections]);
 
   const rows = model.rows;
   const typeOptions = [...new Set(rows.map((row) => row.issueType).filter(Boolean))].toSorted();
