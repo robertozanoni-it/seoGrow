@@ -7,10 +7,12 @@ import {
   ExternalLink,
   Eye,
   History,
+  RefreshCw,
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
 import { apiFetch } from "./api";
+import { recheckCorrectionById } from "./remediationIntegrity";
 import {
   lastBatch,
   listCorrections,
@@ -54,6 +56,7 @@ export default function CorrectionsWorkspace() {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [rollingBack, setRollingBack] = useState("");
+  const [verifying, setVerifying] = useState("");
 
   const selectedClientId = Number(readJson(SELECTED_CLIENT_KEY, 0));
   const batchId = lastBatch();
@@ -143,6 +146,30 @@ export default function CorrectionsWorkspace() {
       else next.add(id);
       return next;
     });
+  };
+
+  const reverify = async (id) => {
+    if (!id || verifying) return;
+    setVerifying(id);
+    setMessage("Riverifica della correzione in corso…");
+    try {
+      const result = await recheckCorrectionById(id);
+      const updated = result?.record;
+      if (result?.error) {
+        setMessage(`Riverifica non conclusa: ${result.error.message}. Lo stato precedente è stato mantenuto.`);
+      } else if (updated?.status === "Verificato") {
+        setMessage("Riverifica completata: la correzione è confermata nel frontend e la Task collegata può essere chiusa.");
+      } else if (result?.needsAudit) {
+        setMessage("Controllo frontend completato. Per confermare la risoluzione SEO serve ancora un nuovo audit mirato o completo.");
+      } else {
+        setMessage(updated?.verificationNote || "Riverifica completata. La correzione resta Da verificare.");
+      }
+      setVersion((value) => value + 1);
+    } catch (error) {
+      setMessage(`Riverifica non riuscita: ${error.message}`);
+    } finally {
+      setVerifying("");
+    }
   };
 
   const rollback = async (id) => {
@@ -269,6 +296,7 @@ export default function CorrectionsWorkspace() {
 
               <div className="correction-summary-actions">
                 <a href={record.sourceUrl} target="_blank" rel="noreferrer"><ExternalLink />Apri pagina</a>
+                <button type="button" className="secondary mini" disabled={verifying === record.id || record.status === "Ripristinato"} onClick={() => reverify(record.id)}><RefreshCw />{verifying === record.id ? "Riverifica…" : "Riverifica"}</button>
                 <button type="button" className="secondary mini" onClick={() => toggleExpanded(record.id)}><Eye />{open ? "Nascondi dettagli" : "Vedi Prima / Dopo"}</button>
               </div>
 
