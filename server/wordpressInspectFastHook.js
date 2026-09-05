@@ -111,6 +111,45 @@ const normalizeElementorDocuments = (frontend) => {
   return [...unique.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
 };
 
+function elementorLocalSourceReferences(entity) {
+  const raw = entity?.meta?._elementor_data;
+  if (raw === undefined || raw === null || raw === "") return [];
+  let data;
+  try {
+    data = typeof raw === "string" ? JSON.parse(raw) : raw;
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(data)) return [];
+
+  const references = new Map();
+  const stack = [{ items: data, depth: 0 }];
+  let nodes = 0;
+  while (stack.length) {
+    const { items, depth } = stack.pop();
+    if (!Array.isArray(items) || depth > 80) continue;
+    for (const item of items) {
+      nodes += 1;
+      if (nodes > 5000) return [...references.values()];
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      const settings = item.settings && typeof item.settings === "object" && !Array.isArray(item.settings)
+        ? item.settings
+        : {};
+      const widgetType = String(item.widgetType || "").trim().toLowerCase();
+      const templateId = Number(settings.template_id ?? settings.templateId);
+      const globalId = Number(settings.global_widget_id ?? settings.globalWidgetId);
+      if (widgetType === "template" && Number.isSafeInteger(templateId) && templateId > 0) {
+        references.set(`template:${templateId}`, { id: templateId, type: "template", origin: "local-reference" });
+      }
+      if ((widgetType === "global" || Number.isSafeInteger(globalId)) && Number.isSafeInteger(globalId) && globalId > 0) {
+        references.set(`widget:${globalId}`, { id: globalId, type: "widget", origin: "local-reference" });
+      }
+      if (Array.isArray(item.elements)) stack.push({ items: item.elements, depth: depth + 1 });
+    }
+  }
+  return [...references.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
+}
+
 function elementorOwnershipEvidence(entity, connector, frontend = null) {
   const siteWideTypes = connector?.elementor === true && Array.isArray(connector.elementorSharedTemplateTypes)
     ? connector.elementorSharedTemplateTypes.filter((value) => ELEMENTOR_SHARED_TYPES.has(value))
@@ -121,10 +160,11 @@ function elementorOwnershipEvidence(entity, connector, frontend = null) {
   const hasLocalId = Number.isSafeInteger(localId) && localId > 0;
   const localDocumentRendered = hasLocalId && renderedDocuments.some((document) => document.id === localId);
   const externalRenderedDocuments = renderedDocuments.filter((document) => !hasLocalId || document.id !== localId);
+  const localSourceReferences = elementorLocalSourceReferences(entity);
 
   let status = "not-elementor";
   if (connector?.elementor === true) {
-    if (externalRenderedDocuments.length) status = "rendered-shared-documents";
+    if (externalRenderedDocuments.length || localSourceReferences.length) status = "rendered-shared-documents";
     else if (frontendInspected && localDocumentRendered) status = "local-document-only-observed";
     else if (frontendInspected && siteWideTypes.length) status = "shared-templates-present-unresolved";
     else if (frontendInspected) status = "no-rendered-shared-document-observed";
@@ -136,6 +176,7 @@ function elementorOwnershipEvidence(entity, connector, frontend = null) {
     elementorSharedTemplateTypes: siteWideTypes,
     elementorRenderedDocuments: renderedDocuments,
     elementorExternalRenderedDocuments: externalRenderedDocuments,
+    elementorLocalSourceReferences: localSourceReferences,
     elementorLocalDocumentRendered: localDocumentRendered,
     elementorFrontendInspected: frontendInspected,
     elementorEvidenceStatus: status,
@@ -170,11 +211,34 @@ function elementorLibraryEndpoint(base, descriptor, id) {
   );
 }
 
+function mergeElementorSourceCandidates(externalDocuments = [], localReferences = []) {
+  const merged = new Map();
+  const add = (document, origin) => {
+    const id = Number(document?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return;
+    const type = String(document?.type || "unknown").trim().toLowerCase() || "unknown";
+    const existing = merged.get(id);
+    if (!existing) {
+      merged.set(id, { id, type, origins: [origin] });
+      return;
+    }
+    if (!existing.origins.includes(origin)) existing.origins.push(origin);
+    if (origin === "frontend-rendered" && type !== "unknown") existing.type = type;
+  };
+  for (const document of externalDocuments) add(document, "frontend-rendered");
+  for (const reference of localReferences) add(reference, "local-reference");
+  return [...merged.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
+}
+
 async function resolveElementorRenderedSources(base, headers, documents = []) {
   const requested = (Array.isArray(documents) ? documents : [])
     .filter((document) => Number.isSafeInteger(Number(document?.id)) && Number(document.id) > 0)
     .slice(0, 20)
-    .map((document) => ({ id: Number(document.id), type: String(document.type || "unknown") }));
+    .map((document) => ({
+      id: Number(document.id),
+      type: String(document.type || "unknown"),
+      origins: Array.isArray(document.origins) ? [...new Set(document.origins.map((value) => String(value)))] : [],
+    }));
   if (!requested.length) return { status: "not-needed", documents: [] };
 
   let descriptor;
@@ -334,14 +398,17 @@ function registerRoutes(app) {
       }
 
       const filteredEntity = filterConnectorOwnedMeta(resolved.entity, connector, frontend);
-      const elementorSourceResolution = await resolveElementorRenderedSources(
-        base,
-        headers,
+      const sourceCandidates = mergeElementorSourceCandidates(
         filteredEntity?._seogrowOwnership?.elementorExternalRenderedDocuments,
+        filteredEntity?._seogrowOwnership?.elementorLocalSourceReferences,
       );
+      const elementorSourceResolution = await resolveElementorRenderedSources(base, headers, sourceCandidates);
       if (filteredEntity?._seogrowOwnership) {
         filteredEntity._seogrowOwnership.elementorSourceResolutionStatus = elementorSourceResolution.status;
-        filteredEntity._seogrowOwnership.elementorResolvedExternalDocuments = elementorSourceResolution.documents;
+        filteredEntity._seogrowOwnership.elementorResolvedSourceDocuments = elementorSourceResolution.documents;
+        filteredEntity._seogrowOwnership.elementorResolvedExternalDocuments = elementorSourceResolution.documents.filter(
+          (document) => document.origins?.includes("frontend-rendered"),
+        );
       }
 
       const dualSeoPlugins = connector?.rankMath === true && connector?.yoast === true;
@@ -375,6 +442,8 @@ export {
   connectorStatus,
   filterConnectorOwnedMeta,
   elementorOwnershipEvidence,
+  elementorLocalSourceReferences,
+  mergeElementorSourceCandidates,
   elementorLibraryRestDescriptor,
   elementorLibraryEndpoint,
   resolveElementorRenderedSources,
