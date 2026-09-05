@@ -11,6 +11,7 @@ const migratedHooks = await Promise.all([
   "wordpressSeoAdapterHook.js",
   "wordpressSeoAdapterV2Hook.js",
   "wordpressDraftCopyHook.js",
+  "wordpressRemediationHook.js",
   "frontendVerificationHook.js",
   "wordpressInspectFastHook.js",
   "wordpressPatchV2Hook.js",
@@ -23,7 +24,8 @@ test("il bootstrap remediation centralizza la compatibilità Express", () => {
   assert.match(bootstrap, /args\[0\] === "\/api"/);
 });
 
-test("gli hook migrati esportano route esplicite senza patchare express.application", () => {
+test("tutti gli hook remediation esportano route esplicite senza patchare express.application", () => {
+  assert.equal(migratedHooks.length, 9);
   for (const source of migratedHooks) {
     assert.match(source, /function registerRoutes\(app\)/);
     assert.match(source, /export \{[^}]*registerRoutes/);
