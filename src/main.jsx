@@ -6,7 +6,7 @@ import './seoResponseIntegrity';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-import AuditWorkspace from './AuditWorkspace';
+import AuditWorkspaceV2 from './AuditWorkspaceV2';
 import AuditRemediationShell from './AuditRemediationShell';
 import CorrectionsWorkspaceV3 from './CorrectionsWorkspaceV3';
 import WordPressConnectionControl from './WordPressConnectionControl';
@@ -41,7 +41,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AppErrorBoundary>
       <App />
-      <AuditWorkspace />
+      <AuditWorkspaceV2 />
       <AuditRemediationShell />
       <WordPressConnectionControl />
       <WordPressLiveRemediationControlV2 />
