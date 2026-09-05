@@ -28,6 +28,7 @@ const remediationModules = await Promise.all([
   import("./wordpressSeoAdapterV2Hook.js"),
   import("./frontendVerificationHook.js"),
   import("./wordpressInspectFastHook.js"),
+  import("./elementorImpactHook.js"),
   import("./wordpressTaxonomyHook.js"),
   import("./wordpressPatchV2Hook.js"),
 ]);
@@ -48,6 +49,7 @@ export function registerRemediationRoutes(app) {
         "inspect",
         "inspect-fast",
         "inspect-taxonomy",
+        "elementor-impact-read-only",
         "taxonomy-preview",
         "taxonomy-apply",
         "taxonomy-rollback-preview",
@@ -61,6 +63,7 @@ export function registerRemediationRoutes(app) {
       ],
       liveMode: "single-explicit-approval",
       taxonomyMode: "single-field-explicit-approval-stale-safe",
+      elementorImpactMode: "read-only-evidence-no-shared-write",
       taxonomyConnectorMinimum: "1.3.0",
       draftCopyCompatibility: false,
     });
