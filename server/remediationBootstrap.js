@@ -27,6 +27,7 @@ const remediationModules = await Promise.all([
   import("./wordpressSeoAdapterV2Hook.js"),
   import("./frontendVerificationHook.js"),
   import("./wordpressInspectFastHook.js"),
+  import("./wordpressTaxonomyHook.js"),
   import("./wordpressPatchV2Hook.js"),
 ]);
 
@@ -44,6 +45,7 @@ export function registerRemediationRoutes(app) {
       supports: [
         "inspect",
         "inspect-fast",
+        "inspect-taxonomy-read-only",
         "frontend-verification",
         "patch-v2",
         "seo-value-v2",
@@ -52,6 +54,7 @@ export function registerRemediationRoutes(app) {
         "live-rollback",
       ],
       liveMode: "single-explicit-approval",
+      taxonomyMode: "read-only-exact-identity",
       draftCopyCompatibility: false,
     });
   });
