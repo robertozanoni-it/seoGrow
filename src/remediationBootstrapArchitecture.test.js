@@ -36,7 +36,8 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
   assert.match(bootstrap, /"inspect-fast"/);
   assert.match(bootstrap, /"inspect-taxonomy"/);
   assert.match(bootstrap, /"elementor-impact-read-only"/);
-  assert.match(bootstrap, /elementorImpactMode: "read-only-evidence-no-shared-write"/);
+  assert.match(bootstrap, /"elementor-impact-server-attested-coverage"/);
+  assert.match(bootstrap, /elementorImpactMode: "read-only-server-attested-coverage-no-shared-write"/);
   assert.match(bootstrap, /taxonomyMode: "single-field-explicit-approval-stale-safe"/);
   assert.match(bootstrap, /"live-preview"/);
   assert.match(bootstrap, /"live-apply"/);
