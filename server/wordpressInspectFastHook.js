@@ -100,13 +100,24 @@ function filterConnectorOwnedMeta(entity, connector, frontend = null) {
   if (connector?.rankMath !== true) RANK_MATH_META.forEach((key) => delete meta[key]);
   if (connector?.yoast !== true) YOAST_META.forEach((key) => delete meta[key]);
 
-  if (connector?.rankMath === true && connector?.yoast === true && frontend) {
+  if (connector?.rankMath === true && connector?.yoast === true) {
     for (const [kind, choices] of Object.entries(SEO_META_CHOICES)) {
-      const decision = resolveSeoPluginOwner({ ...source, meta }, kind, frontend);
-      if (!decision.owner) continue;
-      const [ownedKey] = decision.owner;
+      const decision = frontend
+        ? resolveSeoPluginOwner({ ...source, meta }, kind, frontend)
+        : { owner: null, evidence: "frontend-unavailable" };
+      if (decision.owner && decision.evidence === "frontend-value-match") {
+        const [ownedKey] = decision.owner;
+        for (const [key] of choices) {
+          if (key !== ownedKey) delete meta[key];
+        }
+        continue;
+      }
+
+      // Entrambi i plugin risultano attivi, ma il frontend non identifica in modo
+      // univoco l'owner. Manteniamo (o aggiungiamo come sentinel null) entrambi i
+      // campi così il client V2 vede l'ambiguità e blocca la scrittura.
       for (const [key] of choices) {
-        if (key !== ownedKey) delete meta[key];
+        if (!Object.prototype.hasOwnProperty.call(meta, key)) meta[key] = null;
       }
     }
   }
@@ -180,8 +191,8 @@ function registerRoutes(app) {
         try {
           frontend = await inspectFrontend(url);
         } catch {
-          // Se il frontend non è verificabile, conserviamo entrambi i campi.
-          // Il live flow bloccherà l'ownership invece di scegliere per priorità.
+          // Se il frontend non è verificabile, filterConnectorOwnedMeta forza
+          // l'ambiguità e il live flow blocca invece di scegliere per priorità.
         }
       }
 
@@ -194,7 +205,7 @@ function registerRoutes(app) {
         connector: connector
           ? {
               ...connector,
-              seoOwnershipEvidence: frontend ? "frontend-value-match" : "plugin-availability-only",
+              seoOwnershipEvidence: frontend ? "frontend-inspected" : "plugin-availability-only",
             }
           : null,
       });
