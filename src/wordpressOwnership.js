@@ -73,7 +73,34 @@ const elementorRaw = (entity) => pluginMeta(entity)._elementor_data;
 const ownership = (entity) => entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
   ? entity._seogrowOwnership
   : {};
-const impactFor = (entity) => summarizeElementorImpact(ownership(entity));
+
+const impactReferenceType = (reference) => {
+  if (reference?.type === "global-widget") return "widget";
+  if (reference?.type === "template") return "template";
+  return String(reference?.templateType || "unknown").trim().toLowerCase() || "unknown";
+};
+
+const impactFor = (entity, references = []) => {
+  const base = ownership(entity);
+  if (!Array.isArray(references) || references.length === 0) return summarizeElementorImpact(base);
+  const derived = references.flatMap((reference) => {
+    const id = Number(reference?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return [];
+    return [{
+      id,
+      type: impactReferenceType(reference),
+      resolved: false,
+      origins: ["local-runtime-reference"],
+    }];
+  });
+  const existing = Array.isArray(base.elementorResolvedSourceDocuments) ? base.elementorResolvedSourceDocuments : [];
+  return summarizeElementorImpact({
+    ...base,
+    elementorEvidenceStatus: derived.length ? "rendered-shared-documents" : base.elementorEvidenceStatus,
+    elementorResolvedSourceDocuments: [...existing, ...derived],
+  });
+};
+
 const sharedElementorTemplateTypes = (entity) => {
   const values = ownership(entity).elementorSharedTemplateTypes;
   return Array.isArray(values)
@@ -150,7 +177,7 @@ export function inspectEditableElementor(kind, entity) {
   const raw = elementorRaw(entity);
   const sharedReferences = externalSharedReferences(entity);
   const localObserved = localElementorDocumentObserved(entity);
-  const impact = impactFor(entity);
+  const initialImpact = impactFor(entity, sharedReferences);
   if (raw === undefined || raw === null || raw === "") {
     if (sharedReferences.length || localObserved) {
       return {
@@ -159,15 +186,15 @@ export function inspectEditableElementor(kind, entity) {
         widgets: [],
         hasDocument: true,
         sharedReferences,
-        impact,
+        impact: initialImpact,
       };
     }
-    return { state: "absent", parsed: null, widgets: [], hasDocument: false, sharedReferences: [], impact };
+    return { state: "absent", parsed: null, widgets: [], hasDocument: false, sharedReferences: [], impact: initialImpact };
   }
 
   try {
     const data = typeof raw === "string" ? JSON.parse(raw) : clone(raw);
-    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact };
+    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact: initialImpact };
 
     const widgets = [];
     const valid = walk(data, (item) => {
@@ -211,12 +238,13 @@ export function inspectEditableElementor(kind, entity) {
       }
     });
 
-    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0, sharedReferences, impact };
+    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0, sharedReferences, impact: impactFor(entity, sharedReferences) };
 
     const uniqueSharedReferences = [...new Map(sharedReferences.map((reference) => [
       `${reference.type}:${reference.templateType}:${reference.id}`,
       reference,
     ])).values()];
+    const finalImpact = impactFor(entity, uniqueSharedReferences);
 
     // Se il documento dipende da template/widget condivisi effettivamente renderizzati
     // oppure da riferimenti interni a template/global widget, SeoGrow non può attribuire
@@ -228,13 +256,13 @@ export function inspectEditableElementor(kind, entity) {
         widgets: [],
         hasDocument: true,
         sharedReferences: uniqueSharedReferences,
-        impact,
+        impact: finalImpact,
       };
     }
 
-    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0, sharedReferences: [], impact };
+    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0, sharedReferences: [], impact: finalImpact };
   } catch {
-    return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact };
+    return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact: impactFor(entity, sharedReferences) };
   }
 }
 
@@ -267,7 +295,7 @@ export function assessCoreOwnership(kind, entity, frontend) {
   );
 
   if (hasElementorDocument(entity)) {
-    const impact = impactFor(entity);
+    const impact = impactFor(entity, externalSharedReferences(entity));
     return {
       ok: false,
       frontend,
