@@ -20,6 +20,9 @@ export function rollbackRequest(record, { username = "", applicationPassword = "
     applicationPassword,
     resource: record?.resource || record?.wordpressResource || "",
     id: Number(record?.entityId || record?.wordpressId || 0),
+    adapter: record?.adapter || "",
+    taxonomy: record?.taxonomy || "",
+    taxonomyField: record?.taxonomyField || (record?.resource === "taxonomy" ? record?.fields?.[0] || "" : ""),
     changes: nestedRollbackChanges(before),
     expectedCurrent: after,
   };
