@@ -21,6 +21,16 @@ test("il bootstrap remediation usa una sola compatibilità Express prima del fal
   assert.doesNotMatch(bootstrap, /remediationBootstrapListenPatched|express\.application\.listen/);
 });
 
+test("il bootstrap espone le capability reali del runtime V2", () => {
+  assert.match(bootstrap, /\/api\/wordpress\/remediation-capabilities/);
+  assert.match(bootstrap, /engine: "v2"/);
+  assert.match(bootstrap, /"inspect-fast"/);
+  assert.match(bootstrap, /"live-preview"/);
+  assert.match(bootstrap, /"live-apply"/);
+  assert.match(bootstrap, /"live-rollback"/);
+  assert.match(bootstrap, /draftCopyCompatibility: false/);
+});
+
 test("tutti gli hook remediation attivi esportano route esplicite senza patchare express.application", () => {
   assert.equal(migratedHooks.length, 6);
   for (const source of migratedHooks) {
