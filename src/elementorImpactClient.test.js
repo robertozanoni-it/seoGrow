@@ -37,7 +37,7 @@ test("evidenza read-only viene allegata senza alterare l'identità WordPress", (
   assert.equal(entity._seogrowOwnership.elementorImpactEvidence, evidence);
 });
 
-test("messaggio ownership non trasforma condizioni lette in semantica risolta", () => {
+test("messaggio ownership conserva come parziali le condizioni non completamente interpretabili", () => {
   const detail = elementorOwnershipDetail({
     _seogrowOwnership: {
       elementorResolvedSourceDocuments: [
@@ -45,21 +45,50 @@ test("messaggio ownership non trasforma condizioni lette in semantica risolta", 
       ],
       elementorImpactEvidence: {
         ok: true,
-        documents: [{ id: 88, ok: true, conditionsObserved: true }],
+        displayConditionsResolved: false,
+        documents: [{ id: 88, ok: true, conditionsObserved: true, displayConditionsResolved: false }],
       },
     },
   });
-  assert.match(detail, /condizioni lette \(semantica da verificare\)/i);
-  assert.match(detail, /non ne considera ancora risolta la semantica/i);
+  assert.match(detail, /condizioni lette \(semantica parziale\/da verificare\)/i);
+  assert.match(detail, /semanticamente non risolte/i);
   assert.match(detail, /non modifica automaticamente un template condiviso/i);
 });
 
-test("il client forza sempre il contratto fail-closed anche se una risposta tentasse di dichiarare il contrario", () => {
+test("include/general può essere spiegato come intero sito ma la scrittura condivisa resta bloccata", () => {
+  const detail = elementorOwnershipDetail({
+    _seogrowOwnership: {
+      elementorResolvedSourceDocuments: [
+        { id: 88, type: "header", title: "Header principale", resolved: true },
+      ],
+      elementorImpactEvidence: {
+        ok: true,
+        displayConditionsResolved: true,
+        observedUrlCoverage: { inspected: 3, failed: 0 },
+        documents: [{
+          id: 88,
+          ok: true,
+          conditionsObserved: true,
+          displayConditionsResolved: true,
+          conditionInterpretation: { entireSiteIncluded: true },
+          observedRenderedCount: 3,
+        }],
+      },
+    },
+  });
+  assert.match(detail, /ambito intero sito confermato/i);
+  assert.match(detail, /osservato su 3 URL del crawl disponibile/i);
+  assert.match(detail, /non equivale a una enumerazione completa del sito/i);
+  assert.match(detail, /non modifica automaticamente un template condiviso/i);
+});
+
+test("il client conserva il contratto fail-closed e accetta candidate URL solo come diagnostica", () => {
   assert.match(source, /sharedWriteAllowed:\s*false/);
-  assert.match(source, /displayConditionsResolved:\s*false/);
   assert.match(source, /affectedPagesEnumerated:\s*false/);
   assert.match(source, /catch \(error\)[\s\S]*return failedEvidence\(error\)/);
+  assert.match(source, /candidateUrls:\s*Array\.isArray\(candidateUrls\)/);
   assert.doesNotMatch(source, /sharedWriteAllowed:\s*data/);
+  assert.doesNotMatch(source, /affectedPagesEnumerated:\s*data/);
 });
 
 test("il live flow richiede impact evidence read-only prima di valutare content e H1 condivisi", () => {
