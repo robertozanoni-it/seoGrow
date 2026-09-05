@@ -35,6 +35,17 @@ const candidates = (clientId) => {
   ].toSorted((a, b) => Date.parse(auditTimestamp(b) || 0) - Date.parse(auditTimestamp(a) || 0));
 };
 
+const selectAudit = (clientId, requested) => {
+  const list = candidates(clientId);
+  if (!requested) return list[0] || null;
+  if (normalizeClientId(requested.clientId) !== normalizeClientId(clientId)) return null;
+  if (!["page", "site"].includes(requested.auditType) || !requested.analyzedAt) return null;
+  const matches = list.filter((entry) =>
+    entry.type === requested.auditType && String(auditTimestamp(entry)) === String(requested.analyzedAt),
+  );
+  return matches.length === 1 ? matches[0] : null;
+};
+
 const issueUrl = (issue, audit, client) => issue?.targetUrl || issue?.url || audit?.url || client?.url || "";
 
 const resolveTarget = () => {
@@ -55,6 +66,7 @@ export default function RemediationHost() {
   const [target, setTarget] = useState(() => resolveTarget());
   const [revision, setRevision] = useState(0);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [requestedAudit, setRequestedAudit] = useState(null);
   const [platformChoice, setPlatformChoice] = useState({ clientId: null, value: "" });
   const [wpDraft, setWpDraft] = useState({ clientId: null, username: "", url: "" });
   const [passwordDraft, setPasswordDraft] = useState({ clientId: null, value: "" });
@@ -69,14 +81,14 @@ export default function RemediationHost() {
   const platform = platformChoice.clientId === clientId && platformChoice.value
     ? platformChoice.value
     : inferredPlatform;
-  const latest = clientId ? candidates(clientId)[0] || null : null;
-  const issues = Array.isArray(latest?.item?.issues) ? latest.item.issues : [];
+  const selectedAudit = clientId ? selectAudit(clientId, requestedAudit) : null;
+  const issues = Array.isArray(selectedAudit?.item?.issues) ? selectedAudit.item.issues : [];
 
   const issueKeyAt = (issue, index) => stableIssueKey({
     issue,
     issueType: issue?.type || "audit",
     issueLabel: issue?.label || "",
-    sourceUrl: issueUrl(issue, latest?.item, client),
+    sourceUrl: issueUrl(issue, selectedAudit?.item, client),
     issueIndex: index,
   });
 
@@ -87,7 +99,7 @@ export default function RemediationHost() {
     ? selectedCandidate
     : activeEntries[0] || issueEntries[0] || null;
   const selectedIssue = selectedEntry?.issue || null;
-  const selectedUrl = safeHttpHref(issueUrl(selectedIssue, latest?.item, client));
+  const selectedUrl = safeHttpHref(issueUrl(selectedIssue, selectedAudit?.item, client));
 
   const wpUsername = wpDraft.clientId === clientId ? wpDraft.username : profile?.username || "";
   const wpUrl = wpDraft.clientId === clientId ? wpDraft.url : profile?.url || client?.url || "";
@@ -144,6 +156,11 @@ export default function RemediationHost() {
     const open = (event) => {
       const request = event?.detail || {};
       if (normalizeClientId(request.clientId) !== clientId) return;
+      setRequestedAudit({
+        clientId: normalizeClientId(request.clientId),
+        auditType: request.auditType || "page",
+        analyzedAt: request.analyzedAt || "",
+      });
       if (Number.isSafeInteger(Number(request.issueIndex))) setSelectedIndex(Number(request.issueIndex));
       window.setTimeout(() => document.querySelector(".audit-unified-remediation")?.scrollIntoView({ behavior: "smooth", block: "start" }), 40);
     };
@@ -151,7 +168,7 @@ export default function RemediationHost() {
     return () => window.removeEventListener("seogrow-remediation-open", open);
   }, [clientId]);
 
-  if (!target || !client || !latest?.item || !issues.length) return null;
+  if (!target || !client || !selectedAudit?.item || !issues.length) return null;
 
   const savePlatform = (next) => {
     setPlatformChoice({ clientId, value: next });
@@ -175,9 +192,9 @@ export default function RemediationHost() {
     const detail = {
       clientId,
       title: selectedIssue.label || selectedIssue.type || "Problema SEO",
-      sourceUrl: issueUrl(selectedIssue, latest.item, client),
+      sourceUrl: issueUrl(selectedIssue, selectedAudit.item, client),
       problemState: selectedIssue.diagnosisState || "confirmed",
-      evidence: [{ source: "Audit SeoGrow", detail: selectedIssue.detail || selectedIssue.label || "", at: auditTimestamp(latest) }],
+      evidence: [{ source: "Audit SeoGrow", detail: selectedIssue.detail || selectedIssue.label || "", at: auditTimestamp(selectedAudit) }],
       detail: selectedIssue.detail || "",
     };
     sessionStorage.setItem(AGENT_PREFILL_KEY, JSON.stringify(detail));
