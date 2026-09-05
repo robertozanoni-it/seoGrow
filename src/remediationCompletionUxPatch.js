@@ -201,6 +201,30 @@ function syncAuditIssueRows() {
 
 let requestedIssueIndex = null;
 
+function syncIssueSelect() {
+  const select = document.querySelector(".audit-issue-select select");
+  if (!select) return;
+  const rows = allAuditIssueRows();
+  let firstActiveIndex = -1;
+
+  [...select.options].forEach((option, index) => {
+    const resolved = Boolean(rows[index]?.classList.contains("seogrow-issue-resolved"));
+    option.disabled = resolved;
+    option.hidden = resolved;
+    option.setAttribute("aria-hidden", resolved ? "true" : "false");
+    if (!resolved && firstActiveIndex < 0) firstActiveIndex = index;
+  });
+
+  const currentIndex = Number(select.value || 0);
+  const currentResolved = Boolean(rows[currentIndex]?.classList.contains("seogrow-issue-resolved"));
+  if (currentResolved && firstActiveIndex >= 0) {
+    select.value = String(firstActiveIndex);
+    requestedIssueIndex = firstActiveIndex;
+  } else if (firstActiveIndex < 0) {
+    requestedIssueIndex = null;
+  }
+}
+
 function selectedIssue() {
   const rows = allAuditIssueRows();
   if (Number.isSafeInteger(requestedIssueIndex) && requestedIssueIndex >= 0) {
@@ -233,8 +257,20 @@ function syncSelectedIssueBanner() {
   const actions = root?.querySelector(".wp-live-remediation-actions");
   if (!root || !actions) return;
   const issue = selectedIssue();
-  if (!issue.label) return;
+  const singleButton = [...actions.querySelectorAll("button")]
+    .find((button) => /Prepara solo questo problema/i.test(button.textContent || ""));
 
+  if (!issue.label) {
+    root.querySelector(".wp-live-selected-issue")?.remove();
+    if (singleButton) {
+      singleButton.removeAttribute("title");
+      singleButton.removeAttribute("aria-label");
+      singleButton.disabled = true;
+    }
+    return;
+  }
+
+  if (singleButton) singleButton.disabled = false;
   let banner = root.querySelector(".wp-live-selected-issue");
   if (!banner) {
     banner = document.createElement("div");
@@ -254,8 +290,6 @@ function syncSelectedIssueBanner() {
   if (urlNode.textContent !== (issue.url || "")) urlNode.textContent = issue.url || "";
   urlNode.hidden = !issue.url;
 
-  const singleButton = [...actions.querySelectorAll("button")]
-    .find((button) => /Prepara solo questo problema/i.test(button.textContent || ""));
   if (singleButton) {
     const title = `Prepara solo: ${issue.label}`;
     const aria = `Prepara solo il problema selezionato: ${issue.label}`;
@@ -281,12 +315,15 @@ function syncBulkActionTotal() {
   }
   const label = `(${totalActive})`;
   if (badge.textContent !== label) badge.textContent = label;
+  bulkButton.disabled = totalActive === 0;
   bulkButton.title = `${totalActive} problemi ancora da correggere su ${totalAudit} rilevati nell'audit corrente`;
   bulkButton.setAttribute("aria-label", `Prepara anteprima di tutte le correzioni: ${totalActive} problemi ancora da correggere su ${totalAudit} rilevati`);
 }
 
 function syncBlockedRows() {
-  document.querySelectorAll(".wp-live-preview-row.unsupported, .wp-live-preview-row.error").forEach((row) => {
+  document.querySelectorAll(
+    ".wp-live-preview-row.unsupported, .wp-live-preview-row.error, .wp-live-preview-row.ownership_error, .wp-live-preview-row.auth_error, .wp-live-preview-row.timeout_error, .wp-live-preview-row.generation_error, .wp-live-preview-row.adapter_error, .wp-live-preview-row.stale",
+  ).forEach((row) => {
     if (row.querySelector(".seogrow-blocked-badge")) return;
     const badge = document.createElement("span");
     badge.className = "seogrow-blocked-badge";
@@ -306,6 +343,7 @@ function syncVerificationMessage() {
 function arrange() {
   syncResolvedPreviewRows();
   syncAuditIssueRows();
+  syncIssueSelect();
   syncSelectedIssueBanner();
   syncBulkActionTotal();
   syncBlockedRows();

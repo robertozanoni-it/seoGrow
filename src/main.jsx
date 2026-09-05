@@ -9,6 +9,8 @@ import './remediationUiOrderPatch';
 import './remediationCompletionUxPatch';
 import './seoResponseIntegrity';
 import './remediationReportUx';
+import './legacyRemediationGuard';
+import './backupImportGuard';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';

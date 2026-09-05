@@ -98,7 +98,9 @@ async function recheckRecord(record) {
     }
 
     if (SHORT_CONTENT.test(text)) {
-      const fixed = data.pageKind === "gdpr" || Number(data.words) >= Number(data.minimumWords || 180);
+      const thresholdReached = data.pageKind === "gdpr" || Number(data.words) >= Number(data.minimumWords || 180);
+      const modifiedContentVisible = data.contentProbeVisible === true;
+      const fixed = thresholdReached && modifiedContentVisible;
       const nextStatus = fixed ? "Verificato" : "Da verificare";
       const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || record.frontendFailure !== !fixed || Number(record.frontendSnapshot?.words) !== Number(data.words);
       if (changed) await updateAndSync(record, {
@@ -107,24 +109,25 @@ async function recheckRecord(record) {
         frontendFailure: !fixed,
         verifiedAt: new Date().toISOString(),
         verificationNote: fixed
-          ? `Frontend verificato: ${data.words} parole, soglia ${data.minimumWords}.`
-          : `La pagina pubblica contiene ancora ${data.words} parole (soglia ${data.minimumWords}). La correzione non è confermata nel frontend.`,
+          ? `Frontend verificato: il contenuto modificato è visibile e la pagina contiene ${data.words} parole (soglia ${data.minimumWords}).`
+          : thresholdReached
+            ? "La soglia di parole è raggiunta, ma SeoGrow non ha dimostrato che il contenuto modificato sia quello effettivamente visibile. La correzione resta Da verificare."
+            : `La pagina pubblica contiene ancora ${data.words} parole (soglia ${data.minimumWords}). La correzione non è confermata nel frontend.`,
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
       return changed;
     }
 
     if (H1.test(text)) {
-      const fixed = Number(data.h1) === 1;
-      const nextStatus = fixed ? "Verificato" : "Da verificare";
-      const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || record.frontendFailure !== !fixed || Number(record.frontendSnapshot?.h1) !== Number(data.h1);
+      const h1CountCorrect = Number(data.h1) === 1;
+      const changed = record.status !== "Da verificare" || record.frontendConfirmed !== false || Number(record.frontendSnapshot?.h1) !== Number(data.h1);
       if (changed) await updateAndSync(record, {
-        status: nextStatus,
-        frontendConfirmed: fixed,
-        frontendFailure: !fixed,
+        status: "Da verificare",
+        frontendConfirmed: false,
+        frontendFailure: !h1CountCorrect,
         verifiedAt: new Date().toISOString(),
-        verificationNote: fixed
-          ? "Frontend verificato: è presente esattamente un H1."
+        verificationNote: h1CountCorrect
+          ? "Il frontend contiene un solo H1, ma questo controllo non prova che sia la modifica applicata da SeoGrow ad aver risolto il problema. Esegui un nuovo audit per confermare la correzione."
           : `Frontend non corretto: risultano ${data.h1} H1.`,
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
@@ -145,12 +148,11 @@ async function recheckRecord(record) {
     }
     return false;
   } catch (error) {
-    if (record.status === "Verificato") {
-      await updateAndSync(record, {
-        status: "Da verificare",
-        frontendConfirmed: false,
-        frontendFailure: false,
-        verificationNote: `Verifica frontend non conclusa: ${error.message}`,
+    const note = `Verifica frontend non conclusa: ${error.message}. Lo stato precedente è stato mantenuto.`;
+    if (record.verificationNote !== note) {
+      await updateCorrection(record.id, {
+        verificationNote: note,
+        lastVerificationErrorAt: new Date().toISOString(),
       });
       return true;
     }
@@ -163,7 +165,8 @@ async function recheckCorrections() {
   recheckRunning = true;
   try {
     const rows = await listCorrections();
-    for (const record of rows.slice(0, 80)) await recheckRecord(record);
+    const pending = rows.filter((record) => ["Applicato", "Da verificare"].includes(record.status)).slice(0, 20);
+    for (const record of pending) await recheckRecord(record);
   } catch (error) {
     console.warn("Controllo integrità remediation non eseguito:", error);
   } finally {

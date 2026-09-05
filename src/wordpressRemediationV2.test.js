@@ -139,9 +139,11 @@ test("un audit richiesto non ricade silenziosamente sull'ultimo audit", () => {
   assert.doesNotMatch(liveControl, /\) \|\| list\[0\] \|\| null/);
 });
 
-test("le anteprime restano legate al cliente con cui sono state preparate", () => {
+test("le anteprime restano legate al cliente e all'audit con cui sono state preparate", () => {
   assert.match(liveControl, /contextSnapshot/);
-  assert.match(liveControl, /Il cliente selezionato è cambiato dopo la preparazione/);
+  assert.match(liveControl, /Cliente o audit sono cambiati dopo la preparazione/);
+  assert.match(liveControl, /contextSnapshot\?\.auditType/);
+  assert.match(liveControl, /contextSnapshot\?\.analyzedAt/);
   assert.match(liveControl, /clientId: snapshot\.clientId/);
 });
 

@@ -89,12 +89,39 @@ function cleanChanges(input) {
   return result;
 }
 
+const comparable = (value) => {
+  if (Array.isArray(value)) return value.map((item) => String(item));
+  if (value && typeof value === "object") return value;
+  return String(value ?? "");
+};
+
+function currentField(entity, field) {
+  if (field.startsWith("meta.")) return comparable(entity?.meta?.[field.slice(5)]);
+  const value = entity?.[field];
+  if (value && typeof value === "object") return comparable(value.raw ?? value.rendered ?? "");
+  return comparable(value);
+}
+
+function assertExpectedCurrent(entity, expectedCurrent) {
+  const expected = expectedCurrent && typeof expectedCurrent === "object" ? expectedCurrent : {};
+  const staleFields = [];
+  for (const [field, value] of Object.entries(expected)) {
+    const current = currentField(entity, field);
+    if (JSON.stringify(current) !== JSON.stringify(comparable(value))) staleFields.push(field);
+  }
+  if (staleFields.length) {
+    const error = new Error(`Rollback bloccato: WordPress è cambiato dopo la correzione (${staleFields.join(", ")}). Ricarica lo stato e verifica le modifiche intervenute prima di ripristinare.`);
+    error.code = "STALE_ROLLBACK";
+    throw error;
+  }
+}
+
 function registerRoutes(app) {
   if (app[HOOKED]) return;
   app[HOOKED] = true;
   app.post("/api/wordpress/live-rollback", async (req, res) => {
     try {
-      const { siteUrl, targetUrl, username, applicationPassword, resource, id, changes } = req.body || {};
+      const { siteUrl, targetUrl, username, applicationPassword, resource, id, changes, expectedCurrent } = req.body || {};
       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
       if (resource !== "pages" && resource !== "posts") throw new Error("Tipo di contenuto WordPress non supportato.");
       const entityId = Number(id);
@@ -102,6 +129,18 @@ function registerRoutes(app) {
       const base = await safeBase(siteUrl || targetUrl);
       const auth = headers(username, applicationPassword);
       const patch = cleanChanges(changes);
+
+      const current = await wpJson(endpoint(base, resource, `/${entityId}?context=edit`), {
+        method: "GET",
+        headers: auth,
+      });
+      if (!expectedCurrent || typeof expectedCurrent !== "object" || !Object.keys(expectedCurrent).length) {
+        const error = new Error("Rollback bloccato: manca lo snapshot dello stato applicato necessario per il controllo stale-state.");
+        error.code = "STALE_ROLLBACK";
+        throw error;
+      }
+      assertExpectedCurrent(current, expectedCurrent);
+
       const update = await wpJson(endpoint(base, resource, `/${entityId}`), {
         method: "POST",
         headers: auth,
@@ -117,10 +156,12 @@ function registerRoutes(app) {
           ...Object.keys(patch.meta || {}).map((key) => `meta.${key}`),
         ],
         status: update?.status || "",
-        message: "Versione precedente ripristinata tramite rollback live approvato.",
+        staleChecked: true,
+        message: "Versione precedente ripristinata tramite rollback live approvato dopo controllo stale-state.",
       });
     } catch (error) {
-      return res.status(400).json({ error: error instanceof Error ? error.message : "Rollback live non riuscito." });
+      const status = error?.code === "STALE_ROLLBACK" ? 409 : 400;
+      return res.status(status).json({ error: error instanceof Error ? error.message : "Rollback live non riuscito." });
     }
   });
 }

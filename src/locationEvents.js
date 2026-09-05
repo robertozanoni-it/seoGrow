@@ -22,7 +22,6 @@ const isGdprUrl = (value) => {
 const patchHistoryMethod = (methodName) => {
   const original = window.history[methodName];
   if (typeof original !== "function" || original.__seogrowPatched) return;
-
   const patched = function patchedHistoryMethod(...args) {
     const destination = args[2] == null ? "" : String(args[2]);
     if (window.__seogrowCorrectionsMode && window.location.hash === `#${encodeURIComponent("Correzioni")}`) {
@@ -42,7 +41,6 @@ const patchHistoryMethod = (methodName) => {
     }
     return result;
   };
-
   patched.__seogrowPatched = true;
   window.history[methodName] = patched;
 };
@@ -53,36 +51,29 @@ patchHistoryMethod("replaceState");
 const pendingGenerations = [];
 
 const readJson = (key, fallback) => {
-  try {
-    return JSON.parse(localStorage.getItem(key)) ?? fallback;
-  } catch {
-    return fallback;
-  }
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
-
 const parseJson = (value, fallback = {}) => {
-  try {
-    return JSON.parse(String(value ?? ""));
-  } catch {
-    return fallback;
-  }
+  try { return JSON.parse(String(value ?? "")); } catch { return fallback; }
 };
-
 const normalizeUrl = (value) => {
   try {
     const url = new URL(value);
     url.hash = "";
-    return `${url.origin}${url.pathname.replace(/\/+$/, "") || "/"}${url.search}`;
+    url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    return `${url.protocol}//${url.hostname}${url.pathname.replace(/\/+$/, "") || "/"}${url.search}`;
   } catch {
     return String(value || "").replace(/\/+$/, "");
   }
 };
-
 const normalizeText = (value) => String(value || "")
   .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
   .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
   .replace(/<[^>]+>/g, " ")
-  .replace(/&(?:nbsp|amp|quot|apos);/gi, " ")
+  .replace(/&nbsp;/gi, " ")
+  .replace(/&amp;/gi, "&")
+  .replace(/&quot;/gi, '"')
+  .replace(/&apos;|&#39;/gi, "'")
   .replace(/\s+/g, " ")
   .trim()
   .toLocaleLowerCase("it");
@@ -116,25 +107,15 @@ const currentClient = () => {
   const client = clients.find((item) => Number(item.id) === clientId) || clients[0] || {};
   return { clientId, client };
 };
-
 const remediationOwnerSnapshot = () => {
   const { clientId, client } = currentClient();
-  return {
-    clientId,
-    client: {
-      id: client?.id,
-      name: client?.name || "",
-      url: client?.url || "",
-    },
-  };
+  return { clientId, client: { id: client?.id, name: client?.name || "", url: client?.url || "" } };
 };
-
-const changesFingerprint = (changes) =>
-  JSON.stringify(
-    Object.entries(changes && typeof changes === "object" ? changes : {})
-      .map(([key, value]) => [String(key), String(value ?? "")])
-      .toSorted(([a], [b]) => a.localeCompare(b)),
-  );
+const changesFingerprint = (changes) => JSON.stringify(
+  Object.entries(changes && typeof changes === "object" ? changes : {})
+    .map(([key, value]) => [String(key), String(value ?? "")])
+    .toSorted(([a], [b]) => a.localeCompare(b)),
+);
 
 const takePendingGeneration = (requestBody) => {
   if (!pendingGenerations.length) return null;
@@ -142,13 +123,11 @@ const takePendingGeneration = (requestBody) => {
   const target = normalizeUrl(requestBody?.url || "");
   const index = pendingGenerations.findIndex((generation) => {
     if (changesFingerprint(generation?.changes) !== fingerprint) return false;
-    const generationTarget = normalizeUrl(
-      generation?.issue?.targetUrl || generation?.issue?.url || "",
-    );
+    const generationTarget = normalizeUrl(generation?.issue?.targetUrl || generation?.issue?.url || "");
     return !generationTarget || !target || generationTarget === target;
   });
-  if (index >= 0) return pendingGenerations.splice(index, 1)[0];
-  return pendingGenerations.shift() || null;
+  // Fail closed: mai associare una generazione diversa solo perché è la prima in coda.
+  return index >= 0 ? pendingGenerations.splice(index, 1)[0] : null;
 };
 
 const startBatchFromClick = (event) => {
@@ -162,23 +141,14 @@ const startBatchFromClick = (event) => {
     }
   }
   const sidebarButton = event.target?.closest?.(".sidebar nav button");
-  if (sidebarButton && !sidebarButton.classList.contains("corrections-nav-button")) {
-    window.__seogrowCorrectionsMode = false;
-  }
+  if (sidebarButton && !sidebarButton.classList.contains("corrections-nav-button")) window.__seogrowCorrectionsMode = false;
 };
-
 document.addEventListener("click", startBatchFromClick, true);
 
 const scoreWithoutExcludedIssues = (data, issues) => {
   const pages = Math.max(1, Number(data.pagesChecked || data.pages?.length || 1));
-  const penalty = issues.reduce(
-    (sum, issue) => sum + (issue.severity === "alta" ? 5 : issue.severity === "media" ? 2 : 1),
-    0,
-  );
-  const strongest = issues.reduce(
-    (maximum, issue) => Math.max(maximum, issue.severity === "alta" ? 5 : issue.severity === "media" ? 2 : 1),
-    0,
-  );
+  const penalty = issues.reduce((sum, issue) => sum + (issue.severity === "alta" ? 5 : issue.severity === "media" ? 2 : 1), 0);
+  const strongest = issues.reduce((maximum, issue) => Math.max(maximum, issue.severity === "alta" ? 5 : issue.severity === "media" ? 2 : 1), 0);
   const normalized = Math.round(strongest + Math.max(0, penalty - strongest) / Math.sqrt(pages));
   const failurePenalty = Math.min(40, Number(data.pagesFailed || 0) * 4 + (pages ? 0 : 60));
   return Math.max(0, Math.min(100, 100 - normalized - failurePenalty));
@@ -189,51 +159,24 @@ const filterGdprFromSeoResponse = async (response, requestUrl, init) => {
   const body = parseJson(init?.body || "{}", {});
   let data;
   try { data = await response.clone().json(); } catch { return response; }
-
   if (requestUrl === "/api/audit" && isGdprUrl(body.url || data.url)) {
-    data.gdprReview = {
-      managedSeparately: true,
-      url: data.url || body.url || "",
-      note: "Pagina GDPR esclusa dalle problematiche SEO. Verificarla nel flusso di regolarizzazione GDPR dedicato.",
-    };
+    data.gdprReview = { managedSeparately: true, url: data.url || body.url || "", note: "Pagina GDPR esclusa dalle problematiche SEO. Verificarla nel flusso di regolarizzazione GDPR dedicato." };
     data.issues = [];
     data.score = 100;
   }
-
   if (requestUrl === "/api/site-analysis") {
     const originalIssues = Array.isArray(data.issues) ? data.issues : [];
-    const filtered = originalIssues.filter((issue) => {
-      const urls = [issue?.url, issue?.sourceUrl, issue?.targetUrl].filter(Boolean);
-      return !urls.some(isGdprUrl);
-    });
-    const gdprPages = (Array.isArray(data.pages) ? data.pages : [])
-      .filter((page) => isGdprUrl(page?.url))
-      .map((page) => page.url);
-    const bannerDetected = (Array.isArray(data.pages) ? data.pages : [])
-      .some((page) => GDPR_TEXT.test(String(page?.contentExcerpt || "")));
-    const excluded = originalIssues.length - filtered.length;
+    const filtered = originalIssues.filter((issue) => ![issue?.url, issue?.sourceUrl, issue?.targetUrl].filter(Boolean).some(isGdprUrl));
+    const gdprPages = (Array.isArray(data.pages) ? data.pages : []).filter((page) => isGdprUrl(page?.url)).map((page) => page.url);
+    const bannerDetected = (Array.isArray(data.pages) ? data.pages : []).some((page) => GDPR_TEXT.test(String(page?.contentExcerpt || "")));
     data.issues = filtered;
     data.score = scoreWithoutExcludedIssues(data, filtered);
-    data.summary = filtered.reduce((acc, issue) => {
-      acc[issue.type] = (acc[issue.type] || 0) + 1;
-      return acc;
-    }, {});
-    data.gdprReview = {
-      managedSeparately: true,
-      excludedSeoIssues: excluded,
-      pagesDetected: gdprPages,
-      bannerDetected,
-      note: "Pagine e componenti GDPR non concorrono al punteggio SEO; restano da verificare nel controllo GDPR dedicato.",
-    };
+    data.summary = filtered.reduce((acc, issue) => { acc[issue.type] = (acc[issue.type] || 0) + 1; return acc; }, {});
+    data.gdprReview = { managedSeparately: true, excludedSeoIssues: originalIssues.length - filtered.length, pagesDetected: gdprPages, bannerDetected, note: "Pagine e componenti GDPR non concorrono al punteggio SEO; restano da verificare nel controllo GDPR dedicato." };
   }
-
   const headers = new Headers(response.headers);
   headers.set("content-type", "application/json; charset=utf-8");
-  return new Response(JSON.stringify(data), {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
+  return new Response(JSON.stringify(data), { status: response.status, statusText: response.statusText, headers });
 };
 
 const expectedVisibleInPage = (record, page) => {
@@ -254,13 +197,9 @@ const expectedVisibleInPage = (record, page) => {
 async function verifyCorrection(record, originalFetch) {
   const family = issueFamily(record.issue);
   if (["title-duplicate", "meta-description-duplicate"].includes(family)) {
-    await updateCorrection(record.id, {
-      status: "Da verificare",
-      verificationNote: "Modifica salvata in WordPress. Per confermare un duplicato serve un nuovo crawl completo del sito.",
-    });
+    await updateCorrection(record.id, { status: "Da verificare", verificationNote: "Modifica salvata in WordPress. Per confermare un duplicato serve un nuovo crawl completo del sito." });
     return;
   }
-
   try {
     const useSiteAudit = ["short-content", "h1"].includes(family) || (record.fields || []).includes("content");
     const response = await originalFetch(useSiteAudit ? "/api/site-analysis" : "/api/audit", {
@@ -270,42 +209,25 @@ async function verifyCorrection(record, originalFetch) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Verifica non riuscita");
-
     const page = useSiteAudit
-      ? (data.pages || []).find((item) => normalizeUrl(item.url) === normalizeUrl(record.sourceUrl)) || data.pages?.[0]
+      ? (data.pages || []).find((item) => normalizeUrl(item.url) === normalizeUrl(record.sourceUrl))
       : data;
+    if (useSiteAudit && !page) throw new Error("La pagina target non è presente nel nuovo crawl; verifica non conclusa senza fallback su altre pagine.");
     const present = issuePresent(data.issues, record.issue, record.sourceUrl);
     const visibleConfirmed = expectedVisibleInPage(record, page);
     const verifiedAt = new Date().toISOString();
-
     if (present) {
-      await updateCorrection(record.id, {
-        status: "Da verificare",
-        verifiedAt,
-        frontendConfirmed: visibleConfirmed,
-        verificationNote: "WordPress ha salvato la modifica, ma il nuovo controllo rileva ancora lo stesso tipo di problema SEO.",
-      });
+      await updateCorrection(record.id, { status: "Da verificare", verifiedAt, frontendConfirmed: visibleConfirmed, verificationNote: "WordPress ha salvato la modifica, ma il nuovo controllo rileva ancora lo stesso tipo di problema SEO." });
     } else if (!visibleConfirmed) {
-      await updateCorrection(record.id, {
-        status: "Da verificare",
-        verifiedAt,
-        frontendConfirmed: false,
-        verificationNote: "Il problema SEO non è stato rilevato nel ricontrollo, ma il contenuto modificato non è confermato nel frontend. Possibili cause: Elementor, cache o template separato.",
-      });
+      await updateCorrection(record.id, { status: "Da verificare", verifiedAt, frontendConfirmed: false, verificationNote: "Il problema SEO non è stato rilevato nel ricontrollo, ma il contenuto modificato non è confermato nel frontend. Possibili cause: Elementor, cache o template separato." });
     } else {
-      const verified = await updateCorrection(record.id, {
-        status: "Verificato",
-        verifiedAt,
-        frontendConfirmed: true,
-        verificationNote: "Confermato: modifica visibile nel frontend e problema SEO non più rilevato.",
-      });
+      const verified = await updateCorrection(record.id, { status: "Verificato", verifiedAt, frontendConfirmed: true, verificationNote: "Confermato: modifica visibile nel frontend e problema SEO non più rilevato." });
       if (verified) removeVerifiedTask(verified);
     }
   } catch (error) {
-    await updateCorrection(record.id, {
-      status: "Da verificare",
-      verificationNote: `WordPress ha salvato la modifica; verifica automatica non conclusa: ${error.message}`,
-    });
+    if (record.status !== "Verificato") {
+      await updateCorrection(record.id, { status: "Da verificare", verificationNote: `WordPress ha salvato la modifica; verifica automatica non conclusa: ${error.message}` });
+    }
   }
 }
 
@@ -314,7 +236,6 @@ if (!window.fetch.__seogrowRemediationPatched) {
   const patchedFetch = async (input, init = {}) => {
     const url = typeof input === "string" ? input : input?.url;
     const method = String(init?.method || "GET").toUpperCase();
-
     if (url === "/api/generate" && method === "POST") {
       try {
         const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
@@ -326,23 +247,13 @@ if (!window.fetch.__seogrowRemediationPatched) {
             try {
               const data = await response.clone().json();
               const parsed = JSON.parse(String(data.content || "{}"));
-              pendingGenerations.push({
-                issue: context.issue || {},
-                page: context.page || {},
-                changes: parsed.changes || {},
-                owner,
-              });
-            } catch {
-              // La UI mostrerà l'errore di struttura se la risposta non è valida.
-            }
+              pendingGenerations.push({ issue: context.issue || {}, page: context.page || {}, changes: parsed.changes || {}, owner });
+            } catch { /* UI gestisce struttura invalida */ }
           }
           return response;
         }
-      } catch {
-        // L'endpoint originale gestirà eventuali body non validi.
-      }
+      } catch { /* endpoint originale gestisce body invalido */ }
     }
-
     if (url === "/api/wordpress/remediate" && method === "POST") {
       const rollbackHeader = new Headers(init.headers || {}).get("x-seogrow-rollback") === "1";
       const requestBody = parseJson(init.body || "{}", {});
@@ -354,9 +265,7 @@ if (!window.fetch.__seogrowRemediationPatched) {
           const owner = generation?.owner || remediationOwnerSnapshot();
           const clientId = Number(owner.clientId);
           const client = owner.client || {};
-          const changed = Array.isArray(data.changed) && data.changed.length
-            ? data.changed
-            : Object.keys(requestBody.changes || {});
+          const changed = Array.isArray(data.changed) && data.changed.length ? data.changed : Object.keys(requestBody.changes || {});
           const before = {};
           const after = {};
           for (const field of changed) {
@@ -385,18 +294,20 @@ if (!window.fetch.__seogrowRemediationPatched) {
             status: "Applicato",
             appliedAt: new Date().toISOString(),
             frontendConfirmed: false,
-            verificationNote: "WordPress ha confermato la scrittura. Verifica SeoGrow e frontend in corso.",
+            correlationConfirmed: Boolean(generation),
+            verificationNote: generation
+              ? "WordPress ha confermato la scrittura. Verifica SeoGrow e frontend in corso."
+              : "WordPress ha confermato la scrittura, ma la generazione non è correlabile in modo univoco: verifica manuale obbligatoria.",
           };
           await saveCorrection(record);
           window.dispatchEvent(new CustomEvent("seogrow-remediation-applied", { detail: { id: record.id, batchId } }));
-          void verifyCorrection(record, originalFetch);
+          if (generation) void verifyCorrection(record, originalFetch);
         } catch (error) {
           console.error("Impossibile registrare la remediation:", error);
         }
       }
       return response;
     }
-
     const response = await originalFetch(input, init);
     return filterGdprFromSeoResponse(response, url, init);
   };

@@ -21,6 +21,19 @@ const writeJson = (key, value) => {
   window.dispatchEvent(new StorageEvent("storage", { key, newValue: serialized }));
 };
 
+const writeJsonBestEffort = (key, value, detail = {}) => {
+  try {
+    writeJson(key, value);
+    return true;
+  } catch (error) {
+    console.warn(`Indice locale ${key} non aggiornato; IndexedDB resta la source of truth.`, error);
+    window.dispatchEvent(new CustomEvent("seogrow-remediation-index-warning", {
+      detail: { key, message: error?.message || String(error), ...detail },
+    }));
+    return false;
+  }
+};
+
 const openDb = () => new Promise((resolve, reject) => {
   if (!window.indexedDB) {
     reject(new Error("IndexedDB non disponibile: impossibile salvare snapshot di rollback."));
@@ -62,12 +75,27 @@ const withStore = async (mode, action) => {
   }
 };
 
+const readAllCorrections = async () => {
+  const db = await openDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const request = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll();
+      request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result : []);
+      request.onerror = () => reject(request.error || new Error("Storico correzioni non leggibile."));
+    });
+  } finally {
+    db.close();
+  }
+};
+
 const metadataOf = (record) => ({
   id: record.id,
   batchId: record.batchId,
   clientId: record.clientId,
   clientName: record.clientName,
   issueLabel: record.issueLabel,
+  issueType: record.issueType,
+  issueKey: record.issueKey || stableIssueKey(record),
   severity: record.severity,
   sourceUrl: record.sourceUrl,
   status: record.status,
@@ -80,19 +108,21 @@ const metadataOf = (record) => ({
 const syncIndex = (record) => {
   const current = readJson(REMEDIATION_INDEX_KEY, []);
   const next = [metadataOf(record), ...current.filter((item) => item.id !== record.id)]
-    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))
-    .slice(0, 500);
-  writeJson(REMEDIATION_INDEX_KEY, next);
-  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { id: record.id } }));
+    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
+  const written = writeJsonBestEffort(REMEDIATION_INDEX_KEY, next, { id: record.id });
+  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", {
+    detail: { id: record.id, indexUpdated: written },
+  }));
 };
 
 const replaceIndex = (records) => {
   const index = records
     .map(metadataOf)
-    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0))
-    .slice(0, 500);
-  writeJson(REMEDIATION_INDEX_KEY, index);
-  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", { detail: { restored: true } }));
+    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
+  const written = writeJsonBestEffort(REMEDIATION_INDEX_KEY, index, { restored: true });
+  window.dispatchEvent(new CustomEvent("seogrow-remediation-history", {
+    detail: { restored: true, indexUpdated: written },
+  }));
 };
 
 const activeClientIds = () => {
@@ -109,18 +139,42 @@ const normalizedUrl = (value) => {
   try {
     const url = new URL(value);
     url.hash = "";
-    return `${url.origin}${url.pathname.replace(/\/+$/, "") || "/"}${url.search}`;
+    url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    return `${url.protocol}//${url.hostname}${url.pathname.replace(/\/+$/, "") || "/"}${url.search}`;
   } catch {
     return String(value || "").replace(/\/+$/, "");
   }
 };
 
+const normalizeIssueFamily = (value) => String(value || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLowerCase()
+  .replace(/\b\d+(?:[.,]\d+)?\b/g, "#")
+  .replace(/\s+/g, " ")
+  .trim();
+
+export const stableIssueKey = (record = {}) => {
+  const issue = record.issue || {};
+  const type = String(record.issueType || issue.type || "").trim().toLowerCase();
+  const family = type || normalizeIssueFamily(record.issueLabel || issue.label || "audit");
+  const url = normalizedUrl(record.sourceUrl || issue.targetUrl || issue.url || "");
+  return `${family}::${url}`;
+};
+
 export const remediationIndex = () => readJson(REMEDIATION_INDEX_KEY, []);
 
+export async function rebuildRemediationIndex() {
+  const records = await readAllCorrections();
+  replaceIndex(records);
+  return records.length;
+}
+
 export async function saveCorrection(record) {
-  await withStore("readwrite", (store) => store.put(record));
-  syncIndex(record);
-  return record;
+  const next = { ...record, issueKey: record.issueKey || stableIssueKey(record) };
+  await withStore("readwrite", (store) => store.put(next));
+  syncIndex(next);
+  return next;
 }
 
 export async function readCorrection(id) {
@@ -140,6 +194,7 @@ export async function updateCorrection(id, patch) {
   const current = await readCorrection(id);
   if (!current) return null;
   const next = { ...current, ...patch };
+  next.issueKey = next.issueKey || stableIssueKey(next);
   await withStore("readwrite", (store) => store.put(next));
   syncIndex(next);
   return next;
@@ -147,17 +202,23 @@ export async function updateCorrection(id, patch) {
 
 export async function listCorrections({ clientId, batchId, includeOrphans = false } = {}) {
   const validClients = includeOrphans ? null : activeClientIds();
-  const index = remediationIndex().filter((item) =>
-    (validClients == null || validClients.has(Number(item.clientId))) &&
-    (clientId == null || Number(item.clientId) === Number(clientId)) &&
-    (!batchId || item.batchId === batchId),
-  );
-  const rows = await Promise.all(index.map((item) => readCorrection(item.id)));
-  return rows.filter(Boolean).toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
+  const rows = await readAllCorrections();
+  return rows
+    .filter((item) =>
+      (validClients == null || validClients.has(Number(item.clientId))) &&
+      (clientId == null || Number(item.clientId) === Number(clientId)) &&
+      (!batchId || item.batchId === batchId),
+    )
+    .map((item) => ({ ...item, issueKey: item.issueKey || stableIssueKey(item) }))
+    .toSorted((a, b) => Date.parse(b.appliedAt || 0) - Date.parse(a.appliedAt || 0));
 }
 
 export async function replaceCorrections(records) {
-  const safeRecords = Array.isArray(records) ? records.filter((record) => record && typeof record.id === "string") : [];
+  const safeRecords = Array.isArray(records)
+    ? records
+        .filter((record) => record && typeof record.id === "string")
+        .map((record) => ({ ...record, issueKey: record.issueKey || stableIssueKey(record) }))
+    : [];
   await withStore("readwrite", (store) => {
     store.clear();
     for (const record of safeRecords) store.put(record);
@@ -169,16 +230,16 @@ export async function replaceCorrections(records) {
 export async function purgeOrphanCorrections() {
   const validClients = activeClientIds();
   if (!validClients) return 0;
-  const index = remediationIndex();
-  const orphanIds = index
+  const all = await readAllCorrections();
+  const orphanIds = all
     .filter((item) => !validClients.has(Number(item.clientId)))
     .map((item) => item.id);
   if (!orphanIds.length) return 0;
   await withStore("readwrite", (store) => {
     for (const id of orphanIds) store.delete(id);
   });
-  const retained = index.filter((item) => !orphanIds.includes(item.id));
-  writeJson(REMEDIATION_INDEX_KEY, retained);
+  const retained = all.filter((item) => !orphanIds.includes(item.id));
+  replaceIndex(retained);
   window.dispatchEvent(new CustomEvent("seogrow-remediation-history", {
     detail: { purgedOrphans: orphanIds.length },
   }));
@@ -186,7 +247,7 @@ export async function purgeOrphanCorrections() {
 }
 
 export function setLastBatch(batchId) {
-  writeJson(REMEDIATION_LAST_BATCH_KEY, batchId || "");
+  writeJsonBestEffort(REMEDIATION_LAST_BATCH_KEY, batchId || "", { kind: "batch" });
 }
 
 export function lastBatch() {
@@ -195,34 +256,58 @@ export function lastBatch() {
 
 export function removeVerifiedTask(record) {
   const tasks = readJson(TASKS_KEY, []);
-  const targetUrl = normalizedUrl(record.sourceUrl);
-  const title = String(record.issueLabel || "").trim().toLocaleLowerCase("it");
-  const next = tasks.filter((task) => {
-    if (Number(task.sourceClientId) !== Number(record.clientId)) return true;
-    if (task.status === "Completato") return true;
-    const taskTitle = String(task.title || "").trim().toLocaleLowerCase("it");
-    const taskUrl = normalizedUrl(task.sourceUrl || task.targetUrl || "");
-    return !(taskTitle === title && taskUrl === targetUrl);
+  const targetKey = stableIssueKey(record);
+  let changed = false;
+  const next = tasks.map((task) => {
+    if (Number(task.sourceClientId) !== Number(record.clientId)) return task;
+    const taskKey = stableIssueKey({
+      issueType: task.kind,
+      issueLabel: task.title,
+      sourceUrl: task.sourceUrl || task.targetUrl || "",
+    });
+    if (taskKey !== targetKey || task.status === "Completato") return task;
+    changed = true;
+    return {
+      ...task,
+      status: "Completato",
+      completedAt: task.completedAt || new Date().toISOString(),
+      completionReason: "Correzione verificata da SeoGrow",
+    };
   });
-  if (next.length !== tasks.length) writeJson(TASKS_KEY, next);
+  if (changed) writeJsonBestEffort(TASKS_KEY, next, { kind: "task-completion" });
 }
 
 export function reopenTask(record) {
   const tasks = readJson(TASKS_KEY, []);
-  const recordUrl = normalizedUrl(record.sourceUrl);
-  const exists = tasks.some((task) =>
+  const targetKey = stableIssueKey(record);
+  const matchingIndex = tasks.findIndex((task) =>
     Number(task.sourceClientId) === Number(record.clientId) &&
-    task.status !== "Completato" &&
-    String(task.title || "").trim().toLocaleLowerCase("it") === String(record.issueLabel || "").trim().toLocaleLowerCase("it") &&
-    normalizedUrl(task.sourceUrl || task.targetUrl || "") === recordUrl,
+    stableIssueKey({
+      issueType: task.kind,
+      issueLabel: task.title,
+      sourceUrl: task.sourceUrl || task.targetUrl || "",
+    }) === targetKey,
   );
-  if (exists) return;
+  if (matchingIndex >= 0) {
+    const current = tasks[matchingIndex];
+    if (current.status !== "Completato") return;
+    const next = [...tasks];
+    next[matchingIndex] = {
+      ...current,
+      status: "Da fare",
+      completedAt: "",
+      completionReason: "",
+      reopenedAt: new Date().toISOString(),
+    };
+    writeJsonBestEffort(TASKS_KEY, next, { kind: "task-reopen" });
+    return;
+  }
   const priority = ["alta", "high", "critical", "critica"].includes(String(record.severity || "").toLowerCase())
     ? "Alta"
     : ["bassa", "low"].includes(String(record.severity || "").toLowerCase())
       ? "Bassa"
       : "Media";
-  writeJson(TASKS_KEY, [{
+  writeJsonBestEffort(TASKS_KEY, [{
     id: `rollback-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     title: record.issueLabel || "Ricontrolla correzione ripristinata",
     client: record.clientName || "",
@@ -237,7 +322,7 @@ export function reopenTask(record) {
     detail: `Task riaperta automaticamente dopo rollback della correzione del ${new Date(record.appliedAt).toLocaleString("it-IT")}.`,
     notes: "",
     createdAt: new Date().toISOString(),
-  }, ...tasks]);
+  }, ...tasks], { kind: "task-reopen-create" });
 }
 
 if (typeof window !== "undefined") {
