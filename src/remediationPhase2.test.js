@@ -6,9 +6,9 @@ const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", i
 const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
 const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 const location = await readFile(new URL("./locationEvents.js", import.meta.url), "utf8");
-const rollbackRouter = await readFile(new URL("./liveRollbackRouter.js", import.meta.url), "utf8");
 const rollbackServer = await readFile(new URL("../server/wordpressLiveRollbackHook.js", import.meta.url), "utf8");
 const corrections = await readFile(new URL("./CorrectionsWorkspace.jsx", import.meta.url), "utf8");
+const rollbackPayload = await readFile(new URL("./rollbackPayload.js", import.meta.url), "utf8");
 const store = await readFile(new URL("./remediationStore.js", import.meta.url), "utf8");
 
 test("bulk preview V2 lavora sui soli problemi attivi e non sull'intero storico audit", () => {
@@ -59,12 +59,14 @@ test("riverifica crawl non usa una pagina diversa come fallback", () => {
   assert.doesNotMatch(location, /\|\| data\.pages\?\.\[0\]/);
 });
 
-test("rollback invia expectedCurrent e il server blocca lo stale state", () => {
-  assert.match(corrections, /expectedCurrent/);
-  assert.match(rollbackRouter, /expectedCurrent: body\.expectedCurrent/);
+test("rollback usa direttamente la route stale-safe senza fetch router", () => {
+  assert.match(corrections, /\/api\/wordpress\/live-rollback/);
+  assert.match(corrections, /rollbackRequest\(record/);
+  assert.match(rollbackPayload, /expectedCurrent: after/);
   assert.match(rollbackServer, /assertExpectedCurrent/);
   assert.match(rollbackServer, /STALE_ROLLBACK/);
   assert.match(rollbackServer, /staleChecked: true/);
+  assert.doesNotMatch(main, /liveRollbackRouter/);
 });
 
 test("IndexedDB resta source of truth quando localStorage fallisce", () => {
@@ -79,4 +81,5 @@ test("il runtime principale non monta più motore, guard e observer legacy", () 
   assert.doesNotMatch(main, /remediationCompletionUxPatch|remediationUiOrderPatch|remediationReportUx/);
   assert.match(main, /RemediationRuntime/);
   assert.doesNotMatch(host, /MutationObserver|window\.fetch\s*=/);
+  assert.doesNotMatch(corrections, /MutationObserver/);
 });
