@@ -92,8 +92,10 @@ function AuditWorkspaceView({ client, clientId, refresh }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const requestRef = useRef(null);
   const focusContextRef = useRef({ clientId, history, client });
-  focusContextRef.current = { clientId, history, client };
 
+  useEffect(() => {
+    focusContextRef.current = { clientId, history, client };
+  });
   useEffect(() => () => requestRef.current?.abort(), []);
 
   const savePageAudit = (result) => {
