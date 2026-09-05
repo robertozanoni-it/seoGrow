@@ -82,7 +82,8 @@ export async function recheckCorrection(record) {
       const thresholdReached = data.pageKind === "gdpr" || Number(data.words) >= Number(data.minimumWords || 180);
       const modifiedContentVisible = data.contentProbeVisible === true;
       const qualityAccepted = record.editorialQuality?.publishable !== false;
-      const fixed = thresholdReached && modifiedContentVisible && qualityAccepted;
+      const visibilitySafe = data.verificationSafe !== false && data.requiresBrowserVerification !== true;
+      const fixed = thresholdReached && modifiedContentVisible && qualityAccepted && visibilitySafe;
       const updated = await updateAndSync(record, {
         status: fixed ? "Verificato" : "Da verificare",
         frontendConfirmed: fixed,
@@ -91,35 +92,54 @@ export async function recheckCorrection(record) {
         lastVerificationAttemptAt: new Date().toISOString(),
         verificationNote: fixed
           ? `Frontend verificato: il contenuto modificato è visibile e la pagina contiene ${data.words} parole (soglia ${data.minimumWords}).`
-          : !thresholdReached
-            ? `La pagina pubblica contiene ancora ${data.words} parole (soglia ${data.minimumWords}). La correzione non è confermata nel frontend.`
-            : !modifiedContentVisible
-              ? "La soglia di parole è raggiunta, ma SeoGrow non ha dimostrato che il contenuto modificato sia quello effettivamente visibile. La correzione resta Da verificare."
-              : "Il contenuto è visibile ma il quality gate editoriale non consente di dichiararlo verificato automaticamente.",
-        frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
+          : !visibilitySafe
+            ? "La pagina usa visibilità responsive/dinamica che il controllo HTML statico non può dimostrare con certezza. Serve una verifica browser prima di dichiarare la correzione risolta."
+            : !thresholdReached
+              ? `La pagina pubblica contiene ancora ${data.words} parole (soglia ${data.minimumWords}). La correzione non è confermata nel frontend.`
+              : !modifiedContentVisible
+                ? "La soglia di parole è raggiunta, ma SeoGrow non ha dimostrato che il contenuto modificato sia quello effettivamente visibile. La correzione resta Da verificare."
+                : "Il contenuto è visibile ma il quality gate editoriale non consente di dichiararlo verificato automaticamente.",
+        frontendSnapshot: {
+          title: data.title,
+          h1: data.h1,
+          words: data.words,
+          visibilityModel: data.visibilityModel,
+          visibilityConfidence: data.visibilityConfidence,
+          requiresBrowserVerification: data.requiresBrowserVerification === true,
+        },
       });
-      return { changed: true, record: updated };
+      return { changed: true, record: updated, needsBrowserVerification: !visibilitySafe };
     }
 
     if (H1.test(text)) {
       const h1CountCorrect = Number(data.h1) === 1;
+      const needsBrowserVerification = data.requiresBrowserVerification === true;
       const updated = await updateAndSync(record, {
         status: "Da verificare",
         frontendConfirmed: false,
-        frontendFailure: !h1CountCorrect,
+        frontendFailure: !h1CountCorrect || needsBrowserVerification,
         lastVerificationAttemptAt: new Date().toISOString(),
-        verificationNote: h1CountCorrect
-          ? "Il frontend contiene un solo H1, ma questo controllo non prova da solo che il problema SEO originale sia risolto. Esegui un nuovo audit della pagina per confermare."
-          : `Frontend non corretto: risultano ${data.h1} H1.`,
-        frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
+        verificationNote: needsBrowserVerification
+          ? "Il markup contiene regole responsive/dinamiche: il conteggio H1 statico non basta. Esegui una verifica browser e poi un nuovo audit della pagina."
+          : h1CountCorrect
+            ? "Il frontend contiene un solo H1, ma questo controllo non prova da solo che il problema SEO originale sia risolto. Esegui un nuovo audit della pagina per confermare."
+            : `Frontend non corretto: risultano ${data.h1} H1.`,
+        frontendSnapshot: {
+          title: data.title,
+          h1: data.h1,
+          words: data.words,
+          visibilityModel: data.visibilityModel,
+          visibilityConfidence: data.visibilityConfidence,
+          requiresBrowserVerification: needsBrowserVerification,
+        },
       });
-      return { changed: true, record: updated, needsAudit: true };
+      return { changed: true, record: updated, needsAudit: true, needsBrowserVerification };
     }
 
     if ((record.fields || []).includes("title")) {
       const matches = data.titleMatchesExpected === true;
       const updated = await updateAndSync(record, {
-        status: matches ? "Da verificare" : "Da verificare",
+        status: "Da verificare",
         frontendConfirmed: matches,
         frontendFailure: !matches,
         lastVerificationAttemptAt: new Date().toISOString(),
