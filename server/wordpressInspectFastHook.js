@@ -142,6 +142,75 @@ function elementorOwnershipEvidence(entity, connector, frontend = null) {
   };
 }
 
+function elementorLibraryRestDescriptor(types) {
+  const source = types && typeof types === "object" && !Array.isArray(types) ? types : {};
+  const row = source.elementor_library || Object.values(source).find((item) => String(item?.slug || "") === "elementor_library");
+  if (!row || typeof row !== "object") return null;
+  const namespace = String(row.rest_namespace || "wp/v2").replace(/^\/+|\/+$/g, "");
+  const restBase = String(row.rest_base || "").replace(/^\/+|\/+$/g, "");
+  if (!namespace || !restBase || !/^[a-z0-9_./-]+$/i.test(namespace) || !/^[a-z0-9_./-]+$/i.test(restBase)) return null;
+  return { namespace, restBase };
+}
+
+function elementorLibraryEndpoint(base, descriptor, id) {
+  const entityId = Number(id);
+  if (!Number.isSafeInteger(entityId) || entityId <= 0) throw new Error("ID documento Elementor non valido.");
+  if (!descriptor?.namespace || !descriptor?.restBase) throw new Error("REST base Elementor Library non disponibile.");
+  return new URL(
+    `${basePath(base)}/wp-json/${descriptor.namespace}/${descriptor.restBase}/${entityId}?context=edit`,
+    base.origin,
+  );
+}
+
+async function resolveElementorRenderedSources(base, headers, documents = []) {
+  const requested = (Array.isArray(documents) ? documents : [])
+    .filter((document) => Number.isSafeInteger(Number(document?.id)) && Number(document.id) > 0)
+    .slice(0, 20)
+    .map((document) => ({ id: Number(document.id), type: String(document.type || "unknown") }));
+  if (!requested.length) return { status: "not-needed", documents: [] };
+
+  let descriptor;
+  try {
+    const types = await json(await wpFetch(endpoint(base, "types"), { headers }));
+    descriptor = elementorLibraryRestDescriptor(types);
+  } catch (error) {
+    return {
+      status: "rest-types-unavailable",
+      documents: requested.map((document) => ({ ...document, resolved: false, reason: error.message })),
+    };
+  }
+  if (!descriptor) {
+    return {
+      status: "elementor-library-rest-unavailable",
+      documents: requested.map((document) => ({ ...document, resolved: false, reason: "Elementor Library non espone una REST base leggibile." })),
+    };
+  }
+
+  const resolved = [];
+  for (const document of requested) {
+    try {
+      const entity = await json(await wpFetch(elementorLibraryEndpoint(base, descriptor, document.id), { headers }));
+      if (Number(entity?.id) !== document.id) throw new Error("L'ID restituito da WordPress non coincide con il documento Elementor richiesto.");
+      resolved.push({
+        ...document,
+        resolved: true,
+        wordpressType: String(entity?.type || "elementor_library"),
+        title: String(entity?.title?.raw || entity?.title?.rendered || ""),
+        status: String(entity?.status || ""),
+        link: String(entity?.link || ""),
+      });
+    } catch (error) {
+      resolved.push({ ...document, resolved: false, reason: error.message });
+    }
+  }
+
+  const resolvedCount = resolved.filter((document) => document.resolved).length;
+  return {
+    status: resolvedCount === resolved.length ? "resolved" : resolvedCount ? "partial" : "unresolved",
+    documents: resolved,
+  };
+}
+
 function filterConnectorOwnedMeta(entity, connector, frontend = null) {
   const source = entity && typeof entity === "object" ? entity : {};
   const meta = source.meta && typeof source.meta === "object" && !Array.isArray(source.meta)
@@ -257,6 +326,16 @@ function registerRoutes(app) {
       }
 
       const filteredEntity = filterConnectorOwnedMeta(resolved.entity, connector, frontend);
+      const elementorSourceResolution = await resolveElementorRenderedSources(
+        base,
+        headers,
+        filteredEntity?._seogrowOwnership?.elementorExternalRenderedDocuments,
+      );
+      if (filteredEntity?._seogrowOwnership) {
+        filteredEntity._seogrowOwnership.elementorSourceResolutionStatus = elementorSourceResolution.status;
+        filteredEntity._seogrowOwnership.elementorResolvedExternalDocuments = elementorSourceResolution.documents;
+      }
+
       const dualSeoPlugins = connector?.rankMath === true && connector?.yoast === true;
       return res.json({
         ok: true,
@@ -271,6 +350,7 @@ function registerRoutes(app) {
                 ? (frontend ? "frontend-inspected" : "frontend-unavailable")
                 : "plugin-availability-only",
               elementorOwnershipEvidence: filteredEntity?._seogrowOwnership?.elementorEvidenceStatus || "not-elementor",
+              elementorSourceResolution: elementorSourceResolution.status,
             }
           : null,
       });
@@ -287,5 +367,8 @@ export {
   connectorStatus,
   filterConnectorOwnedMeta,
   elementorOwnershipEvidence,
+  elementorLibraryRestDescriptor,
+  elementorLibraryEndpoint,
+  resolveElementorRenderedSources,
   basePath,
 };
