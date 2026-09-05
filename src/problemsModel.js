@@ -178,13 +178,14 @@ export function buildUnifiedProblems({
     const sourceUrl = task?.sourceUrl || task?.targetUrl || "";
     const record = { issueType: task?.kind, issueLabel: task?.title, sourceUrl };
     const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
-    group.events.push(taskEvent(task));
+    const event = taskEvent(task);
+    group.events.push(event);
     if (priority(task?.priority) !== "unknown") group.priority = priority(task.priority);
     if (!group.detail) group.detail = task?.detail || task?.notes || "";
     addSource(group, {
       label: "Task SeoGrow",
       kind: "task",
-      at: task?.updatedAt || task?.completedAt || task?.createdAt || "",
+      at: event.at,
       detail: task?.detail || task?.notes || task?.title || "Task tecnica",
       nature: "operational",
     });
@@ -200,7 +201,8 @@ export function buildUnifiedProblems({
       sourceUrl,
     };
     const group = findOrCreate(groups, aliasMap, record, null, sourceUrl);
-    group.events.push(correctionEvent(correction));
+    const event = correctionEvent(correction);
+    group.events.push(event);
     group.fields = [...new Set([...group.fields, ...(Array.isArray(correction?.fields) ? correction.fields : [])])];
     if (correction?.adapter) group.adapters = [...new Set([...group.adapters, correction.adapter])];
     const reason = `${correction?.reason || ""} ${correction?.verificationNote || ""} ${correction?.error || ""}`;
@@ -210,7 +212,7 @@ export function buildUnifiedProblems({
     addSource(group, {
       label: "Correzione WordPress",
       kind: "correction",
-      at: correction?.verifiedAt || correction?.rollbackAt || correction?.appliedAt || "",
+      at: event.at,
       detail: correction?.verificationNote || correction?.reason || `Stato correzione: ${correction?.status || "sconosciuto"}`,
       nature: correction?.status === "Verificato" ? "verified" : "operational",
     });
