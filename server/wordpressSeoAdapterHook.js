@@ -1,8 +1,4 @@
-import express from "express";
-
 const HOOKED = Symbol.for("seogrow.wordpressSeoAdapterHook");
-const USE_PATCHED = Symbol.for("seogrow.wordpressSeoAdapterUsePatched");
-const LISTEN_PATCHED = Symbol.for("seogrow.wordpressSeoAdapterListenPatched");
 const RATE = new Map();
 
 function rateLimit(req) {
@@ -126,22 +122,4 @@ function registerRoutes(app) {
   });
 }
 
-const originalUse = express.application.use;
-if (!originalUse[USE_PATCHED]) {
-  const patchedUse = function (...args) {
-    if (!this[HOOKED] && args[0] === "/api") registerRoutes(this);
-    return originalUse.apply(this, args);
-  };
-  patchedUse[USE_PATCHED] = true;
-  express.application.use = patchedUse;
-}
-
-const originalListen = express.application.listen;
-if (!originalListen[LISTEN_PATCHED]) {
-  const patchedListen = function (...args) {
-    registerRoutes(this);
-    return originalListen.apply(this, args);
-  };
-  patchedListen[LISTEN_PATCHED] = true;
-  express.application.listen = patchedListen;
-}
+export { registerRoutes };
