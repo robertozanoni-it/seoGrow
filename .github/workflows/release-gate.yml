@@ -126,3 +126,12 @@ jobs:
 
           echo "macOS launcher reached a healthy runtime on port $port."
           curl -fsS "http://localhost:$port/api/health"
+
+          remediation="$(curl -fsS "http://localhost:$port/api/wordpress/remediation-capabilities")"
+          if ! printf '%s' "$remediation" | grep -q '"ok":true' || ! printf '%s' "$remediation" | grep -q '"inspect"'; then
+            echo "macOS runtime is healthy but remediation routes are not registered."
+            printf '%s\n' "$remediation"
+            cat "$RUNNER_TEMP/seogrow-launcher.log"
+            exit 1
+          fi
+          echo "macOS remediation route registration confirmed."
