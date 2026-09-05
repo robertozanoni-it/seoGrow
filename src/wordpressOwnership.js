@@ -68,18 +68,48 @@ const walk = (items, visitor, depth = 0, state = { nodes: 0 }) => {
 };
 
 const elementorRaw = (entity) => pluginMeta(entity)._elementor_data;
+const ownership = (entity) => entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
+  ? entity._seogrowOwnership
+  : {};
 const sharedElementorTemplateTypes = (entity) => {
-  const values = entity?._seogrowOwnership?.elementorSharedTemplateTypes;
+  const values = ownership(entity).elementorSharedTemplateTypes;
   return Array.isArray(values)
     ? [...new Set(values.map((value) => String(value || "").trim().toLowerCase()).filter(Boolean))]
     : [];
 };
 
-const externalSharedReferences = (entity) => sharedElementorTemplateTypes(entity)
-  .map((templateType) => ({ type: "theme-template", templateType, id: "" }));
+const renderedExternalReferences = (entity) => {
+  const values = ownership(entity).elementorExternalRenderedDocuments;
+  if (!Array.isArray(values)) return [];
+  const unique = new Map();
+  for (const value of values) {
+    const id = Number(value?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    const templateType = String(value?.type || "unknown").trim().toLowerCase() || "unknown";
+    unique.set(`${id}:${templateType}`, {
+      type: "rendered-document",
+      templateType,
+      id: String(id),
+    });
+  }
+  return [...unique.values()];
+};
+
+const externalSharedReferences = (entity) => {
+  const rendered = renderedExternalReferences(entity);
+  if (rendered.length) return rendered;
+
+  const evidenceStatus = String(ownership(entity).elementorEvidenceStatus || "");
+  if (["local-document-only-observed", "no-rendered-shared-document-observed"].includes(evidenceStatus)) return [];
+
+  return sharedElementorTemplateTypes(entity)
+    .map((templateType) => ({ type: "theme-template", templateType, id: "" }));
+};
+
+const localElementorDocumentObserved = (entity) => ownership(entity).elementorLocalDocumentRendered === true;
 
 export function hasElementorDocument(entity) {
-  if (externalSharedReferences(entity).length) return true;
+  if (externalSharedReferences(entity).length || localElementorDocumentObserved(entity)) return true;
   const raw = elementorRaw(entity);
   if (raw === undefined || raw === null || raw === "") return false;
   try {
@@ -93,8 +123,9 @@ export function hasElementorDocument(entity) {
 export function inspectEditableElementor(kind, entity) {
   const raw = elementorRaw(entity);
   const sharedReferences = externalSharedReferences(entity);
+  const localObserved = localElementorDocumentObserved(entity);
   if (raw === undefined || raw === null || raw === "") {
-    if (sharedReferences.length) {
+    if (sharedReferences.length || localObserved) {
       return {
         state: "valid",
         parsed: null,
@@ -159,10 +190,9 @@ export function inspectEditableElementor(kind, entity) {
       reference,
     ])).values()];
 
-    // Se il documento dipende da template/widget condivisi, SeoGrow non può
-    // attribuire con certezza il markup pubblico a un singolo widget locale.
-    // Nascondiamo quindi i candidati modificabili al piano automatico e
-    // lasciamo il flusso V2 in fail-closed invece di scegliere il widget locale.
+    // Se il documento dipende da template/widget condivisi effettivamente renderizzati
+    // oppure da riferimenti interni a template/global widget, SeoGrow non può attribuire
+    // con certezza il markup pubblico a un singolo widget locale.
     if (uniqueSharedReferences.length) {
       return {
         state: "valid",
