@@ -1,6 +1,6 @@
 import dns from "node:dns/promises";
-import net from "node:net";
 import express from "express";
+import { isPrivateOrReservedAddress } from "./networkSafety.js";
 import { pickExactWordPressEntity } from "./wordpressEntityIdentity.js";
 
 const HOOKED = Symbol.for("seogrow.wordpressInspectFastHook");
@@ -8,28 +8,14 @@ const USE_PATCHED = Symbol.for("seogrow.wordpressInspectFastUsePatched");
 const LISTEN_PATCHED = Symbol.for("seogrow.wordpressInspectFastListenPatched");
 const RATE = new Map();
 
-function privateAddress(address) {
-  if (net.isIPv4(address)) {
-    const [a, b, c] = address.split(".").map(Number);
-    return a === 10 || a === 127 || a === 0 || a >= 224 ||
-      (a === 100 && b >= 64 && b <= 127) || (a === 169 && b === 254) ||
-      (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
-      (a === 192 && b === 0 && [0, 2].includes(c)) ||
-      (a === 198 && [18, 19].includes(b)) ||
-      (a === 198 && b === 51 && c === 100) || (a === 203 && b === 0 && c === 113);
-  }
-  const value = String(address).toLowerCase();
-  return value === "::" || value === "::1" || value.startsWith("fc") || value.startsWith("fd") ||
-    /^fe[89ab]/.test(value) || /^fe[c-f]/.test(value) || value.startsWith("ff") || value.startsWith("2001:db8:");
-}
-
 async function safeBase(input) {
   const url = new URL(String(input || ""));
   if (url.protocol !== "https:") throw new Error("WordPress deve usare HTTPS.");
-  if (["localhost", "127.0.0.1", "::1"].includes(url.hostname.toLowerCase()) || url.hostname.endsWith(".local"))
+  const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (["localhost", "127.0.0.1", "::1"].includes(host) || host.endsWith(".local"))
     throw new Error("Indirizzo WordPress locale non consentito.");
-  const addresses = await dns.lookup(url.hostname, { all: true });
-  if (!addresses.length || addresses.some((item) => privateAddress(item.address)))
+  const addresses = await dns.lookup(host, { all: true, verbatim: true });
+  if (!addresses.length || addresses.some((item) => isPrivateOrReservedAddress(item.address)))
     throw new Error("Indirizzo WordPress non pubblico.");
   url.pathname = "/";
   url.search = "";
@@ -142,7 +128,7 @@ function registerRoutes(app) {
   });
 }
 
-export { registerRoutes, resolveEntity };
+export { registerRoutes, resolveEntity, safeBase };
 
 const originalUse = express.application.use;
 if (!originalUse[USE_PATCHED]) {
