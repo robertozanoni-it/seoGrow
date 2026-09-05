@@ -25,10 +25,7 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
 const remediationModules = await Promise.all([
   import("./wordpressLiveApprovalHook.js"),
   import("./wordpressLiveRollbackHook.js"),
-  import("./wordpressSeoAdapterHook.js"),
   import("./wordpressSeoAdapterV2Hook.js"),
-  import("./wordpressDraftCopyHook.js"),
-  import("./wordpressRemediationHook.js"),
   import("./frontendVerificationHook.js"),
   import("./wordpressInspectFastHook.js"),
   import("./wordpressPatchV2Hook.js"),
