@@ -23,10 +23,12 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
 
 await import("./wordpressLiveApprovalHook.js");
 await import("./wordpressLiveRollbackHook.js");
+await import("./wordpressLiveRollbackV2Hook.js");
 await import("./wordpressSeoAdapterHook.js");
 await import("./wordpressSeoAdapterV2Hook.js");
 await import("./wordpressDraftCopyHook.js");
 await import("./wordpressRemediationHook.js");
 await import("./frontendVerificationHook.js");
+await import("./frontendVerificationV2Hook.js");
 await import("./wordpressInspectFastHook.js");
 await import("./wordpressPatchV2Hook.js");
