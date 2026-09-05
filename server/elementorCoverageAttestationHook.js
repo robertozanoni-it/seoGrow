@@ -8,6 +8,11 @@ import {
 import { registerElementorCoverageAttestation } from "./elementorCoverageRegistry.js";
 
 const ROUTE = "/api/wordpress/elementor-coverage-attest";
+const RATE_WINDOW_MS = 10 * 60_000;
+const RATE_MAX = 12;
+const NEGATIVE_CACHE_TTL_MS = 30_000;
+const RATE = new Map();
+const NEGATIVE_CACHE = new Map();
 
 function authHeaders(username, password) {
   return {
@@ -47,6 +52,77 @@ async function readJson(response) {
     throw new Error(`WordPress inventory: ${data?.message || data?.code || `HTTP ${response.status}`}`);
   }
   return data;
+}
+
+function normalizedRequestHost(siteUrl) {
+  try {
+    const url = new URL(String(siteUrl || ""));
+    return url.protocol === "https:" ? url.hostname.toLowerCase().replace(/^www\./, "") : "";
+  } catch {
+    return "";
+  }
+}
+
+function requestClientIdentity(req) {
+  return String(req?.ip || req?.socket?.remoteAddress || "unknown").slice(0, 200);
+}
+
+function rateKey(req) {
+  return `${requestClientIdentity(req)}|${normalizedRequestHost(req?.body?.siteUrl) || "invalid-host"}`;
+}
+
+function checkRateLimit(req, now = Date.now()) {
+  const key = rateKey(req);
+  const current = RATE.get(key);
+  if (!current || now - current.startedAt >= RATE_WINDOW_MS) {
+    RATE.set(key, { startedAt: now, count: 1 });
+    return { allowed: true, retryAfterSeconds: 0 };
+  }
+  current.count += 1;
+  if (current.count <= RATE_MAX) return { allowed: true, retryAfterSeconds: 0 };
+  const retryAfterSeconds = Math.max(1, Math.ceil((RATE_WINDOW_MS - (now - current.startedAt)) / 1000));
+  return { allowed: false, retryAfterSeconds };
+}
+
+function negativeCacheKey(body = {}) {
+  const host = normalizedRequestHost(body?.siteUrl);
+  if (!host) return "";
+  const sitemapUrl = String(body?.sitemapUrl || "").trim().slice(0, 2_000);
+  return `${host}|${sitemapUrl}`;
+}
+
+function readNegativeCache(body, now = Date.now()) {
+  const key = negativeCacheKey(body);
+  if (!key) return null;
+  const entry = NEGATIVE_CACHE.get(key);
+  if (!entry) return null;
+  if (entry.expiresAt <= now) {
+    NEGATIVE_CACHE.delete(key);
+    return null;
+  }
+  return {
+    ...entry.value,
+    cached: true,
+    cacheType: "short-lived-negative-diagnostic",
+    cacheExpiresAt: new Date(entry.expiresAt).toISOString(),
+    sharedWriteAllowed: false,
+  };
+}
+
+function writeNegativeCache(body, value, now = Date.now()) {
+  if (!value || value.verified === true || value.ok !== true) return;
+  const key = negativeCacheKey(body);
+  if (!key) return;
+  NEGATIVE_CACHE.set(key, {
+    expiresAt: now + NEGATIVE_CACHE_TTL_MS,
+    value: {
+      ...value,
+      provenanceId: "",
+      completeSiteEnumeration: false,
+      affectedPagesEnumerated: false,
+      sharedWriteAllowed: false,
+    },
+  });
 }
 
 export async function attestElementorCoverage({
@@ -130,11 +206,31 @@ export async function attestElementorCoverage({
 
 export function registerRoutes(app) {
   app.post(ROUTE, async (req, res) => {
+    const rate = checkRateLimit(req);
+    if (!rate.allowed) {
+      res.set?.("Retry-After", String(rate.retryAfterSeconds));
+      return res.status(429).json({
+        ok: false,
+        readOnly: true,
+        verified: false,
+        provenanceId: "",
+        error: "Troppe richieste di attestazione Elementor per questo sito. Riprova dopo il periodo indicato.",
+        retryAfterSeconds: rate.retryAfterSeconds,
+        completeSiteEnumeration: false,
+        affectedPagesEnumerated: false,
+        sharedWriteAllowed: false,
+      });
+    }
+
+    const cached = readNegativeCache(req.body || {});
+    if (cached) return res.json(cached);
+
     try {
       const result = await attestElementorCoverage(req.body || {});
-      res.json(result);
+      writeNegativeCache(req.body || {}, result);
+      return res.json(result);
     } catch (error) {
-      res.status(400).json({
+      return res.status(400).json({
         ok: false,
         readOnly: true,
         verified: false,
@@ -148,4 +244,10 @@ export function registerRoutes(app) {
   });
 }
 
-export { ROUTE as ELEMENTOR_COVERAGE_ATTESTATION_ROUTE, inventoryEndpoint };
+export {
+  ROUTE as ELEMENTOR_COVERAGE_ATTESTATION_ROUTE,
+  inventoryEndpoint,
+  checkRateLimit,
+  readNegativeCache,
+  writeNegativeCache,
+};
