@@ -125,19 +125,41 @@ export function reconcileAuthoritativeInventoryWithPublicCoverage(inventory, pub
       verified: false,
       status: "evidence-incomplete",
       reason: "Servono sia inventario WordPress autorevole sia coverage pubblica riconciliata.",
+      publicUrlsOutsideInventory: [],
+      inventoryUrlsMissingFromPublicCoverage: [],
       sharedWriteAllowed: false,
     };
   }
+
   const inventoryUrls = new Set((inventory.resources || []).map((item) => item.url));
   const publicUrls = new Set(Array.isArray(publicCoverage.sitemapUrls) ? publicCoverage.sitemapUrls : []);
-  const exactMatch = inventoryUrls.size === publicUrls.size && [...inventoryUrls].every((url) => publicUrls.has(url));
+  const publicUrlsOutsideInventory = [...publicUrls].filter((url) => !inventoryUrls.has(url)).toSorted();
+  const inventoryUrlsMissingFromPublicCoverage = [...inventoryUrls].filter((url) => !publicUrls.has(url)).toSorted();
+  const exactMatch = publicUrlsOutsideInventory.length === 0 && inventoryUrlsMissingFromPublicCoverage.length === 0;
+
+  let status = "verified-complete";
+  let reason = "Inventario WordPress autorevole e coverage pubblica coincidono esattamente.";
+  if (publicUrlsOutsideInventory.length > 0) {
+    status = "public-routes-outside-post-type-inventory";
+    reason = "La coverage pubblica contiene URL che non appartengono all’inventario dei post type pubblici/queryable. Possono includere tassonomie, archivi o route custom: la completezza globale resta non attestabile.";
+  } else if (inventoryUrlsMissingFromPublicCoverage.length > 0) {
+    status = "inventory-routes-missing-from-public-coverage";
+    reason = "Una o più risorse WordPress pubblicate dell’inventario autorevole non compaiono nella coverage pubblica riconciliata.";
+  }
+
   return {
     verified: exactMatch,
-    status: exactMatch ? "verified-complete" : "inventory-public-mismatch",
-    reason: exactMatch
-      ? "Inventario WordPress autorevole e coverage pubblica coincidono esattamente."
-      : "Le URL dell’inventario WordPress e della coverage pubblica non coincidono esattamente.",
+    status,
+    reason,
     totalUrls: inventoryUrls.size,
+    publicUrlCount: publicUrls.size,
+    publicUrlsOutsideInventory,
+    inventoryUrlsMissingFromPublicCoverage,
+    scope: {
+      inventory: "all-public-queryable-post-types",
+      publicCoverage: "sitemap-and-crawl-public-routes",
+      globallyComplete: exactMatch,
+    },
     sharedWriteAllowed: false,
   };
 }
