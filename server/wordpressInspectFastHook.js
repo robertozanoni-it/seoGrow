@@ -142,20 +142,28 @@ function elementorOwnershipEvidence(entity, connector, frontend = null) {
   };
 }
 
+const validRestPath = (value) => {
+  const text = String(value || "");
+  if (!text || !/^[a-z0-9_./-]+$/i.test(text) || text.includes("\\")) return false;
+  const segments = text.split("/");
+  return segments.every((segment) => segment && segment !== "." && segment !== "..");
+};
+
 function elementorLibraryRestDescriptor(types) {
   const source = types && typeof types === "object" && !Array.isArray(types) ? types : {};
   const row = source.elementor_library || Object.values(source).find((item) => String(item?.slug || "") === "elementor_library");
   if (!row || typeof row !== "object") return null;
   const namespace = String(row.rest_namespace || "wp/v2").replace(/^\/+|\/+$/g, "");
   const restBase = String(row.rest_base || "").replace(/^\/+|\/+$/g, "");
-  if (!namespace || !restBase || !/^[a-z0-9_./-]+$/i.test(namespace) || !/^[a-z0-9_./-]+$/i.test(restBase)) return null;
+  if (!validRestPath(namespace) || !validRestPath(restBase)) return null;
   return { namespace, restBase };
 }
 
 function elementorLibraryEndpoint(base, descriptor, id) {
   const entityId = Number(id);
   if (!Number.isSafeInteger(entityId) || entityId <= 0) throw new Error("ID documento Elementor non valido.");
-  if (!descriptor?.namespace || !descriptor?.restBase) throw new Error("REST base Elementor Library non disponibile.");
+  if (!descriptor?.namespace || !descriptor?.restBase || !validRestPath(descriptor.namespace) || !validRestPath(descriptor.restBase))
+    throw new Error("REST base Elementor Library non disponibile.");
   return new URL(
     `${basePath(base)}/wp-json/${descriptor.namespace}/${descriptor.restBase}/${entityId}?context=edit`,
     base.origin,
