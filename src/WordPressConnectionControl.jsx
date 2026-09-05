@@ -71,17 +71,22 @@ export default function WordPressConnectionControl() {
     setConnecting(true);
     setStatus({ state: "loading", message: "Connessione a WordPress in corso…" });
     try {
-      const response = await apiFetch("/api/wordpress/inspect-fast", {
+      const response = await apiFetch("/api/wordpress/connection-check", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(credentials),
+        body: JSON.stringify({
+          siteUrl: credentials.url,
+          username: credentials.username,
+          applicationPassword: credentials.applicationPassword,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Connessione WordPress non riuscita.");
       const name = data?.user?.name ? ` come ${data.user.name}` : "";
+      const connector = data?.connector?.version ? ` · Connector ${data.connector.version}` : " · Connector non rilevato";
       setStatus({
         state: "success",
-        message: `Connessione WordPress riuscita${name}. Le credenziali sono valide per questa sessione.`,
+        message: `Connessione WordPress riuscita${name}${connector}. Le credenziali sono valide per questa sessione.`,
       });
     } catch (error) {
       setStatus({
