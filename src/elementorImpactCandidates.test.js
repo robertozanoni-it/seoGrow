@@ -28,6 +28,20 @@ test("le URL candidate Elementor includono target, crawl e issue senza duplicati
   ]);
 });
 
+test("candidate relative, HTTP o malformate non diventano evidenza Elementor", () => {
+  const urls = buildElementorImpactCandidateUrls({
+    audit: {
+      pages: [
+        { url: "/relativa/" },
+        { url: "http://example.com/insecure/" },
+        { url: "%%%" },
+        { url: "https://example.com/valida/#frag" },
+      ],
+    },
+  });
+  assert.deepEqual(urls, ["https://example.com/valida/"]);
+});
+
 test("le candidate Elementor sono sempre limitate a 30 prima del filtro same-host server", () => {
   const urls = buildElementorImpactCandidateUrls({
     audit: { pages: Array.from({ length: 50 }, (_, index) => ({ url: `https://example.com/${index}/` })) },
