@@ -1,6 +1,6 @@
-const PATCHED = Symbol.for("seogrow.seoResponseIntegrity");
+const PATCHED = Symbol.for("seogrow.seoResponseIntegrityV3");
 const SITE_HISTORY_KEY = "seogrow-analyses-v2";
-const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v2";
+const HISTORY_MIGRATION_KEY = "seogrow-seo-response-integrity-v3";
 
 const requestPath = (input) => {
   try {
@@ -15,9 +15,10 @@ const normalizeUrl = (value) => {
   try {
     const url = new URL(String(value || ""));
     url.hash = "";
-    return `${url.origin}${url.pathname.replace(/\/+$/, "") || "/"}${url.search}`;
+    url.hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    return `${url.origin}${url.pathname}${url.search}`;
   } catch {
-    return String(value || "").replace(/\/+$/, "");
+    return String(value || "");
   }
 };
 
@@ -68,13 +69,31 @@ const issueLooksTransientLink = (issue) => {
   return Number.isFinite(status) && ![404, 410].includes(status);
 };
 
+const reviewOnlyReason = (issue) => {
+  const text = `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`.toLowerCase();
+  if (/canonical/.test(text)) {
+    if (/\b(?:404|410)\b|canonical.*(?:rotta|broken|irraggiungibile)/i.test(text)) return "";
+    return "Una canonical differente o non rilevata non è automaticamente un errore. Verificare URL finale, HTML pubblico, sitemap, link interni e intenzione della pagina.";
+  }
+  if (/noindex|indexability|indicizzabil/.test(text)) {
+    return "La direttiva noindex può essere intenzionale. Verificare tipo di pagina, strategia di indicizzazione e coerenza con sitemap/link interni prima di correggere.";
+  }
+  return "";
+};
+
+const toReviewItem = (issue, reason) => ({
+  ...issue,
+  severity: "bassa",
+  diagnosisState: "needs-confirmation",
+  evidenceNature: "observed-signal",
+  reviewReason: reason,
+});
+
 const normalizeSiteAnalysis = (data) => {
   if (!data || typeof data !== "object" || Array.isArray(data)) return data;
 
   const rawInternal = Array.isArray(data.brokenLinks) ? data.brokenLinks : [];
-  const rawExternal = Array.isArray(data.brokenExternalLinks)
-    ? data.brokenExternalLinks
-    : [];
+  const rawExternal = Array.isArray(data.brokenExternalLinks) ? data.brokenExternalLinks : [];
   const transientInternalTargets = transientTargetSet(rawInternal);
   const transientExternalTargets = transientTargetSet(rawExternal);
 
@@ -103,23 +122,45 @@ const normalizeSiteAnalysis = (data) => {
   data.crawlExclusions = exclusions;
 
   const rawIssues = Array.isArray(data.issues) ? data.issues : [];
-  data.issues = rawIssues.filter((issue) => {
+  const filtered = rawIssues.filter((issue) => {
     if (issueLooksTransientLink(issue)) return false;
     const target = normalizeUrl(issue?.targetUrl || "");
     if (issue?.type === "broken-link" && transientInternalTargets.has(target)) return false;
-    if (
-      issue?.type === "broken-external-link" &&
-      transientExternalTargets.has(target)
-    )
-      return false;
+    if (issue?.type === "broken-external-link" && transientExternalTargets.has(target)) return false;
     return true;
+  });
+
+  const confirmed = [];
+  const reviewItems = [];
+  for (const issue of filtered) {
+    const reason = reviewOnlyReason(issue);
+    if (reason) reviewItems.push(toReviewItem(issue, reason));
+    else confirmed.push({ ...issue, diagnosisState: issue?.diagnosisState || "confirmed" });
+  }
+
+  const previousReviewItems = Array.isArray(data.reviewItems) ? data.reviewItems : [];
+  data.rawIssueCount = rawIssues.length;
+  data.issues = confirmed;
+  data.reviewItems = [...reviewItems, ...previousReviewItems].filter((item, index, rows) => {
+    const key = `${item?.type || ""}|${item?.label || ""}|${normalizeUrl(item?.targetUrl || item?.url || "")}`;
+    return rows.findIndex((candidate) => `${candidate?.type || ""}|${candidate?.label || ""}|${normalizeUrl(candidate?.targetUrl || candidate?.url || "")}` === key) === index;
   });
 
   data.summary = data.issues.reduce((summary, issue) => {
     summary[issue.type] = (summary[issue.type] || 0) + 1;
     return summary;
   }, {});
+  data.reviewSummary = data.reviewItems.reduce((summary, issue) => {
+    summary[issue.type || "review"] = (summary[issue.type || "review"] || 0) + 1;
+    return summary;
+  }, {});
+
+  data.rawScore = Number.isFinite(Number(data.score)) ? Number(data.score) : null;
   data.score = scoreFromVerifiedEvidence(data, data.issues, operationalFailures.length);
+  data.scoreSource = "seogrow-derived";
+  data.scoreLabel = "Indice di salute tecnica SeoGrow";
+  data.scoreMethodology = "Indice interno derivato dai problemi confermati e dai fallimenti del crawl; non è un voto Google.";
+  data.evidencePolicy = "confirmed-issues-only";
   return data;
 };
 
@@ -139,7 +180,7 @@ const normalizeStoredHistory = () => {
         clientId,
         Array.isArray(value)
           ? value.map((item) => normalizeSiteAnalysis({ ...item }))
-          : value,
+          : normalizeSiteAnalysis({ ...value }),
       ]),
     );
     localStorage.setItem(SITE_HISTORY_KEY, JSON.stringify(normalized));
@@ -182,4 +223,4 @@ if (typeof window !== "undefined") {
   }
 }
 
-export { normalizeSiteAnalysis };
+export { normalizeSiteAnalysis, reviewOnlyReason, scoreFromVerifiedEvidence };
