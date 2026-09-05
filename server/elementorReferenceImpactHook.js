@@ -6,7 +6,11 @@ import {
 import { validateAuthoritativeWordPressInventory } from "./elementorWordPressInventory.js";
 
 const ROUTE = "/api/wordpress/elementor-reference-impact";
-const SUPPORTED_REST_POST_TYPES = new Set(["page", "post"]);
+const CORE_REST_BASES = new Map([
+  ["page", "pages"],
+  ["post", "posts"],
+]);
+const SAFE_REST_BASE = /^[a-z0-9][a-z0-9_-]*$/i;
 
 function authHeaders(username, password) {
   return {
@@ -21,8 +25,11 @@ function connectorInventoryEndpoint(base) {
   return new URL(`${basePath(base)}/wp-json/seogrow/v1/wordpress-public-inventory`, base.origin);
 }
 
-function contentEndpoint(base, resource) {
-  const restBase = resource.postType === "page" ? "pages" : "posts";
+function typeDescriptorEndpoint(base, postType) {
+  return new URL(`${basePath(base)}/wp-json/wp/v2/types/${encodeURIComponent(postType)}`, base.origin);
+}
+
+function contentEndpoint(base, resource, restBase) {
   return new URL(`${basePath(base)}/wp-json/wp/v2/${restBase}/${resource.id}?context=edit`, base.origin);
 }
 
@@ -53,6 +60,16 @@ async function readJson(response, label) {
   return data;
 }
 
+export function normalizeRestBase(postType, payload) {
+  const core = CORE_REST_BASES.get(String(postType || ""));
+  if (core) return { ok: true, restBase: core, source: "core-known" };
+  const declared = typeof payload?.rest_base === "string" ? payload.rest_base.trim() : "";
+  if (!declared || !SAFE_REST_BASE.test(declared)) {
+    return { ok: false, restBase: null, source: "descriptor-invalid" };
+  }
+  return { ok: true, restBase: declared, source: "wordpress-type-descriptor" };
+}
+
 export function extractRestElementorData(payload) {
   if (!payload || typeof payload !== "object" || !payload.meta || typeof payload.meta !== "object") {
     return { ok: false, status: "elementor-meta-unavailable", value: null };
@@ -68,6 +85,37 @@ export function extractRestElementorData(payload) {
     return { ok: false, status: "elementor-meta-invalid-type", value: null };
   }
   return { ok: true, status: "elementor-data-readable", value };
+}
+
+async function resolveRestBases(base, headers, resources) {
+  const postTypes = [...new Set(resources.map((resource) => resource.postType))].sort();
+  const restBases = new Map();
+  const unsupportedPostTypes = [];
+
+  for (const postType of postTypes) {
+    const core = normalizeRestBase(postType, null);
+    if (core.ok) {
+      restBases.set(postType, core.restBase);
+      continue;
+    }
+    try {
+      const response = await wpFetch(typeDescriptorEndpoint(base, postType), { headers });
+      const descriptor = await readJson(response, `WordPress type ${postType}`);
+      const normalized = normalizeRestBase(postType, descriptor);
+      if (!normalized.ok) {
+        unsupportedPostTypes.push(postType);
+        continue;
+      }
+      restBases.set(postType, normalized.restBase);
+    } catch {
+      unsupportedPostTypes.push(postType);
+    }
+  }
+
+  return {
+    restBases,
+    unsupportedPostTypes: [...new Set(unsupportedPostTypes)].sort(),
+  };
 }
 
 export async function inspectElementorReferenceImpact({
@@ -98,30 +146,27 @@ export async function inspectElementorReferenceImpact({
     };
   }
 
-  const unsupportedPostTypes = [...new Set(
-    inventory.resources
-      .map((resource) => resource.postType)
-      .filter((postType) => !SUPPORTED_REST_POST_TYPES.has(postType)),
-  )].sort();
-
-  if (unsupportedPostTypes.length > 0) {
+  const resolved = await resolveRestBases(base, headers, inventory.resources);
+  if (resolved.unsupportedPostTypes.length > 0) {
     return {
       ok: true,
       readOnly: true,
       verified: false,
       inventory,
-      unsupportedPostTypes,
+      unsupportedPostTypes: resolved.unsupportedPostTypes,
       affectedPagesEnumerated: false,
       sharedWriteAllowed: false,
       status: "unsupported-authoritative-post-types",
-      note: "La scansione cross-page corrente supporta solo page e post esposti dal Connector 1.3.0. I custom post type restano fail-closed.",
+      note: "Uno o più post type autorevoli non espongono un rest_base WordPress sicuro e leggibile. Restano fail-closed finché il Connector non fornisce _elementor_data direttamente.",
     };
   }
 
   const rows = [];
   for (const resource of inventory.resources) {
     try {
-      const response = await wpFetch(contentEndpoint(base, resource), { headers });
+      const restBase = resolved.restBases.get(resource.postType);
+      if (!restBase) throw new Error("REST base WordPress non risolta.");
+      const response = await wpFetch(contentEndpoint(base, resource, restBase), { headers });
       const payload = await readJson(response, `WordPress ${resource.postType}:${resource.id}`);
       const extracted = extractRestElementorData(payload);
       if (!extracted.ok) {
@@ -200,4 +245,5 @@ export {
   ROUTE as ELEMENTOR_REFERENCE_IMPACT_ROUTE,
   connectorInventoryEndpoint,
   contentEndpoint,
+  typeDescriptorEndpoint,
 };
