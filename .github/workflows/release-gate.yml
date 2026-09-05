@@ -27,27 +27,21 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Lint
-        continue-on-error: true
         run: npm run lint
 
       - name: Unit and integration tests
-        continue-on-error: true
         run: npm test
 
       - name: Launcher syntax
-        continue-on-error: true
         run: npm run test:launcher
 
       - name: Production build
-        continue-on-error: true
         run: npm run build
 
       - name: Dependency audit
-        continue-on-error: true
         run: npm audit --audit-level=high
 
       - name: Ensure secrets and runtime data are not tracked
-        continue-on-error: true
         run: |
           tracked="$(git ls-files .env .seogrow-data .qa-runtime dist node_modules)"
           if [ -n "$tracked" ]; then
