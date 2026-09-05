@@ -14,14 +14,23 @@ async function safeBase(input) {
   const addresses = await dns.lookup(host, { all: true, verbatim: true });
   if (!addresses.length || addresses.some((item) => isPrivateOrReservedAddress(item.address)))
     throw new Error("Indirizzo WordPress non pubblico.");
-  url.pathname = "/";
+  url.pathname = `${url.pathname.replace(/\/(?:wp-admin|wp-json)(?:\/.*)?$/i, "").replace(/\/+$/, "")}/`;
   url.search = "";
   url.hash = "";
   return url;
 }
 
+function basePath(base) {
+  const path = String(base?.pathname || "/").replace(/\/+$/, "");
+  return path === "/" ? "" : path;
+}
+
 function endpoint(base, resource, suffix = "") {
-  return new URL(`/wp-json/wp/v2/${resource}${suffix}`, base.origin);
+  return new URL(`${basePath(base)}/wp-json/wp/v2/${resource}${suffix}`, base.origin);
+}
+
+function connectorEndpoint(base) {
+  return new URL(`${basePath(base)}/wp-json/seogrow/v1/status`, base.origin);
 }
 
 function authHeaders(username, password) {
@@ -53,6 +62,23 @@ async function json(response) {
     throw new Error(`WordPress: ${detail}`);
   }
   return data;
+}
+
+async function connectorStatus(base, headers) {
+  const response = await wpFetch(connectorEndpoint(base), { headers });
+  if (response.status === 404) {
+    await response.body?.cancel();
+    return null;
+  }
+  const data = await json(response);
+  if (data?.ok !== true || data?.connector !== "SeoGrow Connector") return null;
+  return {
+    connector: String(data.connector),
+    version: String(data.version || ""),
+    elementor: data.elementor === true,
+    rankMath: data.rankMath === true,
+    yoast: data.yoast === true,
+  };
 }
 
 function rateLimit(req) {
@@ -111,13 +137,17 @@ function registerRoutes(app) {
       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
       const base = await safeBase(url);
       const headers = authHeaders(username, applicationPassword);
-      const resolved = await resolveEntity(base, headers, url);
+      const [resolved, connector] = await Promise.all([
+        resolveEntity(base, headers, url),
+        connectorStatus(base, headers),
+      ]);
       return res.json({
         ok: true,
         fast: true,
         user: { id: 0, name: String(username) },
         resource: resolved.resource,
         entity: resolved.entity,
+        connector,
       });
     } catch (error) {
       return res.status(400).json({ error: error instanceof Error ? error.message : "Ispezione WordPress non riuscita." });
@@ -125,4 +155,4 @@ function registerRoutes(app) {
   });
 }
 
-export { registerRoutes, resolveEntity, safeBase };
+export { registerRoutes, resolveEntity, safeBase, connectorStatus, basePath };
