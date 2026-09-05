@@ -1,7 +1,4 @@
 const PATCHED = Symbol.for("seogrow.wordpressRemediationRuntimePatch");
-const CACHE_TTL_MS = 2 * 60_000;
-const cache = new Map();
-const inFlight = new Map();
 const inspectedByUrl = new Map();
 
 const requestInfo = (input, init = {}) => {
@@ -13,7 +10,8 @@ const requestInfo = (input, init = {}) => {
     url = new URL(window.location.href);
     url.pathname = String(raw).split("?")[0];
   }
-  return { url, pathname: url.pathname, method: String(init?.method || "GET").toUpperCase() };
+  const method = String(init?.method || input?.method || "GET").toUpperCase();
+  return { url, pathname: url.pathname, method };
 };
 
 const parseBody = (body, fallback = {}) => {
@@ -42,37 +40,16 @@ export function isNonEditableWordPressUrl(value) {
     if (/\/(?:category|categoria|tag|author|autore|date|feed)(?:\/|$)/i.test(path)) return true;
     if (/\/page\/\d+$/i.test(path)) return true;
     if (/\/(?:search)(?:\/|$)/i.test(path)) return true;
-    if (url.searchParams.has("s")) return true;
+    for (const key of ["s", "cat", "tag", "paged", "author", "feed"]) {
+      if (url.searchParams.has(key)) return true;
+    }
     return false;
   } catch {
-    return false;
+    return true;
   }
 }
 
-export function safeCacheKey(pathname, body) {
-  const payload = typeof body === "string" ? parseBody(body, {}) : body || {};
-  const safe = { ...payload };
-  delete safe.applicationPassword;
-  delete safe.password;
-  return `${pathname}:${JSON.stringify(safe)}`;
-}
-
-const snapshot = async (response) => ({
-  status: response.status,
-  statusText: response.statusText,
-  headers: [...response.headers.entries()],
-  body: await response.text(),
-});
-
-const responseFrom = (item) => new Response(item.body, {
-  status: item.status,
-  statusText: item.statusText,
-  headers: item.headers,
-});
-
-const clearRuntimeCache = () => {
-  cache.clear();
-  inFlight.clear();
+const clearRuntimeState = () => {
   inspectedByUrl.clear();
 };
 
@@ -146,42 +123,16 @@ if (typeof window !== "undefined" && !window.fetch[PATCHED]) {
       const request = parseBody(init?.body, {});
       if (isNonEditableWordPressUrl(request?.url)) return archiveResponse();
       effectiveInput = "/api/wordpress/inspect-fast";
-    }
-
-    const cacheable = info.method === "POST" && [
-      "/api/wordpress/inspect",
-      "/api/wordpress/verify-frontend",
-    ].includes(info.pathname);
-
-    if (cacheable) {
-      const key = safeCacheKey(info.pathname, init?.body);
-      const cached = cache.get(key);
-      if (cached && Date.now() - cached.savedAt < CACHE_TTL_MS) return responseFrom(cached.snapshot);
-      if (inFlight.has(key)) return responseFrom(await inFlight.get(key));
-
-      const requestPromise = (async () => {
-        const response = await previousFetch(effectiveInput, init);
-        const snap = await snapshot(response.clone());
-        if (response.ok) {
-          cache.set(key, { savedAt: Date.now(), snapshot: snap });
-          if (info.pathname === "/api/wordpress/inspect") {
-            try {
-              const request = parseBody(init?.body, {});
-              const data = JSON.parse(snap.body);
-              inspectedByUrl.set(normalizedUrl(request?.url || ""), data);
-            } catch {
-              // La risposta resta comunque disponibile alla UI.
-            }
-          }
+      const response = await previousFetch(effectiveInput, init);
+      if (response.ok) {
+        try {
+          const data = await response.clone().json();
+          inspectedByUrl.set(normalizedUrl(request?.url || ""), data);
+        } catch {
+          inspectedByUrl.delete(normalizedUrl(request?.url || ""));
         }
-        return snap;
-      })();
-      inFlight.set(key, requestPromise);
-      try {
-        return responseFrom(await requestPromise);
-      } finally {
-        inFlight.delete(key);
       }
+      return response;
     }
 
     let response = await previousFetch(effectiveInput, init);
@@ -200,7 +151,7 @@ if (typeof window !== "undefined" && !window.fetch[PATCHED]) {
       ].includes(info.pathname) &&
       response.ok
     ) {
-      clearRuntimeCache();
+      clearRuntimeState();
     }
 
     return response;
@@ -210,6 +161,6 @@ if (typeof window !== "undefined" && !window.fetch[PATCHED]) {
   window.fetch = patchedFetch;
 
   window.addEventListener("seogrow-storage-ok", (event) => {
-    if (event?.detail?.key === "seogrow-selected-client-v1") clearRuntimeCache();
+    if (event?.detail?.key === "seogrow-selected-client-v1") clearRuntimeState();
   });
 }
