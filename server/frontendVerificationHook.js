@@ -73,6 +73,45 @@ function normalizeText(value) {
     .toLocaleLowerCase("it");
 }
 
+export function contentOwnershipEvidence(expectedContent, visibleContent, frontendWords) {
+  const expected = normalizeText(expectedContent);
+  const visible = normalizeText(visibleContent);
+  const words = expected ? expected.split(/\s+/).filter(Boolean) : [];
+  const expectedWords = words.length;
+  if (!expectedWords || !visible) {
+    return { expectedWords, contentProbeMatches: 0, contentProbeCount: 0, contentCoverageStrong: false };
+  }
+
+  const probes = [];
+  const addProbe = (start, length) => {
+    const probe = words.slice(start, start + length).join(" ").trim();
+    if (probe && !probes.includes(probe)) probes.push(probe);
+  };
+
+  if (expectedWords < 20) {
+    addProbe(0, expectedWords);
+  } else {
+    const width = Math.min(18, Math.max(10, Math.floor(expectedWords / 4)));
+    addProbe(0, width);
+    addProbe(Math.max(0, Math.floor((expectedWords - width) / 2)), width);
+    addProbe(Math.max(0, expectedWords - width), width);
+  }
+
+  const contentProbeMatches = probes.filter((probe) => visible.includes(probe)).length;
+  const ratio = Number(frontendWords) > 0 ? expectedWords / Number(frontendWords) : 0;
+  const allMatched = probes.length > 0 && contentProbeMatches === probes.length;
+  const contentCoverageStrong = expectedWords < 20
+    ? allMatched && ratio >= 0.4
+    : probes.length >= 2 && allMatched && ratio >= 0.55;
+
+  return {
+    expectedWords,
+    contentProbeMatches,
+    contentProbeCount: probes.length,
+    contentCoverageStrong,
+  };
+}
+
 function pageKind(pathname) {
   if (/(?:privacy|cookie|gdpr|termini|terms|legal|consent)/i.test(pathname)) return "gdpr";
   if (/(?:contatt|contact)/i.test(pathname)) return "utility";
@@ -198,8 +237,10 @@ function registerRoutes(app) {
       const expectedContent = normalizeText(expected.content);
       const normalizedVisible = normalizeText(result._visibleText);
       const contentProbe = expectedContent ? expectedContent.slice(0, Math.min(180, expectedContent.length)) : "";
+      const ownership = contentOwnershipEvidence(expected.content, result._visibleText, result.words);
       return res.json({
         ...publicResult(result),
+        ...ownership,
         titleMatchesExpected: expectedTitle ? normalizeText(result.title) === expectedTitle : null,
         contentProbeVisible: contentProbe ? normalizedVisible.includes(contentProbe) : null,
       });
