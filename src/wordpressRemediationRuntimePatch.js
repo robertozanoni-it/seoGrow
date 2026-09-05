@@ -57,17 +57,6 @@ export function safeCacheKey(pathname, body) {
   return `${pathname}:${JSON.stringify(safe)}`;
 }
 
-export function shouldPreferElementorOwnership(inspected, request) {
-  const elementorData = inspected?.entity?.meta?._elementor_data;
-  const expected = request?.expected;
-  return Boolean(
-    elementorData &&
-    expected &&
-    typeof expected === "object" &&
-    Object.prototype.hasOwnProperty.call(expected, "content"),
-  );
-}
-
 const snapshot = async (response) => ({
   status: response.status,
   statusText: response.statusText,
@@ -142,26 +131,6 @@ const improvePreviewResponse = async (response, init) => {
   }
 };
 
-const preferElementorOwnershipResponse = async (response, init) => {
-  if (!response.ok) return response;
-  try {
-    const request = parseBody(init?.body, {});
-    const target = normalizedUrl(request?.url || "");
-    const inspected = inspectedByUrl.get(target);
-    if (!shouldPreferElementorOwnership(inspected, request)) return response;
-    const data = await response.clone().json();
-    data.contentProbeVisible = false;
-    data.seogrowOwnership = "elementor";
-    return new Response(JSON.stringify(data), {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-    });
-  } catch {
-    return response;
-  }
-};
-
 if (typeof window !== "undefined" && !window.fetch[PATCHED]) {
   const previousFetch = window.fetch.bind(window);
 
@@ -191,10 +160,7 @@ if (typeof window !== "undefined" && !window.fetch[PATCHED]) {
       if (inFlight.has(key)) return responseFrom(await inFlight.get(key));
 
       const requestPromise = (async () => {
-        let response = await previousFetch(effectiveInput, init);
-        if (info.pathname === "/api/wordpress/verify-frontend") {
-          response = await preferElementorOwnershipResponse(response, init);
-        }
+        const response = await previousFetch(effectiveInput, init);
         const snap = await snapshot(response.clone());
         if (response.ok) {
           cache.set(key, { savedAt: Date.now(), snapshot: snap });
