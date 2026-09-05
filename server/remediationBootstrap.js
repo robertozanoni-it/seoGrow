@@ -36,7 +36,6 @@ const remediationModules = await Promise.all([
 
 const ROUTES_ATTACHED = Symbol.for("seogrow.remediationRoutesAttached");
 const USE_PATCHED = Symbol.for("seogrow.remediationBootstrapUsePatched");
-const LISTEN_PATCHED = Symbol.for("seogrow.remediationBootstrapListenPatched");
 
 export function registerRemediationRoutes(app) {
   if (!app || typeof app.post !== "function") throw new Error("Express app non valida per le route remediation.");
@@ -51,10 +50,9 @@ export const explicitRemediationRouteModules = remediationModules
   .filter((module) => typeof module.registerRoutes === "function")
   .length;
 
-// Compatibilità temporanea con l'avvio tramite NODE_OPTIONS --import.
-// Una sola intercettazione centralizzata sostituisce progressivamente le patch
-// duplicate presenti nei singoli hook. Le route vengono montate prima del
-// fallback /api oppure, come rete di sicurezza, immediatamente prima di listen().
+// Compatibilità temporanea con NODE_OPTIONS --import: una sola intercettazione
+// centralizzata monta le route appena prima del fallback app.use("/api", ...).
+// I singoli hook non modificano più express.application.
 const originalUse = express.application.use;
 if (!originalUse[USE_PATCHED]) {
   const patchedUse = function (...args) {
@@ -63,14 +61,4 @@ if (!originalUse[USE_PATCHED]) {
   };
   patchedUse[USE_PATCHED] = true;
   express.application.use = patchedUse;
-}
-
-const originalListen = express.application.listen;
-if (!originalListen[LISTEN_PATCHED]) {
-  const patchedListen = function (...args) {
-    registerRemediationRoutes(this);
-    return originalListen.apply(this, args);
-  };
-  patchedListen[LISTEN_PATCHED] = true;
-  express.application.listen = patchedListen;
 }
