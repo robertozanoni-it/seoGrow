@@ -2,17 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const client = await readFile(new URL("./WordPressLiveRemediationControl.jsx", import.meta.url), "utf8");
+const client = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
 const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.url), "utf8");
 const server = await readFile(new URL("../server/wordpressLiveApprovalHook.js", import.meta.url), "utf8");
-const rollback = await readFile(new URL("./liveRollbackRouter.js", import.meta.url), "utf8");
+const rollback = await readFile(new URL("./rollbackPayload.js", import.meta.url), "utf8");
+const corrections = await readFile(new URL("./CorrectionsWorkspace.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 
-test("la remediation live richiede anteprima e approvazione esplicita", () => {
-  assert.match(client, /live-preview/);
-  assert.match(client, /Approva e applica al sito live/);
+test("la remediation live V2 richiede anteprima e approvazione esplicita", () => {
+  assert.match(client, /\/api\/wordpress\/live-preview/);
+  assert.match(client, /Approva e applica questa modifica/);
   assert.match(client, /window\.confirm/);
-  assert.match(client, /live-apply/);
-  assert.match(client, /saveCorrection/);
+  assert.match(client, /\/api\/wordpress\/live-apply/);
+  assert.match(client, /await saveCorrection\(record\)/);
 });
 
 test("il server usa token monouso e rifiuta anteprime stale", () => {
@@ -37,8 +39,10 @@ test("Elementor viene modificato solo tramite il meta REST dedicato", () => {
   assert.match(ownership, /hasElementorDocument/);
 });
 
-test("il rollback ricostruisce i campi meta annidati", () => {
+test("il rollback V2 ricostruisce i meta annidati e conserva lo snapshot stale-safe", () => {
   assert.match(rollback, /key\.startsWith\("meta\."\)/);
-  assert.match(rollback, /live-rollback/);
   assert.match(rollback, /direct\.meta = meta/);
+  assert.match(rollback, /expectedCurrent: after/);
+  assert.match(corrections, /\/api\/wordpress\/live-rollback/);
+  assert.doesNotMatch(main, /liveRollbackRouter/);
 });
