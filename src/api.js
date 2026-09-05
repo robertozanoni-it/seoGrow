@@ -1,4 +1,5 @@
 import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
+import { normalizeSiteAnalysisResponse } from "./seoResponseIntegrity.js";
 
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const scopedRequests = new Set();
@@ -126,6 +127,7 @@ export async function apiFetch(input, init = {}) {
   const attempts = method === "GET" ? 2 : 1;
   let lastError;
   const inputText = String(input || "");
+  const path = requestPath(input);
   const skipped = wordpressPaginationSkip(input, init);
   if (skipped) return skipped;
   const preparedInit = inputText.includes("/api/generate")
@@ -165,7 +167,10 @@ export async function apiFetch(input, init = {}) {
           await new Promise((resolve) => window.setTimeout(resolve, 250));
           continue;
         }
-        return await normalizeGdprResponse(response, requestPath(input), preparedInit);
+        const integrityResponse = path === "/api/site-analysis"
+          ? await normalizeSiteAnalysisResponse(response)
+          : response;
+        return await normalizeGdprResponse(integrityResponse, path, preparedInit);
       } catch (error) {
         lastError = error;
         if (attempt + 1 >= attempts)
