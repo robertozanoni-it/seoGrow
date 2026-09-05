@@ -133,6 +133,7 @@ const clickSidebar = async (label) => {
 
 const responsiveFixture = `<!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   #desktop-only, #tablet-only, #mobile-only { display: none; }
   @media (min-width: 1025px) { #desktop-only { display: block; } }
