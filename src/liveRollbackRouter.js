@@ -10,13 +10,13 @@ const parseJson = (value, fallback = {}) => {
 
 const requestInfo = (input, init = {}) => {
   const raw = typeof input === "string" ? input : input?.url || "";
-  let pathname = String(raw);
+  let pathname;
   try {
     pathname = new URL(String(raw), window.location.href).pathname;
   } catch {
     pathname = String(raw).split("?")[0];
   }
-  return { pathname, method: String(init?.method || "GET").toUpperCase() };
+  return { pathname, method: String(init?.method || input?.method || "GET").toUpperCase() };
 };
 
 const isRollback = (init) =>
