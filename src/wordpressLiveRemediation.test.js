@@ -17,6 +17,11 @@ test("la remediation live V2 richiede anteprima e approvazione esplicita", () =>
   assert.match(client, /await saveCorrection\(record\)/);
 });
 
+test("l'ispezione V2 passa sempre la base WordPress separata dal permalink target", () => {
+  assert.match(client, /siteUrl:\s*credentials\.url[\s\S]*url:\s*targetUrl/);
+  assert.match(client, /\/api\/wordpress\/inspect-fast/);
+});
+
 test("il server usa token monouso e rifiuta anteprime stale", () => {
   assert.match(server, /APPROVALS\.set/);
   assert.match(server, /APPROVALS\.delete/);
@@ -37,6 +42,12 @@ test("Elementor viene modificato solo tramite il meta REST dedicato", () => {
   assert.match(ownership, /item\.widgetType === "text-editor"/);
   assert.match(ownership, /item\.widgetType === "heading"/);
   assert.match(ownership, /hasElementorDocument/);
+});
+
+test("i blocchi Elementor spiegano gli ID dei documenti condivisi quando disponibili", () => {
+  assert.match(client, /elementorResolvedExternalDocuments/);
+  assert.match(client, /documenti Elementor condivisi/);
+  assert.match(client, /non modifica automaticamente un template condiviso/);
 });
 
 test("il rollback V2 ricostruisce i meta annidati e conserva lo snapshot stale-safe", () => {
