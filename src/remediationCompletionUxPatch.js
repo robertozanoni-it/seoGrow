@@ -132,7 +132,8 @@ function syncAuditIssueRows() {
 
   const description = document.querySelector(".audit-issues-list .panel-head p");
   if (description && resolved > 0) {
-    description.textContent = `${active} problemi ancora da correggere · ${resolved} risolti dopo l’audit. Le righe verdi sono già chiuse e non vengono riproposte come Task da fare.`;
+    const desired = `${active} problemi ancora da correggere · ${resolved} risolti dopo l’audit. Le righe verdi sono già chiuse e non vengono riproposte come Task da fare.`;
+    if (description.textContent !== desired) description.textContent = desired;
   }
 }
 
@@ -179,25 +180,28 @@ function syncSelectedIssueBanner() {
     banner.append(title, label, url);
     root.insertBefore(banner, actions);
   }
-  banner.querySelector(".wp-live-selected-issue-label").textContent = issue.label;
+  const labelNode = banner.querySelector(".wp-live-selected-issue-label");
+  if (labelNode.textContent !== issue.label) labelNode.textContent = issue.label;
   const urlNode = banner.querySelector(".wp-live-selected-issue-url");
-  urlNode.textContent = issue.url || "";
+  if (urlNode.textContent !== (issue.url || "")) urlNode.textContent = issue.url || "";
   urlNode.hidden = !issue.url;
 
   const singleButton = [...actions.querySelectorAll("button")]
     .find((button) => /Prepara solo questo problema/i.test(button.textContent || ""));
   if (singleButton) {
-    singleButton.title = `Prepara solo: ${issue.label}`;
-    singleButton.setAttribute("aria-label", `Prepara solo il problema selezionato: ${issue.label}`);
+    const title = `Prepara solo: ${issue.label}`;
+    const aria = `Prepara solo il problema selezionato: ${issue.label}`;
+    if (singleButton.title !== title) singleButton.title = title;
+    if (singleButton.getAttribute("aria-label") !== aria) singleButton.setAttribute("aria-label", aria);
   }
 }
 
 function syncVerificationMessage() {
   const message = document.querySelector(".wp-live-remediation-message");
   if (!message) return;
-  if (/Applicazione live completata:/i.test(message.textContent || "")) {
-    message.textContent = `${message.textContent.replace(/Le modifiche applicate[\s\S]*$/i, "").trim()} SeoGrow riverifica automaticamente il frontend. Un nuovo audit serve soltanto ad aggiornare il report storico e il conteggio dei problemi.`;
-  }
+  const current = message.textContent || "";
+  if (!/Applicazione live completata:/i.test(current) || /SeoGrow riverifica automaticamente/i.test(current)) return;
+  message.textContent = `${current.replace(/Le modifiche applicate[\s\S]*$/i, "").trim()} SeoGrow riverifica automaticamente il frontend. Un nuovo audit serve soltanto ad aggiornare il report storico e il conteggio dei problemi.`;
 }
 
 function arrange() {
