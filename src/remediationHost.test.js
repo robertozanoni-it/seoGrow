@@ -32,7 +32,8 @@ test("l'host nativo espone solo il contratto DOM necessario al live flow V2", ()
 test("l'host non introduce nuovi monkey-patch fetch o MutationObserver globali", () => {
   assert.doesNotMatch(host, /window\.fetch\s*=/);
   assert.doesNotMatch(host, /MutationObserver/);
-  assert.match(host, /requestAnimationFrame/);
+  assert.match(host, /resolveTarget/);
+  assert.match(host, /setTimeout\(scan, 100\)/);
 });
 
 test("l'host usa esattamente audit type e analyzedAt richiesti senza fallback silenzioso", () => {
