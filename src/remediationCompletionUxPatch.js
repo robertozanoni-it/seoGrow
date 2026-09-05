@@ -35,9 +35,12 @@ const normalizeText = (value) =>
 
 const selectedClientId = () => Number(readJson(CLIENT_KEY, 0));
 
-const auditIssueRows = () =>
+const allAuditIssueRows = () =>
   [...document.querySelectorAll(".audit-issues-list > div")]
     .filter((row) => !row.classList.contains("panel-head"));
+
+const activeAuditIssueRows = () =>
+  allAuditIssueRows().filter((row) => !row.classList.contains("seogrow-issue-resolved"));
 
 const issueFromRow = (row) => ({
   label: row?.querySelector("strong")?.textContent?.trim() || "",
@@ -127,7 +130,7 @@ function syncAuditIssueRows() {
   let resolved = 0;
   let active = 0;
 
-  for (const row of auditIssueRows()) {
+  for (const row of allAuditIssueRows()) {
     const { label, url } = issueFromRow(row);
     if (!label || !url) continue;
     let relatedTasks = tasks.filter((task) => matchingTask(task, clientId, label, url));
@@ -164,6 +167,9 @@ function syncAuditIssueRows() {
         badge.textContent = "Risolto";
         row.querySelector("strong")?.insertAdjacentElement("afterend", badge);
       }
+      row.hidden = true;
+      row.setAttribute("aria-hidden", "true");
+      row.style.setProperty("display", "none", "important");
       row.querySelectorAll("button").forEach((button) => {
         button.hidden = true;
         button.setAttribute("aria-hidden", "true");
@@ -172,6 +178,9 @@ function syncAuditIssueRows() {
     } else {
       active += 1;
       badge?.remove();
+      row.hidden = false;
+      row.removeAttribute("aria-hidden");
+      row.style.removeProperty("display");
       row.querySelectorAll("button").forEach((button) => {
         if (button.dataset.seogrowLegacyCorrection === "1") return;
         button.hidden = false;
@@ -184,7 +193,7 @@ function syncAuditIssueRows() {
   const description = document.querySelector(".audit-issues-list .panel-head p");
   if (description) {
     const desired = resolved > 0
-      ? `${active} problemi ancora da correggere · ${resolved} risolti dopo l’audit. Le righe verdi sono già chiuse e non vengono riproposte come Task da fare.`
+      ? `${active} problemi ancora da correggere · ${resolved} risolti dopo l’audit e rimossi da questa lista. I problemi risolti restano disponibili nello storico audit.`
       : "Correggi direttamente con l’agente del progetto oppure crea una Task solo se vuoi inserirlo nel backlog.";
     if (description.textContent !== desired) description.textContent = desired;
   }
@@ -193,24 +202,30 @@ function syncAuditIssueRows() {
 let requestedIssueIndex = null;
 
 function selectedIssue() {
+  const rows = allAuditIssueRows();
   if (Number.isSafeInteger(requestedIssueIndex) && requestedIssueIndex >= 0) {
-    const row = auditIssueRows()[requestedIssueIndex];
-    const issue = issueFromRow(row);
-    if (issue.label) return issue;
+    const row = rows[requestedIssueIndex];
+    if (row && !row.classList.contains("seogrow-issue-resolved")) {
+      const issue = issueFromRow(row);
+      if (issue.label) return issue;
+    }
   }
 
   const select = document.querySelector(".audit-issue-select select");
   if (select) {
-    const option = select.options?.[select.selectedIndex];
-    const row = auditIssueRows()[Number(select.value || 0)];
-    const issue = issueFromRow(row);
-    return {
-      label: issue.label || option?.textContent?.trim() || "",
-      url: issue.url || "",
-    };
+    const originalIndex = Number(select.value || 0);
+    const row = rows[originalIndex];
+    if (row && !row.classList.contains("seogrow-issue-resolved")) {
+      const option = select.options?.[select.selectedIndex];
+      const issue = issueFromRow(row);
+      return {
+        label: issue.label || option?.textContent?.trim() || "",
+        url: issue.url || "",
+      };
+    }
   }
 
-  return issueFromRow(auditIssueRows()[0]);
+  return issueFromRow(activeAuditIssueRows()[0]);
 }
 
 function syncSelectedIssueBanner() {
@@ -256,17 +271,18 @@ function syncBulkActionTotal() {
   const bulkButton = [...actions.querySelectorAll("button")]
     .find((button) => /Prepara anteprima di tutte le correzioni|Preparazione…/i.test(button.textContent || ""));
   if (!bulkButton) return;
-  const total = auditIssueRows().length;
+  const totalAudit = allAuditIssueRows().length;
+  const totalActive = activeAuditIssueRows().length;
   let badge = bulkButton.querySelector(".seogrow-bulk-total");
   if (!badge) {
     badge = document.createElement("span");
     badge.className = "seogrow-bulk-total";
     bulkButton.appendChild(badge);
   }
-  const label = `(${total})`;
+  const label = `(${totalActive})`;
   if (badge.textContent !== label) badge.textContent = label;
-  bulkButton.title = `Prepara l'anteprima di tutti i ${total} problemi dell'audit corrente`;
-  bulkButton.setAttribute("aria-label", `Prepara anteprima di tutte le correzioni: ${total} problemi nell'audit corrente`);
+  bulkButton.title = `${totalActive} problemi ancora da correggere su ${totalAudit} rilevati nell'audit corrente`;
+  bulkButton.setAttribute("aria-label", `Prepara anteprima di tutte le correzioni: ${totalActive} problemi ancora da correggere su ${totalAudit} rilevati`);
 }
 
 function syncBlockedRows() {
