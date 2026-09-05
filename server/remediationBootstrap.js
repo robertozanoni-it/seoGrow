@@ -38,6 +38,25 @@ export function registerRemediationRoutes(app) {
   if (!app || typeof app.post !== "function") throw new Error("Express app non valida per le route remediation.");
   if (app[ROUTES_ATTACHED]) return;
   app[ROUTES_ATTACHED] = true;
+
+  app.get("/api/wordpress/remediation-capabilities", (_req, res) => {
+    res.json({
+      ok: true,
+      engine: "v2",
+      supports: [
+        "inspect-fast",
+        "frontend-verification",
+        "patch-v2",
+        "seo-value-v2",
+        "live-preview",
+        "live-apply",
+        "live-rollback",
+      ],
+      liveMode: "single-explicit-approval",
+      draftCopyCompatibility: false,
+    });
+  });
+
   for (const module of remediationModules) {
     if (typeof module.registerRoutes === "function") module.registerRoutes(app);
   }
