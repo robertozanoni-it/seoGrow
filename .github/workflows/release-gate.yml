@@ -32,6 +32,11 @@ jobs:
       - name: Unit and integration tests
         run: npm test
 
+      - name: Install zsh for macOS launcher syntax check
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zsh
+
       - name: Launcher syntax
         run: npm run test:launcher
 
