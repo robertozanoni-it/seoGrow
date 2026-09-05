@@ -5,6 +5,7 @@ import { readFile } from "node:fs/promises";
 const readServer = (name) => readFile(new URL(`../server/${name}`, import.meta.url), "utf8");
 
 const bootstrap = await readServer("remediationBootstrap.js");
+const serverIndex = await readServer("index.js");
 const migratedHooks = await Promise.all([
   "wordpressLiveApprovalHook.js",
   "wordpressLiveRollbackHook.js",
@@ -14,11 +15,15 @@ const migratedHooks = await Promise.all([
   "wordpressPatchV2Hook.js",
 ].map(readServer));
 
-test("il bootstrap remediation usa una sola compatibilità Express prima del fallback API", () => {
+test("server/index registra esplicitamente le route remediation prima del fallback API", () => {
   assert.match(bootstrap, /function registerRemediationRoutes/);
-  assert.match(bootstrap, /seogrow\.remediationBootstrapUsePatched/);
-  assert.match(bootstrap, /args\[0\] === "\/api"/);
-  assert.doesNotMatch(bootstrap, /remediationBootstrapListenPatched|express\.application\.listen/);
+  assert.doesNotMatch(bootstrap, /express\.application|remediationBootstrapUsePatched/);
+  assert.match(serverIndex, /import \{ registerRemediationRoutes \} from "\.\/remediationBootstrap\.js"/);
+  const registration = serverIndex.indexOf("registerRemediationRoutes(app);");
+  const fallback = serverIndex.indexOf('app.use("/api"');
+  assert.ok(registration >= 0, "registrazione remediation assente");
+  assert.ok(fallback >= 0, "fallback API assente");
+  assert.ok(registration < fallback, "le route remediation devono precedere il fallback API");
 });
 
 test("il bootstrap espone le capability reali del runtime V2", () => {

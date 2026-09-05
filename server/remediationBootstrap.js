@@ -1,4 +1,3 @@
-import express from "express";
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
@@ -32,7 +31,6 @@ const remediationModules = await Promise.all([
 ]);
 
 const ROUTES_ATTACHED = Symbol.for("seogrow.remediationRoutesAttached");
-const USE_PATCHED = Symbol.for("seogrow.remediationBootstrapUsePatched");
 
 export function registerRemediationRoutes(app) {
   if (!app || typeof app.post !== "function") throw new Error("Express app non valida per le route remediation.");
@@ -67,15 +65,3 @@ export const explicitRemediationRouteModules = remediationModules
   .filter((module) => typeof module.registerRoutes === "function")
   .length;
 
-// Compatibilità temporanea con NODE_OPTIONS --import: una sola intercettazione
-// centralizzata monta le route appena prima del fallback app.use("/api", ...).
-// I singoli hook non modificano più express.application.
-const originalUse = express.application.use;
-if (!originalUse[USE_PATCHED]) {
-  const patchedUse = function (...args) {
-    if (!this[ROUTES_ATTACHED] && args[0] === "/api") registerRemediationRoutes(this);
-    return originalUse.apply(this, args);
-  };
-  patchedUse[USE_PATCHED] = true;
-  express.application.use = patchedUse;
-}
