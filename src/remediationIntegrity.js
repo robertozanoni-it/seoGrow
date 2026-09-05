@@ -11,10 +11,14 @@ import "./RemediationIntegrity.css";
 const DUPLICATE_TITLE = /title duplic|titolo duplic/i;
 const SHORT_CONTENT = /contenuto breve|short content|content.*parole|parole/i;
 const H1 = /\bh1\b/i;
+const WORDPRESS_PROFILES_KEY = "seogrow-wordpress-profiles-v1";
 let recheckRunning = false;
 let recheckTimer = null;
 
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`;
+const readJson = (key, fallback) => {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+};
 
 const syncTaskWithVerification = (before, after) => {
   if (!after) return;
@@ -33,8 +37,91 @@ async function updateAndSync(record, patch) {
   return updated;
 }
 
-export async function recheckCorrection(record) {
+function livePassword() {
+  if (typeof document === "undefined") return "";
+  return document.querySelector(".corrections-security input[type='password']")?.value ||
+    document.querySelector(".audit-unified-credentials input[type='password']")?.value || "";
+}
+
+function liveWordPressInput(autocomplete) {
+  if (typeof document === "undefined") return "";
+  return document.querySelector(`.audit-unified-credentials input[autocomplete='${autocomplete}']`)?.value?.trim() || "";
+}
+
+function taxonomyCredentials(record, provided = {}) {
+  const profile = readJson(WORDPRESS_PROFILES_KEY, {})[record.clientId] || null;
+  return {
+    siteUrl: provided.siteUrl || record.siteUrl || profile?.url || liveWordPressInput("url") || record.sourceUrl || "",
+    username: provided.username || record.username || profile?.username || liveWordPressInput("username") || "",
+    applicationPassword: provided.applicationPassword || livePassword(),
+  };
+}
+
+async function recheckTaxonomyCorrection(record, providedCredentials = {}) {
+  const field = record.taxonomyField || (Array.isArray(record.fields) ? record.fields[0] : "");
+  const expected = record.after?.[field];
+  const credentials = taxonomyCredentials(record, providedCredentials);
+  if (!field || expected === undefined) {
+    const error = new Error("Storico tassonomia incompleto: campo o valore atteso non disponibili.");
+    return { changed: false, record, error };
+  }
+  if (!credentials.siteUrl || !credentials.username || !credentials.applicationPassword) {
+    const error = new Error("Inserisci la password applicativa WordPress per riverificare questa correzione di categoria/tag.");
+    return { changed: false, record, error };
+  }
+
+  try {
+    const response = await apiFetch("/api/wordpress/taxonomy-verify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        siteUrl: credentials.siteUrl,
+        url: record.sourceUrl,
+        username: credentials.username,
+        applicationPassword: credentials.applicationPassword,
+        adapter: record.adapter,
+        field,
+        expected,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Verifica tassonomia non riuscita.");
+
+    const text = issueText(record.issue || { type: record.issueType, label: record.issueLabel });
+    const needsAudit = DUPLICATE_TITLE.test(text);
+    const verified = data.verified === true && !needsAudit;
+    const note = needsAudit && data.verified === true
+      ? `${data.reason || "Il valore pubblico coincide con quello applicato."} Il problema originale riguarda però un duplicato: serve un nuovo crawl/audit prima di dichiararlo risolto.`
+      : data.reason || (verified ? "Valore tassonomia verificato nel frontend pubblico." : "La correzione tassonomia resta da verificare.");
+    const updated = await updateAndSync(record, {
+      status: verified ? "Verificato" : "Da verificare",
+      frontendConfirmed: data.publicMatch === true,
+      frontendFailure: data.publicMatch !== true || data.storedMatch !== true,
+      verifiedAt: verified ? new Date().toISOString() : record.verifiedAt || "",
+      lastVerificationAttemptAt: new Date().toISOString(),
+      verificationNote: note,
+      taxonomyVerification: {
+        storedMatch: data.storedMatch === true,
+        publicMatch: data.publicMatch === true,
+        current: data.current,
+        frontend: data.frontend || null,
+      },
+    });
+    return { changed: true, record: updated, needsAudit };
+  } catch (error) {
+    const updated = await updateCorrection(record.id, {
+      verificationNote: `Riverifica tassonomia non conclusa: ${error.message}. Lo stato precedente è stato mantenuto.`,
+      lastVerificationErrorAt: new Date().toISOString(),
+      lastVerificationAttemptAt: new Date().toISOString(),
+    });
+    return { changed: true, record: updated, error };
+  }
+}
+
+export async function recheckCorrection(record, credentials = {}) {
   if (!record?.sourceUrl || record.status === "Ripristinato") return { changed: false, record };
+  if (record.resource === "taxonomy") return recheckTaxonomyCorrection(record, credentials);
+
   const text = issueText(record.issue || { type: record.issueType, label: record.issueLabel });
   const relevant = DUPLICATE_TITLE.test(text) || SHORT_CONTENT.test(text) || H1.test(text) || (record.fields || []).includes("title");
   if (!relevant) {
@@ -162,10 +249,10 @@ export async function recheckCorrection(record) {
   }
 }
 
-export async function recheckCorrectionById(id) {
+export async function recheckCorrectionById(id, credentials = {}) {
   const record = await readCorrection(id);
   if (!record) throw new Error("Correzione non trovata nello storico.");
-  return recheckCorrection(record);
+  return recheckCorrection(record, credentials);
 }
 
 export async function recheckCorrections({ clientId, limit = 20 } = {}) {
