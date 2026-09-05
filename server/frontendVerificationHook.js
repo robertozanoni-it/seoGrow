@@ -64,11 +64,16 @@ function decodeEntity(entity) {
   return named[body.toLowerCase()] ?? " ";
 }
 
+const responsiveHiddenClass = "(?:elementor-hidden(?:-(?:desktop|tablet(?:_extra)?|mobile(?:_extra)?))?|e-con--hidden)";
+
 function stripAlwaysHiddenMarkup(html) {
   let value = String(html || "")
     .replace(/<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi, " ");
-  const hiddenBlock = /<([a-z][\w:-]*)\b(?=[^>]*(?:\bhidden(?:\s|=|>)|aria-hidden\s*=\s*["']?true\b|style\s*=\s*["'][^"']*(?:display\s*:\s*none\b|visibility\s*:\s*hidden\b)))[^>]*>[\s\S]*?<\/\1\s*>/gi;
-  for (let pass = 0; pass < 4; pass += 1) {
+  const hiddenBlock = new RegExp(
+    `<([a-z][\\w:-]*)\\b(?=[^>]*(?:\\bhidden(?:\\s|=|>)|aria-hidden\\s*=\\s*["']?true\\b|style\\s*=\\s*["'][^"']*(?:display\\s*:\\s*none\\b|visibility\\s*:\\s*hidden\\b)|class\\s*=\\s*["'][^"']*${responsiveHiddenClass}[^"']*["']))[^>]*>[\\s\\S]*?<\\/\\1\\s*>`,
+    "gi",
+  );
+  for (let pass = 0; pass < 6; pass += 1) {
     const next = value.replace(hiddenBlock, " ");
     if (next === value) break;
     value = next;
@@ -196,14 +201,16 @@ function visibleH1Count(html) {
     if (/\bhidden(?:\s|=|$)/i.test(attrs)) return false;
     if (/aria-hidden\s*=\s*["']?true/i.test(attrs)) return false;
     if (/style\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(attrs)) return false;
+    if (new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}[^"']*["']`, "i").test(attrs)) return false;
     return true;
   }).length;
 }
 
 function signals(page) {
   const title = firstMatch(page.html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-  const h1 = visibleH1Count(page.html);
-  const text = visibleText(page.html);
+  const conservativeMarkup = stripAlwaysHiddenMarkup(page.html);
+  const h1 = visibleH1Count(conservativeMarkup);
+  const text = visibleText(conservativeMarkup);
   const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
   const kind = pageKind(new URL(page.url).pathname);
   const minimumWords = kind === "utility" ? 60 : kind === "archive" ? 80 : kind === "gdpr" ? 0 : 180;
@@ -212,6 +219,7 @@ function signals(page) {
   const directives = `${robots},${googlebot},${page.xRobotsTag}`;
   const noindex = /(?:^|[,;\s])noindex(?:$|[,;\s])/i.test(directives);
   const canonical = canonicalHref(page.html);
+  const responsiveHiddenMarkupDetected = new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}`, "i").test(page.html);
   return {
     title,
     h1,
@@ -225,6 +233,8 @@ function signals(page) {
     noindex,
     indexable: page.isHtml && !noindex,
     canonical,
+    visibilityModel: "conservative-static-markup",
+    responsiveHiddenMarkupDetected,
   };
 }
 
@@ -248,6 +258,8 @@ async function inspect(url) {
     noindex: result.noindex,
     indexable: result.indexable,
     canonical: result.canonical,
+    visibilityModel: result.visibilityModel,
+    responsiveHiddenMarkupDetected: result.responsiveHiddenMarkupDetected,
     _visibleText: result.text,
   };
 }
@@ -296,4 +308,4 @@ function registerRoutes(app) {
   });
 }
 
-export { registerRoutes, visibleText, stripAlwaysHiddenMarkup };
+export { registerRoutes, visibleText, stripAlwaysHiddenMarkup, visibleH1Count };
