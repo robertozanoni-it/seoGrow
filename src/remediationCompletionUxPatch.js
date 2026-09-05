@@ -3,6 +3,7 @@ import "./remediationCompletionUxPatch.css";
 
 const PATCHED = Symbol.for("seogrow.remediationCompletionUxPatch");
 const CLIENT_KEY = "seogrow-selected-client-v1";
+const RESOLVED_EVIDENCE_KEY = "seogrow-remediation-resolved-evidence-v1";
 
 const readJson = (key, fallback) => {
   try {
@@ -53,6 +54,23 @@ const matchingCorrection = (record, clientId, label, url) =>
   normalizeText(record?.issueLabel) === normalizeText(label) &&
   normalizeUrl(record?.sourceUrl || "") === normalizeUrl(url);
 
+const evidenceKey = (clientId, label, url) =>
+  `${Number(clientId)}|${normalizeText(label)}|${normalizeUrl(url)}`;
+
+const rememberResolvedEvidence = (clientId, label, url) => {
+  if (!clientId || !label || !url) return;
+  const current = readJson(RESOLVED_EVIDENCE_KEY, {});
+  const key = evidenceKey(clientId, label, url);
+  const next = {
+    ...current,
+    [key]: { verifiedAt: new Date().toISOString() },
+  };
+  const entries = Object.entries(next)
+    .toSorted((a, b) => Date.parse(b[1]?.verifiedAt || 0) - Date.parse(a[1]?.verifiedAt || 0))
+    .slice(0, 500);
+  writeJson(RESOLVED_EVIDENCE_KEY, Object.fromEntries(entries));
+};
+
 function completeResolvedTask(label, url) {
   const clientId = selectedClientId();
   if (!clientId || !label || !url) return;
@@ -75,35 +93,66 @@ function completeResolvedTask(label, url) {
 
 function syncResolvedPreviewRows() {
   document.querySelectorAll(".wp-live-preview-row.resolved").forEach((row) => {
-    if (row.dataset.seogrowTaskSynced === "1") return;
     const label = row.querySelector("strong")?.textContent?.trim() || "";
     const url = [...row.querySelectorAll("small")]
       .map((item) => item.textContent?.trim() || "")
       .find((value) => /^https?:\/\//i.test(value)) || "";
     if (!label || !url) return;
+    const clientId = selectedClientId();
     completeResolvedTask(label, url);
+    if (row.dataset.seogrowEvidenceStored !== "1") {
+      rememberResolvedEvidence(clientId, label, url);
+      row.dataset.seogrowEvidenceStored = "1";
+    }
     row.dataset.seogrowTaskSynced = "1";
   });
 }
 
+const autoVerifiedTask = (task) =>
+  task?.status === "Completato" &&
+  /Chiusa automaticamente: SeoGrow ha confermato/i.test(String(task?.notes || ""));
+
+const recordTime = (record) =>
+  Date.parse(record?.verifiedAt || record?.appliedAt || 0) || 0;
+
+const taskTime = (task) =>
+  Date.parse(task?.createdAt || task?.updatedAt || 0) || 0;
+
 function syncAuditIssueRows() {
   const clientId = selectedClientId();
   if (!clientId) return;
-  const tasks = readJson(TASKS_KEY, []);
+  let tasks = readJson(TASKS_KEY, []);
   const corrections = remediationIndex();
+  const evidence = readJson(RESOLVED_EVIDENCE_KEY, {});
   let resolved = 0;
   let active = 0;
 
   for (const row of auditIssueRows()) {
     const { label, url } = issueFromRow(row);
     if (!label || !url) continue;
-    const relatedTasks = tasks.filter((task) => matchingTask(task, clientId, label, url));
+    let relatedTasks = tasks.filter((task) => matchingTask(task, clientId, label, url));
+    const verifiedRecords = corrections
+      .filter((record) => matchingCorrection(record, clientId, label, url) && record.status === "Verificato")
+      .toSorted((a, b) => recordTime(b) - recordTime(a));
+    const latestVerified = verifiedRecords[0] || null;
+    const latestVerifiedAt = recordTime(latestVerified);
+    const activeTasks = relatedTasks.filter((task) => task.status !== "Completato" && !task.stale);
+
+    if (
+      latestVerifiedAt > 0 &&
+      activeTasks.length > 0 &&
+      activeTasks.every((task) => taskTime(task) <= latestVerifiedAt)
+    ) {
+      completeResolvedTask(label, url);
+      tasks = readJson(TASKS_KEY, []);
+      relatedTasks = tasks.filter((task) => matchingTask(task, clientId, label, url));
+    }
+
     const hasActiveTask = relatedTasks.some((task) => task.status !== "Completato" && !task.stale);
-    const hasCompletedTask = relatedTasks.some((task) => task.status === "Completato");
-    const verifiedCorrection = corrections.some((record) =>
-      matchingCorrection(record, clientId, label, url) && record.status === "Verificato",
-    );
-    const isResolved = !hasActiveTask && (hasCompletedTask || verifiedCorrection);
+    const hasAutoVerifiedTask = relatedTasks.some(autoVerifiedTask);
+    const hasStoredEvidence = Boolean(evidence[evidenceKey(clientId, label, url)]);
+    const hasVerifiedEvidence = Boolean(latestVerified) || hasAutoVerifiedTask || hasStoredEvidence;
+    const isResolved = !hasActiveTask && hasVerifiedEvidence;
 
     row.classList.toggle("seogrow-issue-resolved", isResolved);
     let badge = row.querySelector(".seogrow-resolved-badge");
@@ -118,6 +167,7 @@ function syncAuditIssueRows() {
       row.querySelectorAll("button").forEach((button) => {
         button.hidden = true;
         button.setAttribute("aria-hidden", "true");
+        button.style.setProperty("display", "none", "important");
       });
     } else {
       active += 1;
@@ -126,13 +176,16 @@ function syncAuditIssueRows() {
         if (button.dataset.seogrowLegacyCorrection === "1") return;
         button.hidden = false;
         button.removeAttribute("aria-hidden");
+        button.style.removeProperty("display");
       });
     }
   }
 
   const description = document.querySelector(".audit-issues-list .panel-head p");
-  if (description && resolved > 0) {
-    const desired = `${active} problemi ancora da correggere · ${resolved} risolti dopo l’audit. Le righe verdi sono già chiuse e non vengono riproposte come Task da fare.`;
+  if (description) {
+    const desired = resolved > 0
+      ? `${active} problemi ancora da correggere · ${resolved} risolti dopo l’audit. Le righe verdi sono già chiuse e non vengono riproposte come Task da fare.`
+      : "Correggi direttamente con l’agente del progetto oppure crea una Task solo se vuoi inserirlo nel backlog.";
     if (description.textContent !== desired) description.textContent = desired;
   }
 }
@@ -196,6 +249,36 @@ function syncSelectedIssueBanner() {
   }
 }
 
+function syncBulkActionTotal() {
+  const root = document.querySelector(".wp-live-remediation");
+  const actions = root?.querySelector(".wp-live-remediation-actions");
+  if (!actions) return;
+  const bulkButton = [...actions.querySelectorAll("button")]
+    .find((button) => /Prepara anteprima di tutte le correzioni|Preparazione…/i.test(button.textContent || ""));
+  if (!bulkButton) return;
+  const total = auditIssueRows().length;
+  let badge = bulkButton.querySelector(".seogrow-bulk-total");
+  if (!badge) {
+    badge = document.createElement("span");
+    badge.className = "seogrow-bulk-total";
+    bulkButton.appendChild(badge);
+  }
+  const label = `(${total})`;
+  if (badge.textContent !== label) badge.textContent = label;
+  bulkButton.title = `Prepara l'anteprima di tutti i ${total} problemi dell'audit corrente`;
+  bulkButton.setAttribute("aria-label", `Prepara anteprima di tutte le correzioni: ${total} problemi nell'audit corrente`);
+}
+
+function syncBlockedRows() {
+  document.querySelectorAll(".wp-live-preview-row.unsupported, .wp-live-preview-row.error").forEach((row) => {
+    if (row.querySelector(".seogrow-blocked-badge")) return;
+    const badge = document.createElement("span");
+    badge.className = "seogrow-blocked-badge";
+    badge.textContent = "Non corretto";
+    row.querySelector("strong")?.insertAdjacentElement("afterend", badge);
+  });
+}
+
 function syncVerificationMessage() {
   const message = document.querySelector(".wp-live-remediation-message");
   if (!message) return;
@@ -208,6 +291,8 @@ function arrange() {
   syncResolvedPreviewRows();
   syncAuditIssueRows();
   syncSelectedIssueBanner();
+  syncBulkActionTotal();
+  syncBlockedRows();
   syncVerificationMessage();
 }
 
