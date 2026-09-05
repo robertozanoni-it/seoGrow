@@ -99,6 +99,49 @@ async function connectorStatus(base, headers) {
   };
 }
 
+const normalizeElementorDocuments = (frontend) => {
+  const rows = Array.isArray(frontend?.elementorDocuments) ? frontend.elementorDocuments : [];
+  const unique = new Map();
+  for (const row of rows) {
+    const id = Number(row?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    const type = String(row?.type || "unknown").trim().toLowerCase() || "unknown";
+    unique.set(`${id}:${type}`, { id, type });
+  }
+  return [...unique.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
+};
+
+function elementorOwnershipEvidence(entity, connector, frontend = null) {
+  const siteWideTypes = connector?.elementor === true && Array.isArray(connector.elementorSharedTemplateTypes)
+    ? connector.elementorSharedTemplateTypes.filter((value) => ELEMENTOR_SHARED_TYPES.has(value))
+    : [];
+  const frontendInspected = Boolean(frontend && typeof frontend === "object");
+  const renderedDocuments = normalizeElementorDocuments(frontend);
+  const localId = Number(entity?.id);
+  const hasLocalId = Number.isSafeInteger(localId) && localId > 0;
+  const localDocumentRendered = hasLocalId && renderedDocuments.some((document) => document.id === localId);
+  const externalRenderedDocuments = renderedDocuments.filter((document) => !hasLocalId || document.id !== localId);
+
+  let status = "not-elementor";
+  if (connector?.elementor === true) {
+    if (externalRenderedDocuments.length) status = "rendered-shared-documents";
+    else if (frontendInspected && localDocumentRendered) status = "local-document-only-observed";
+    else if (frontendInspected && siteWideTypes.length) status = "shared-templates-present-unresolved";
+    else if (frontendInspected) status = "no-rendered-shared-document-observed";
+    else if (siteWideTypes.length) status = "shared-templates-present-unresolved";
+    else status = "frontend-not-inspected";
+  }
+
+  return {
+    elementorSharedTemplateTypes: siteWideTypes,
+    elementorRenderedDocuments: renderedDocuments,
+    elementorExternalRenderedDocuments: externalRenderedDocuments,
+    elementorLocalDocumentRendered: localDocumentRendered,
+    elementorFrontendInspected: frontendInspected,
+    elementorEvidenceStatus: status,
+  };
+}
+
 function filterConnectorOwnedMeta(entity, connector, frontend = null) {
   const source = entity && typeof entity === "object" ? entity : {};
   const meta = source.meta && typeof source.meta === "object" && !Array.isArray(source.meta)
@@ -127,15 +170,12 @@ function filterConnectorOwnedMeta(entity, connector, frontend = null) {
     }
   }
 
-  const elementorSharedTemplateTypes = connector?.elementor === true && Array.isArray(connector.elementorSharedTemplateTypes)
-    ? connector.elementorSharedTemplateTypes.filter((value) => ELEMENTOR_SHARED_TYPES.has(value))
-    : [];
-
+  const elementorEvidence = elementorOwnershipEvidence(source, connector, frontend);
   return {
     ...source,
     meta,
     _seogrowOwnership: {
-      elementorSharedTemplateTypes,
+      ...elementorEvidence,
       elementorPro: connector?.elementorPro === true,
     },
   };
@@ -207,24 +247,30 @@ function registerRoutes(app) {
       ]);
 
       let frontend = null;
-      if (connector?.rankMath === true && connector?.yoast === true) {
+      const needsFrontendOwnershipEvidence = connector?.elementor === true || (connector?.rankMath === true && connector?.yoast === true);
+      if (needsFrontendOwnershipEvidence) {
         try {
           frontend = await inspectFrontend(target.href);
         } catch {
-          // Se il frontend non è verificabile, filterConnectorOwnedMeta forza l'ambiguità.
+          // L'assenza di prova frontend mantiene Elementor/SEO in stato conservativo e non autorizza scritture ambigue.
         }
       }
 
+      const filteredEntity = filterConnectorOwnedMeta(resolved.entity, connector, frontend);
+      const dualSeoPlugins = connector?.rankMath === true && connector?.yoast === true;
       return res.json({
         ok: true,
         fast: true,
         user: { id: 0, name: String(username) },
         resource: resolved.resource,
-        entity: filterConnectorOwnedMeta(resolved.entity, connector, frontend),
+        entity: filteredEntity,
         connector: connector
           ? {
               ...connector,
-              seoOwnershipEvidence: frontend ? "frontend-inspected" : "plugin-availability-only",
+              seoOwnershipEvidence: dualSeoPlugins
+                ? (frontend ? "frontend-inspected" : "frontend-unavailable")
+                : "plugin-availability-only",
+              elementorOwnershipEvidence: filteredEntity?._seogrowOwnership?.elementorEvidenceStatus || "not-elementor",
             }
           : null,
       });
@@ -234,4 +280,12 @@ function registerRoutes(app) {
   });
 }
 
-export { registerRoutes, resolveEntity, safeBase, connectorStatus, filterConnectorOwnedMeta, basePath };
+export {
+  registerRoutes,
+  resolveEntity,
+  safeBase,
+  connectorStatus,
+  filterConnectorOwnedMeta,
+  elementorOwnershipEvidence,
+  basePath,
+};
