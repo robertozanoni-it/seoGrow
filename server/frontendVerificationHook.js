@@ -64,10 +64,20 @@ function decodeEntity(entity) {
   return named[body.toLowerCase()] ?? " ";
 }
 
+function stripAlwaysHiddenMarkup(html) {
+  let value = String(html || "")
+    .replace(/<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi, " ");
+  const hiddenBlock = /<([a-z][\w:-]*)\b(?=[^>]*(?:\bhidden(?:\s|=|>)|aria-hidden\s*=\s*["']?true\b|style\s*=\s*["'][^"']*(?:display\s*:\s*none\b|visibility\s*:\s*hidden\b)))[^>]*>[\s\S]*?<\/\1\s*>/gi;
+  for (let pass = 0; pass < 4; pass += 1) {
+    const next = value.replace(hiddenBlock, " ");
+    if (next === value) break;
+    value = next;
+  }
+  return value;
+}
+
 function visibleText(html) {
-  return String(html || "")
-    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
-    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+  return stripAlwaysHiddenMarkup(html)
     .replace(/<(?:nav|footer|aside)\b[\s\S]*?<\/(?:nav|footer|aside)>/gi, " ")
     .replace(/<[^>]+>/g, " ")
     .replace(/&(?:#\d+|#x[\da-f]+|\w+);/gi, (entity) => decodeEntity(entity))
@@ -286,4 +296,4 @@ function registerRoutes(app) {
   });
 }
 
-export { registerRoutes };
+export { registerRoutes, visibleText, stripAlwaysHiddenMarkup };
