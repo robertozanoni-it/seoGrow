@@ -1,0 +1,58 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { summarizeElementorImpact } from "../server/elementorImpact.js";
+
+test("un documento Elementor solo locale non viene confuso con impatto condiviso", () => {
+  const impact = summarizeElementorImpact({
+    elementorEvidenceStatus: "local-document-only-observed",
+    elementorSharedTemplateTypes: ["header", "footer"],
+    elementorResolvedSourceDocuments: [],
+  });
+  assert.equal(impact.status, "local-only-observed");
+  assert.equal(impact.requiresImpactReview, false);
+  assert.equal(impact.affectedPagesEnumerated, false);
+  assert.equal(impact.sharedWriteAllowed, false);
+});
+
+test("header e footer renderizzati sono sorgenti condivise ad alto impatto", () => {
+  const impact = summarizeElementorImpact({
+    elementorEvidenceStatus: "rendered-shared-documents",
+    elementorResolvedSourceDocuments: [
+      { id: 88, type: "header", title: "Header principale", resolved: true, origins: ["frontend-rendered"] },
+      { id: 91, type: "footer", title: "Footer principale", resolved: true, origins: ["frontend-rendered"] },
+    ],
+  });
+  assert.equal(impact.status, "source-identified");
+  assert.equal(impact.requiresImpactReview, true);
+  assert.equal(impact.sources.length, 2);
+  assert.equal(impact.sources[0].scope, "shared-layout");
+  assert.equal(impact.sources[0].risk, "high");
+  assert.equal(impact.displayConditionsResolved, false);
+  assert.equal(impact.sharedWriteAllowed, false);
+});
+
+test("popup e template riutilizzati restano bloccati finché condizioni e raggio non sono dimostrati", () => {
+  const impact = summarizeElementorImpact({
+    elementorEvidenceStatus: "rendered-shared-documents",
+    elementorResolvedSourceDocuments: [
+      { id: 120, type: "popup", resolved: true, origins: ["frontend-rendered"] },
+      { id: 130, type: "template", resolved: false, origins: ["local-reference"] },
+    ],
+  });
+  assert.equal(impact.status, "source-partially-identified");
+  assert.deepEqual(impact.sources.map((item) => item.scope), ["conditional-overlay", "reusable-template"]);
+  assert.equal(impact.requiresImpactReview, true);
+  assert.equal(impact.affectedPagesEnumerated, false);
+  assert.equal(impact.displayConditionsResolved, false);
+});
+
+test("la sola presenza di template condivisi nel sito resta rischio irrisolto, non prova di applicazione", () => {
+  const impact = summarizeElementorImpact({
+    elementorEvidenceStatus: "shared-templates-present-unresolved",
+    elementorSharedTemplateTypes: ["single", "popup"],
+  });
+  assert.equal(impact.status, "shared-risk-unresolved");
+  assert.equal(impact.requiresImpactReview, true);
+  assert.deepEqual(impact.siteWideTypes, ["single", "popup"]);
+  assert.match(impact.summary, /non ha identificato con certezza/i);
+});
