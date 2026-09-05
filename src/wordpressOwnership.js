@@ -95,9 +95,32 @@ const renderedExternalReferences = (entity) => {
   return [...unique.values()];
 };
 
+const localOwnershipReferences = (entity) => {
+  const values = ownership(entity).elementorLocalSourceReferences;
+  if (!Array.isArray(values)) return [];
+  const unique = new Map();
+  for (const value of values) {
+    const id = Number(value?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    const sourceType = String(value?.type || "").trim().toLowerCase();
+    const reference = sourceType === "widget"
+      ? { type: "global-widget", templateType: "widget", id: String(id) }
+      : { type: "template", templateType: "reusable", id: String(id) };
+    unique.set(`${reference.type}:${reference.templateType}:${reference.id}`, reference);
+  }
+  return [...unique.values()];
+};
+
 const externalSharedReferences = (entity) => {
   const rendered = renderedExternalReferences(entity);
-  if (rendered.length) return rendered;
+  const local = localOwnershipReferences(entity);
+  const precise = [...rendered, ...local];
+  if (precise.length) {
+    return [...new Map(precise.map((reference) => [
+      `${reference.type}:${reference.templateType}:${reference.id}`,
+      reference,
+    ])).values()];
+  }
 
   const evidenceStatus = String(ownership(entity).elementorEvidenceStatus || "");
   if (["local-document-only-observed", "no-rendered-shared-document-observed"].includes(evidenceStatus)) return [];
