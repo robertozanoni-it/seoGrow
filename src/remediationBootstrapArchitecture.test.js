@@ -52,7 +52,7 @@ test("tutti gli hook remediation attivi esportano route esplicite senza patchare
   assert.equal(migratedHooks.length, 10);
   for (const source of migratedHooks) {
     assert.match(source, /function registerRoutes\(app\)/);
-    assert.match(source, /export \{[^}]*registerRoutes/);
+    assert.match(source, /export\s+(?:function\s+registerRoutes\s*\(|\{[^}]*registerRoutes)/);
     assert.doesNotMatch(source, /express\.application\.(?:use|listen)/);
     assert.doesNotMatch(source, /import express from "express"/);
   }
