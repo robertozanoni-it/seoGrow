@@ -11,6 +11,25 @@ import {
 
 test.beforeEach(() => resetElementorCoverageRegistryForTests());
 
+const discoveryProof = (totalUrls) => ({
+  method: "crawl+sitemap-reconciled",
+  discoveredUrls: totalUrls,
+  inspectedUrls: totalUrls,
+  failedUrls: 0,
+  truncated: false,
+  sitemapReconciled: true,
+  queueExhausted: true,
+});
+
+const registerTrusted = (siteUrl = "https://example.com") => registerElementorCoverageAttestation({
+  provenanceId: "crawl-verified-1",
+  siteUrl,
+  totalUrls: 3,
+  complete: true,
+  verified: true,
+  discoveryProof: discoveryProof(3),
+});
+
 const basePayload = (overrides = {}) => ({
   ok: true,
   readOnly: true,
@@ -62,13 +81,7 @@ test("claim client senza attestazione server resta non completo", () => {
 });
 
 test("attestazione server valida promuove solo l'enumerazione, mai la scrittura condivisa", () => {
-  registerElementorCoverageAttestation({
-    provenanceId: "crawl-verified-1",
-    siteUrl: "https://example.com",
-    totalUrls: 3,
-    complete: true,
-    verified: true,
-  });
+  registerTrusted();
   const result = finalizeElementorImpactCoverage(basePayload(), verifiedRequest());
   assert.equal(result.observedUrlCoverage.completeSiteEnumeration, true);
   assert.equal(result.observedUrlCoverage.coverageStatus, "verified-complete");
@@ -81,13 +94,7 @@ test("attestazione server valida promuove solo l'enumerazione, mai la scrittura 
 });
 
 test("coverage completa non basta se le Display Conditions restano non risolte", () => {
-  registerElementorCoverageAttestation({
-    provenanceId: "crawl-verified-1",
-    siteUrl: "https://example.com",
-    totalUrls: 3,
-    complete: true,
-    verified: true,
-  });
+  registerTrusted();
   const result = finalizeElementorImpactCoverage(basePayload({
     displayConditionsResolved: false,
     documents: [{
@@ -105,13 +112,7 @@ test("coverage completa non basta se le Display Conditions restano non risolte",
 });
 
 test("host diverso non può riutilizzare la provenance di un altro sito", () => {
-  registerElementorCoverageAttestation({
-    provenanceId: "crawl-verified-1",
-    siteUrl: "https://example.com",
-    totalUrls: 3,
-    complete: true,
-    verified: true,
-  });
+  registerTrusted();
   const request = verifiedRequest();
   request.siteUrl = "https://other.example.net";
   const result = finalizeElementorImpactCoverage(basePayload(), request);
