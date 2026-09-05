@@ -45,6 +45,15 @@ test("l'host usa esattamente audit type e analyzedAt richiesti senza fallback si
   assert.doesNotMatch(host, /selectAudit\([^)]*\) \|\| candidates/);
 });
 
+test("cambiare problema nell'host aggiorna anche l'identità richiesta dal live flow V2", () => {
+  assert.match(host, /const selectIssue = \(index\) =>/);
+  assert.match(host, /new CustomEvent\("seogrow-remediation-open"/);
+  assert.match(host, /issueIndex: nextIndex/);
+  assert.match(host, /auditType: selectedAudit\.type/);
+  assert.match(host, /analyzedAt: auditTimestamp\(selectedAudit\)/);
+  assert.match(host, /onChange=\{\(event\) => selectIssue\(event\.target\.value\)\}/);
+});
+
 test("i problemi verificati sono derivati dai dati e disabilitati nel selettore", () => {
   assert.match(host, /listCorrections\(\{ clientId \}\)/);
   assert.match(host, /record\.status === "Verificato"/);
