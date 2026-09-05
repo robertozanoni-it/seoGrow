@@ -1,3 +1,5 @@
+import { normalizeGdprResponse } from "./gdprResponseIntegrity.js";
+
 const SELECTED_CLIENT_KEY = "seogrow-selected-client-v1";
 const scopedRequests = new Set();
 
@@ -7,6 +9,15 @@ const selectedClientId = () => {
     return Number.isSafeInteger(Number(value)) ? Number(value) : null;
   } catch {
     return null;
+  }
+};
+
+const requestPath = (input) => {
+  try {
+    const raw = typeof input === "string" ? input : input?.url;
+    return new URL(String(raw || ""), window.location.href).pathname;
+  } catch {
+    return String(input || "").split("?")[0];
   }
 };
 
@@ -154,7 +165,7 @@ export async function apiFetch(input, init = {}) {
           await new Promise((resolve) => window.setTimeout(resolve, 250));
           continue;
         }
-        return response;
+        return await normalizeGdprResponse(response, requestPath(input), preparedInit);
       } catch (error) {
         lastError = error;
         if (attempt + 1 >= attempts)
