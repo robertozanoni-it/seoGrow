@@ -12,6 +12,7 @@ import { isNonEditableWordPressUrl } from "./wordpressRemediationRuntimePatch.js
 const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./wordpressRemediationRuntimePatch.js", import.meta.url), "utf8");
 const liveControl = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 const connector = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url), "utf8");
 
 const words = (count) => Array.from({ length: count }, (_, index) => `parola${index}`).join(" ");
@@ -156,6 +157,13 @@ test("il runtime legacy non tronca né riscrive più il payload di approvazione"
   assert.doesNotMatch(runtime, /data\.previewBefore\s*=/);
   assert.doesNotMatch(runtime, /data\.previewAfter\s*=/);
   assert.match(runtime, /return previousFetch\(effectiveInput, init\)/);
+});
+
+test("il runtime browser non carica più il monkey-patch remediation legacy", () => {
+  assert.doesNotMatch(main, /import ['\"]\.\/wordpressRemediationRuntimePatch['\"]/);
+  assert.match(liveControl, /\/api\/wordpress\/inspect-fast/);
+  assert.match(liveControl, /\/api\/wordpress\/generate-patch-v2/);
+  assert.match(liveControl, /\/api\/wordpress\/generate-seo-value-v2/);
 });
 
 test("archivi e query WordPress non editabili vengono esclusi prima dell'ispezione", () => {
