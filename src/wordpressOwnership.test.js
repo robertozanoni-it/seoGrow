@@ -26,12 +26,13 @@ test("Elementor può essere identificato da probe completi anche senza copertura
   assert.equal(result.candidate?.id, "widget-a");
 });
 
-test("Theme Builder o popup condivisi bloccano il fallback core anche senza _elementor_data locale", () => {
+test("Theme Builder o popup condivisi bloccano il fallback core quando l'ownership frontend non è ancora risolta", () => {
   const entity = {
     content: { raw: "Contenuto core locale" },
     meta: {},
     _seogrowOwnership: {
       elementorSharedTemplateTypes: ["single", "popup"],
+      elementorEvidenceStatus: "shared-templates-present-unresolved",
     },
   };
   assert.equal(hasElementorDocument(entity), true);
@@ -40,6 +41,64 @@ test("Theme Builder o popup condivisi bloccano il fallback core anche senza _ele
   assert.equal(state.hasDocument, true);
   assert.equal(state.widgets.length, 0);
   assert.deepEqual(state.sharedReferences.map((item) => item.templateType), ["single", "popup"]);
+});
+
+test("documenti Elementor condivisi effettivamente renderizzati bloccano i candidati locali e conservano gli ID", () => {
+  const entity = {
+    meta: {
+      _elementor_data: JSON.stringify([
+        {
+          id: "local-text",
+          widgetType: "text-editor",
+          settings: { editor: "Testo locale modificabile con abbastanza parole per essere candidato." },
+          elements: [],
+        },
+      ]),
+    },
+    _seogrowOwnership: {
+      elementorSharedTemplateTypes: ["header", "footer", "popup"],
+      elementorEvidenceStatus: "rendered-shared-documents",
+      elementorLocalDocumentRendered: true,
+      elementorExternalRenderedDocuments: [
+        { id: 88, type: "header" },
+        { id: 91, type: "footer" },
+      ],
+    },
+  };
+  const state = inspectEditableElementor("content", entity);
+  assert.equal(state.state, "valid");
+  assert.equal(state.hasDocument, true);
+  assert.equal(state.widgets.length, 0);
+  assert.deepEqual(state.sharedReferences, [
+    { type: "rendered-document", templateType: "header", id: "88" },
+    { type: "rendered-document", templateType: "footer", id: "91" },
+  ]);
+});
+
+test("template condivisi presenti altrove nel sito non sopprimono i widget locali quando il frontend mostra solo la pagina corrente", () => {
+  const entity = {
+    meta: {
+      _elementor_data: JSON.stringify([
+        {
+          id: "local-text",
+          widgetType: "text-editor",
+          settings: { editor: "Testo locale statico modificabile e attribuibile al documento corrente." },
+          elements: [],
+        },
+      ]),
+    },
+    _seogrowOwnership: {
+      elementorSharedTemplateTypes: ["header", "footer", "popup"],
+      elementorEvidenceStatus: "local-document-only-observed",
+      elementorLocalDocumentRendered: true,
+      elementorExternalRenderedDocuments: [],
+    },
+  };
+  const state = inspectEditableElementor("content", entity);
+  assert.equal(state.state, "valid");
+  assert.equal(state.sharedReferences.length, 0);
+  assert.equal(state.widgets.length, 1);
+  assert.equal(state.widgets[0].id, "local-text");
 });
 
 test("un Template widget riutilizzato rende ambiguo il documento e sopprime i candidati locali", () => {
