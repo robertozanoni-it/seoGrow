@@ -30,16 +30,13 @@ const OPENED_BATCH_KEY = "seogrow-remediation-opened-batch-v1";
 const readJson = (key, fallback) => {
   try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
 };
-
 const currentHash = () => {
   try { return decodeURIComponent(window.location.hash.slice(1)); } catch { return ""; }
 };
-
 const preview = (value, max = 300) => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
   return text.length > max ? `${text.slice(0, max)}…` : text || "—";
 };
-
 const statusClass = (status) => String(status || "").toLowerCase().replaceAll(" ", "-");
 const isVerified = (record) => record.status === "Verificato";
 const isPending = (record) => record.status === "Applicato" || record.status === "Da verificare";
@@ -163,13 +160,18 @@ export default function CorrectionsWorkspace() {
       return;
     }
     const changes = record.before && typeof record.before === "object" ? record.before : {};
+    const expectedCurrent = record.after && typeof record.after === "object" ? record.after : {};
     if (!Object.keys(changes).length) {
       setMessage("Questa correzione non contiene uno snapshot precedente ripristinabile.");
       return;
     }
-    if (!window.confirm(`Ripristinare la versione precedente per “${record.issueLabel}”?`)) return;
+    if (!Object.keys(expectedCurrent).length) {
+      setMessage("Rollback bloccato: manca lo snapshot dello stato applicato necessario per verificare che WordPress non sia cambiato nel frattempo.");
+      return;
+    }
+    if (!window.confirm(`Ripristinare la versione precedente per “${record.issueLabel}”? Prima del rollback SeoGrow controllerà che WordPress sia ancora nello stato applicato da questa correzione.`)) return;
     setRollingBack(id);
-    setMessage("Rollback in corso…");
+    setMessage("Controllo stale-state e rollback in corso…");
     try {
       const response = await fetch("/api/wordpress/remediate", {
         method: "POST",
@@ -181,17 +183,19 @@ export default function CorrectionsWorkspace() {
           resource: record.resource,
           id: record.entityId,
           changes,
+          expectedCurrent,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Rollback WordPress non riuscito");
+      if (data.staleChecked !== true) throw new Error("Rollback rifiutato: il server non ha confermato il controllo stale-state.");
       const updated = await updateCorrection(id, {
         status: "Ripristinato",
         rollbackAt: new Date().toISOString(),
-        rollbackNote: "Versione precedente ripristinata e confermata da WordPress.",
+        rollbackNote: "Versione precedente ripristinata dopo verifica che lo stato WordPress non fosse cambiato.",
       });
       if (updated) reopenTask(updated);
-      setMessage("Rollback completato. La Task relativa è stata riaperta.");
+      setMessage("Rollback completato in sicurezza. La Task relativa è stata riaperta.");
       setVersion((value) => value + 1);
     } catch (error) {
       setMessage(`Rollback non riuscito: ${error.message}`);
@@ -244,7 +248,7 @@ export default function CorrectionsWorkspace() {
       </div>
 
       <section className="panel corrections-security">
-        <div><ShieldCheck /><span><strong>Rollback WordPress</strong><small>La password applicativa serve solo se vuoi ripristinare una versione precedente e non viene salvata.</small></span></div>
+        <div><ShieldCheck /><span><strong>Rollback WordPress stale-safe</strong><small>Prima di ripristinare, SeoGrow verifica che i campi live siano ancora uguali allo snapshot applicato. Modifiche successive bloccano il rollback.</small></span></div>
         <input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Password applicativa WordPress" autoComplete="new-password" />
       </section>
 
@@ -289,7 +293,7 @@ export default function CorrectionsWorkspace() {
                   <div className="correction-footer">
                     <div>
                       <strong>{verified ? "Correzione confermata" : "Correzione non ancora chiudibile"}</strong>
-                      <span>{verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere rimossa dalle attività aperte." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
+                      <span>{verified ? "Il frontend e il controllo SEO hanno confermato il risultato; la Task relativa può essere chiusa." : "La scrittura WordPress da sola non basta: la Task resta attiva finché il frontend e SeoGrow non confermano il risultato."}</span>
                     </div>
                     <button type="button" className="secondary" disabled={rollingBack === record.id || record.status === "Ripristinato"} onClick={() => rollback(record.id)}><RotateCcw />{rollingBack === record.id ? "Ripristino…" : "Ripristina versione precedente"}</button>
                   </div>
