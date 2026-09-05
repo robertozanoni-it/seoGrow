@@ -13,6 +13,7 @@ const migratedHooks = await Promise.all([
   "wordpressSeoAdapterV2Hook.js",
   "frontendVerificationHook.js",
   "wordpressInspectFastHook.js",
+  "elementorImpactHook.js",
   "wordpressTaxonomyHook.js",
   "wordpressPatchV2Hook.js",
 ].map(readServer));
@@ -34,6 +35,8 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
   assert.match(bootstrap, /"connection-check"/);
   assert.match(bootstrap, /"inspect-fast"/);
   assert.match(bootstrap, /"inspect-taxonomy"/);
+  assert.match(bootstrap, /"elementor-impact-read-only"/);
+  assert.match(bootstrap, /elementorImpactMode: "read-only-evidence-no-shared-write"/);
   assert.match(bootstrap, /taxonomyMode: "single-field-explicit-approval-stale-safe"/);
   assert.match(bootstrap, /"live-preview"/);
   assert.match(bootstrap, /"live-apply"/);
@@ -42,7 +45,7 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
 });
 
 test("tutti gli hook remediation attivi esportano route esplicite senza patchare express.application", () => {
-  assert.equal(migratedHooks.length, 8);
+  assert.equal(migratedHooks.length, 9);
   for (const source of migratedHooks) {
     assert.match(source, /function registerRoutes\(app\)/);
     assert.match(source, /export \{[^}]*registerRoutes/);
