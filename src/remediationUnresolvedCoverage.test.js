@@ -14,9 +14,10 @@ test("title ed excerpt possono usare contesto ridotto senza allentare la protezi
   assert.match(patchServer, /const context = aiContext\(page, kind\)/);
 });
 
-test("la meta description ritenta OpenAI e usa un fallback deterministico solo dopo due fallimenti", () => {
-  assert.match(seoServer, /for \(let attempt = 0; attempt < 2; attempt \+= 1\)/);
-  assert.match(seoServer, /requestValue\(kind, issue, context, attempt > 0\)/);
+test("la meta description ritenta OpenAI con feedback e usa un fallback deterministico dopo tre tentativi", () => {
+  assert.match(seoServer, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
+  assert.match(seoServer, /requestValue\(kind, issue, context, attempt > 0, qualityFeedback\)/);
+  assert.match(seoServer, /qualityFeedback = quality\.errors\.join\(" "\)/);
   assert.match(seoServer, /deterministicMetaDescription/);
   assert.match(seoServer, /kind === "meta_description"/);
   assert.match(seoServer, /max_output_tokens: retry \? 1200 : 900/);
