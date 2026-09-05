@@ -31,8 +31,13 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
   assert.match(bootstrap, /\/api\/wordpress\/remediation-capabilities/);
   assert.match(bootstrap, /engine: "v2"/);
   assert.match(bootstrap, /"inspect-fast"/);
-  assert.match(bootstrap, /"inspect-taxonomy-read-only"/);
-  assert.match(bootstrap, /taxonomyMode: "read-only-exact-identity"/);
+  assert.match(bootstrap, /"inspect-taxonomy"/);
+  assert.match(bootstrap, /"taxonomy-preview"/);
+  assert.match(bootstrap, /"taxonomy-apply"/);
+  assert.match(bootstrap, /"taxonomy-rollback-preview"/);
+  assert.match(bootstrap, /"taxonomy-verify"/);
+  assert.match(bootstrap, /taxonomyMode: "single-field-explicit-approval-stale-safe"/);
+  assert.match(bootstrap, /taxonomyConnectorMinimum: "1\.3\.0"/);
   assert.match(bootstrap, /"live-preview"/);
   assert.match(bootstrap, /"live-apply"/);
   assert.match(bootstrap, /"live-rollback"/);
