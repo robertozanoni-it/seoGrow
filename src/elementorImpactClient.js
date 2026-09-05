@@ -64,8 +64,8 @@ export async function inspectElementorImpactEvidence(entity, credentials) {
       ...data,
       readOnly: true,
       sharedWriteAllowed: false,
-      displayConditionsResolved: data?.displayConditionsResolved === true ? true : false,
-      affectedPagesEnumerated: data?.affectedPagesEnumerated === true ? true : false,
+      displayConditionsResolved: false,
+      affectedPagesEnumerated: false,
     };
   } catch (error) {
     // L'impact analysis è diagnostica read-only: un timeout/rete non deve mai
