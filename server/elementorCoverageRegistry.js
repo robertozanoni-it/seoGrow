@@ -7,6 +7,11 @@ const safePositiveCount = (value) => {
   return Number.isSafeInteger(number) && number > 0 ? number : null;
 };
 
+const safeNonNegativeCount = (value) => {
+  const number = Number(value);
+  return Number.isSafeInteger(number) && number >= 0 ? number : null;
+};
+
 const cleanId = (value) => String(value || "").trim().slice(0, 200);
 
 const cleanHost = (value) => {
@@ -17,6 +22,18 @@ const cleanHost = (value) => {
     return "";
   }
 };
+
+function normalizeDiscoveryProof(proof = {}) {
+  return {
+    method: String(proof?.method || "").trim().slice(0, 80),
+    discoveredUrls: safePositiveCount(proof?.discoveredUrls),
+    inspectedUrls: safePositiveCount(proof?.inspectedUrls),
+    failedUrls: safeNonNegativeCount(proof?.failedUrls),
+    truncated: proof?.truncated === true,
+    sitemapReconciled: proof?.sitemapReconciled === true,
+    queueExhausted: proof?.queueExhausted === true,
+  };
+}
 
 function purgeExpired(now = Date.now()) {
   for (const [key, entry] of REGISTRY.entries()) {
@@ -30,6 +47,7 @@ export function registerElementorCoverageAttestation({
   totalUrls,
   complete,
   verified,
+  discoveryProof,
   now = Date.now(),
   ttlMs = DEFAULT_TTL_MS,
 } = {}) {
@@ -37,12 +55,25 @@ export function registerElementorCoverageAttestation({
   const id = cleanId(provenanceId);
   const host = cleanHost(siteUrl);
   const total = safePositiveCount(totalUrls);
+  const discovery = normalizeDiscoveryProof(discoveryProof);
   const ttl = Math.min(Math.max(Number(ttlMs) || DEFAULT_TTL_MS, 60_000), 24 * 60 * 60_000);
   if (!id) throw new Error("provenanceId crawl obbligatorio.");
   if (!host) throw new Error("siteUrl HTTPS valido obbligatorio per l'attestazione crawl.");
   if (total === null) throw new Error("totalUrls crawl deve essere un intero positivo.");
   if (complete !== true || verified !== true) {
     throw new Error("Solo crawl completi e verificati dal backend possono essere attestati.");
+  }
+  if (discovery.method !== "crawl+sitemap-reconciled") {
+    throw new Error("L'attestazione richiede discovery crawl+sitemap riconciliata.");
+  }
+  if (!discovery.sitemapReconciled || !discovery.queueExhausted || discovery.truncated) {
+    throw new Error("La discovery del sito non è completa o risulta troncata.");
+  }
+  if (discovery.failedUrls !== 0) {
+    throw new Error("Una discovery con URL fallite non può attestare copertura completa.");
+  }
+  if (discovery.discoveredUrls !== total || discovery.inspectedUrls !== total) {
+    throw new Error("Le URL scoperte e ispezionate devono coincidere con il totale attestato.");
   }
 
   const entry = Object.freeze({
@@ -52,6 +83,7 @@ export function registerElementorCoverageAttestation({
     complete: true,
     verified: true,
     source: "server-crawl-registry",
+    discoveryProof: Object.freeze(discovery),
     createdAt: now,
     expiresAt: now + ttl,
   });
