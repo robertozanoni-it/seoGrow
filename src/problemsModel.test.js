@@ -47,6 +47,39 @@ test("task completata non trasforma il problema in risolto", () => {
   assert.equal(result.rows[0].interventionState, "task_completed");
 });
 
+test("le fonti operative usano la stessa cronologia degli eventi di stato", () => {
+  const result = buildUnifiedProblems({
+    clientId: 1,
+    tasks: [{
+      id: "task-1",
+      sourceClientId: 1,
+      kind: "duplicate-title",
+      title: "Title duplicato",
+      sourceUrl: "https://example.it/pagina/",
+      status: "Completato",
+      updatedAt: "2026-09-05T09:00:00Z",
+      completedAt: "2026-09-05T11:00:00Z",
+    }],
+    corrections: [{
+      id: "correction-1",
+      clientId: 1,
+      issueType: "duplicate-title",
+      issueLabel: "Title duplicato",
+      sourceUrl: "https://example.it/pagina/",
+      status: "Ripristinato",
+      verifiedAt: "2026-09-05T08:00:00Z",
+      appliedAt: "2026-09-05T07:30:00Z",
+      rollbackAt: "2026-09-05T12:00:00Z",
+      verificationNote: "Rollback eseguito.",
+    }],
+  });
+  const row = result.rows[0];
+  assert.equal(row.sources[0].kind, "correction");
+  assert.equal(row.sources[0].at, "2026-09-05T12:00:00Z");
+  assert.equal(row.sources[1].kind, "task");
+  assert.equal(row.sources[1].at, "2026-09-05T11:00:00Z");
+});
+
 test("audit pagina successivo non elimina la copertura del crawl sito", () => {
   const pageIssue = { type: "h1", label: "0 H1 rilevati", severity: "alta", targetUrl: "https://example.it/seconda" };
   const result = buildUnifiedProblems({
