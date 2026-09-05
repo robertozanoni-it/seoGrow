@@ -1,5 +1,8 @@
 import { apiFetch } from "./api.js";
 
+const COVERAGE_ATTESTATION_TTL_MS = 5 * 60_000;
+const coverageAttestationCache = new Map();
+
 const ownershipOf = (entity) => entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
   ? entity._seogrowOwnership
   : {};
@@ -75,10 +78,75 @@ const normalizeCoverageProofForRequest = (coverageProof) => {
   };
 };
 
+const coverageCredentialKey = (credentials) => [
+  String(credentials?.url || "").trim(),
+  String(credentials?.username || "").trim(),
+].join("|");
+
+export async function requestElementorCoverageAttestation(credentials) {
+  const url = String(credentials?.url || "").trim();
+  const username = String(credentials?.username || "").trim();
+  const applicationPassword = String(credentials?.applicationPassword || "");
+  if (!url || !username || !applicationPassword) return null;
+
+  const key = coverageCredentialKey(credentials);
+  const now = Date.now();
+  const cached = coverageAttestationCache.get(key);
+  if (cached && cached.expiresAt > now) return cached.promise;
+
+  const promise = (async () => {
+    try {
+      const response = await apiFetch("/api/wordpress/elementor-coverage-attest", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          siteUrl: url,
+          username,
+          applicationPassword,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok || data?.verified !== true) return null;
+      const candidateUrls = Array.isArray(data?.candidateUrls) ? data.candidateUrls : [];
+      const totalUrls = Number(data?.totalUrls);
+      const provenanceId = String(data?.provenanceId || "").trim();
+      if (!candidateUrls.length || !Number.isSafeInteger(totalUrls) || totalUrls !== candidateUrls.length || !provenanceId) {
+        return null;
+      }
+      return {
+        candidateUrls,
+        coverageProof: {
+          source: "verified-complete-crawl",
+          totalUrls,
+          complete: true,
+          verified: true,
+          provenanceId,
+        },
+        expiresAt: Number(data?.expiresAt) || 0,
+      };
+    } catch {
+      return null;
+    }
+  })();
+
+  coverageAttestationCache.set(key, { promise, expiresAt: now + COVERAGE_ATTESTATION_TTL_MS });
+  return promise;
+}
+
 export async function inspectElementorImpactEvidence(entity, credentials, candidateUrls = [], coverageProof = null) {
   const documents = elementorSourceDocuments(entity);
   if (!documents.length) return null;
   try {
+    let effectiveCandidateUrls = Array.isArray(candidateUrls) ? candidateUrls : [];
+    let effectiveCoverageProof = coverageProof;
+    if (!effectiveCoverageProof) {
+      const attested = await requestElementorCoverageAttestation(credentials);
+      if (attested) {
+        effectiveCandidateUrls = attested.candidateUrls;
+        effectiveCoverageProof = attested.coverageProof;
+      }
+    }
+
     const response = await apiFetch("/api/wordpress/elementor-impact-inspect", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -91,8 +159,8 @@ export async function inspectElementorImpactEvidence(entity, credentials, candid
           type: String(entity?.type || "").trim().toLowerCase(),
         },
         documents,
-        candidateUrls: Array.isArray(candidateUrls) ? candidateUrls : [],
-        coverageProof: normalizeCoverageProofForRequest(coverageProof),
+        candidateUrls: effectiveCandidateUrls,
+        coverageProof: normalizeCoverageProofForRequest(effectiveCoverageProof),
       }),
     });
     const data = await response.json();
