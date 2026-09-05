@@ -54,6 +54,24 @@ const normalizedType = (value) => {
   return IMPACT_BY_TYPE[type] ? type : "unknown";
 };
 
+const impactEvidenceOf = (ownership) => ownership?.elementorImpactEvidence &&
+  typeof ownership.elementorImpactEvidence === "object" &&
+  !Array.isArray(ownership.elementorImpactEvidence)
+  ? ownership.elementorImpactEvidence
+  : null;
+
+const impactEvidenceById = (ownership) => {
+  const evidence = impactEvidenceOf(ownership);
+  const rows = Array.isArray(evidence?.documents) ? evidence.documents : [];
+  const byId = new Map();
+  for (const row of rows) {
+    const id = Number(row?.id);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    byId.set(id, row);
+  }
+  return { evidence, byId };
+};
+
 const normalizeSources = (ownership) => {
   const resolved = Array.isArray(ownership?.elementorResolvedSourceDocuments)
     ? ownership.elementorResolvedSourceDocuments
@@ -63,6 +81,7 @@ const normalizeSources = (ownership) => {
     : [];
   const rows = resolved.length ? resolved : fallback;
   const unique = new Map();
+  const { byId } = impactEvidenceById(ownership);
 
   for (const row of rows) {
     const id = Number(row?.id);
@@ -70,6 +89,7 @@ const normalizeSources = (ownership) => {
     const type = normalizedType(row?.type);
     const key = `${id}:${type}`;
     const impact = IMPACT_BY_TYPE[type];
+    const evidence = byId.get(id);
     const incoming = {
       id,
       type,
@@ -80,6 +100,16 @@ const normalizeSources = (ownership) => {
       risk: impact.risk,
       label: impact.label,
       reason: impact.reason,
+      displayConditionsResolved: evidence?.ok === true && evidence?.displayConditionsResolved === true,
+      conditionsObserved: evidence?.conditionsObserved === true,
+      conditionSemanticStatus: String(evidence?.conditionInterpretation?.semanticStatus || ""),
+      entireSiteIncluded: evidence?.conditionInterpretation?.entireSiteIncluded === true,
+      observedRenderedCount: Number.isFinite(Number(evidence?.observedRenderedCount))
+        ? Math.max(0, Number(evidence.observedRenderedCount))
+        : 0,
+      observedRenderedUrls: Array.isArray(evidence?.observedRenderedUrls)
+        ? [...new Set(evidence.observedRenderedUrls.map(String).filter(Boolean))]
+        : [],
     };
     const previous = unique.get(key);
     if (!previous) {
@@ -91,6 +121,12 @@ const normalizeSources = (ownership) => {
       title: previous.title || incoming.title,
       resolved: previous.resolved || incoming.resolved,
       origins: [...new Set([...previous.origins, ...incoming.origins])],
+      displayConditionsResolved: previous.displayConditionsResolved || incoming.displayConditionsResolved,
+      conditionsObserved: previous.conditionsObserved || incoming.conditionsObserved,
+      conditionSemanticStatus: previous.conditionSemanticStatus || incoming.conditionSemanticStatus,
+      entireSiteIncluded: previous.entireSiteIncluded || incoming.entireSiteIncluded,
+      observedRenderedCount: Math.max(previous.observedRenderedCount, incoming.observedRenderedCount),
+      observedRenderedUrls: [...new Set([...previous.observedRenderedUrls, ...incoming.observedRenderedUrls])],
     });
   }
 
@@ -104,15 +140,23 @@ export function summarizeElementorImpact(input) {
     ? [...new Set(ownership.elementorSharedTemplateTypes.map(normalizedType))]
     : [];
   const sources = normalizeSources(ownership);
+  const { evidence } = impactEvidenceById(ownership);
   const hasSharedSources = sources.length > 0;
   const unresolvedSiteWideRisk = !hasSharedSources && evidenceStatus === "shared-templates-present-unresolved";
   const localOnly = !hasSharedSources && ["local-document-only-observed", "no-rendered-shared-document-observed"].includes(evidenceStatus);
+  const displayConditionsResolved = hasSharedSources && evidence?.ok !== false &&
+    sources.every((source) => source.displayConditionsResolved === true);
+  const affectedPagesEnumerated = displayConditionsResolved && evidence?.affectedPagesEnumerated === true &&
+    evidence?.observedUrlCoverage?.completeSiteEnumeration === true;
 
   let status = "not-elementor";
   let summary = "Nessuna ownership Elementor condivisa rilevata.";
   if (hasSharedSources) {
     status = sources.every((source) => source.resolved) ? "source-identified" : "source-partially-identified";
-    summary = `SeoGrow ha identificato ${sources.length} sorgent${sources.length === 1 ? "e" : "i"} Elementor condivis${sources.length === 1 ? "a" : "e"}. Il raggio completo sulle altre URL non è ancora enumerato: nessuna scrittura condivisa è autorizzata.`;
+    const conditionNote = displayConditionsResolved
+      ? " Le Display Conditions note risultano semanticamente risolte, ma il raggio completo sulle altre URL non è ancora enumerato."
+      : " Le condizioni applicative o il raggio sulle altre URL non sono ancora completamente risolti.";
+    summary = `SeoGrow ha identificato ${sources.length} sorgent${sources.length === 1 ? "e" : "i"} Elementor condivis${sources.length === 1 ? "a" : "e"}.${conditionNote} Nessuna scrittura condivisa è autorizzata.`;
   } else if (unresolvedSiteWideRisk) {
     status = "shared-risk-unresolved";
     summary = `Nel sito esistono template Elementor condivisi${siteWideTypes.length ? ` (${siteWideTypes.join(", ")})` : ""}, ma SeoGrow non ha identificato con certezza quali governino questa URL.`;
@@ -131,8 +175,17 @@ export function summarizeElementorImpact(input) {
     siteWideTypes,
     sharedWriteAllowed: false,
     requiresImpactReview: hasSharedSources || unresolvedSiteWideRisk,
-    affectedPagesEnumerated: false,
-    displayConditionsResolved: false,
-    impactConfidence: hasSharedSources ? "source-identified-scope-not-enumerated" : localOnly ? "local-observation" : "low",
+    affectedPagesEnumerated,
+    displayConditionsResolved,
+    observedUrlCoverage: evidence?.observedUrlCoverage || null,
+    impactConfidence: affectedPagesEnumerated
+      ? "conditions-and-site-enumeration-resolved"
+      : displayConditionsResolved
+        ? "conditions-resolved-scope-not-enumerated"
+        : hasSharedSources
+          ? "source-identified-scope-not-enumerated"
+          : localOnly
+            ? "local-observation"
+            : "low",
   };
 }
