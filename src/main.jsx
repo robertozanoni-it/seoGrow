@@ -21,7 +21,7 @@ import AuditWorkspace from './AuditWorkspace';
 import AuditUnifiedRemediation from './AuditUnifiedRemediation';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
 import WordPressConnectionControl from './WordPressConnectionControl';
-import WordPressLiveRemediationControl from './WordPressLiveRemediationControl';
+import WordPressLiveRemediationControlV2 from './WordPressLiveRemediationControlV2';
 import WordPressConnectorControl from './WordPressConnectorControl';
 import './styles.css';
 
@@ -58,7 +58,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuditWorkspace />
       <AuditUnifiedRemediation />
       <WordPressConnectionControl />
-      <WordPressLiveRemediationControl />
+      <WordPressLiveRemediationControlV2 />
       <WordPressConnectorControl />
       <CorrectionsWorkspace />
     </AppErrorBoundary>
