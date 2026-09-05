@@ -1,4 +1,5 @@
 import { pinnedHttpsFetch } from "./pinnedHttpsFetch.js";
+import { registerElementorImpactRoutesWithCoverage } from "./elementorCoverageRouteDecorator.js";
 
 const nativeFetch = globalThis.fetch.bind(globalThis);
 const requestUserAgent = (input, options) => {
@@ -33,6 +34,7 @@ const remediationModules = await Promise.all([
   import("./wordpressPatchV2Hook.js"),
 ]);
 
+const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
 const ROUTES_ATTACHED = Symbol.for("seogrow.remediationRoutesAttached");
 
 export function registerRemediationRoutes(app) {
@@ -50,6 +52,7 @@ export function registerRemediationRoutes(app) {
         "inspect-fast",
         "inspect-taxonomy",
         "elementor-impact-read-only",
+        "elementor-impact-server-attested-coverage",
         "taxonomy-preview",
         "taxonomy-apply",
         "taxonomy-rollback-preview",
@@ -63,14 +66,19 @@ export function registerRemediationRoutes(app) {
       ],
       liveMode: "single-explicit-approval",
       taxonomyMode: "single-field-explicit-approval-stale-safe",
-      elementorImpactMode: "read-only-evidence-no-shared-write",
+      elementorImpactMode: "read-only-server-attested-coverage-no-shared-write",
       taxonomyConnectorMinimum: "1.3.0",
       draftCopyCompatibility: false,
     });
   });
 
-  for (const module of remediationModules) {
-    if (typeof module.registerRoutes === "function") module.registerRoutes(app);
+  for (const [index, module] of remediationModules.entries()) {
+    if (typeof module.registerRoutes !== "function") continue;
+    if (index === ELEMENTOR_IMPACT_MODULE_INDEX) {
+      registerElementorImpactRoutesWithCoverage(app, module);
+      continue;
+    }
+    module.registerRoutes(app);
   }
 }
 
