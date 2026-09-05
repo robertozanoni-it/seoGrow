@@ -122,6 +122,24 @@ const wordpressPaginationSkip = (input, init) => {
   }
 };
 
+const wordpressSiteUrlFromUi = () => {
+  if (typeof document === "undefined") return "";
+  return document.querySelector(".audit-unified-credentials input[autocomplete='url']")?.value?.trim() || "";
+};
+
+export const withExplicitWordPressSiteUrl = (path, init) => {
+  if (path !== "/api/wordpress/inspect-fast" || String(init?.method || "GET").toUpperCase() !== "POST" || typeof init?.body !== "string") return init;
+  try {
+    const payload = JSON.parse(init.body);
+    if (!payload || typeof payload !== "object" || Array.isArray(payload) || payload.siteUrl) return init;
+    const siteUrl = wordpressSiteUrlFromUi();
+    if (!siteUrl) return init;
+    return { ...init, body: JSON.stringify({ ...payload, siteUrl }) };
+  } catch {
+    return init;
+  }
+};
+
 export async function apiFetch(input, init = {}) {
   const method = String(init.method || "GET").toUpperCase();
   const attempts = method === "GET" ? 2 : 1;
@@ -130,9 +148,10 @@ export async function apiFetch(input, init = {}) {
   const path = requestPath(input);
   const skipped = wordpressPaginationSkip(input, init);
   if (skipped) return skipped;
-  const preparedInit = inputText.includes("/api/generate")
+  const generatedInit = inputText.includes("/api/generate")
     ? { ...init, body: trimGenerateContext(init.body) }
     : init;
+  const preparedInit = withExplicitWordPressSiteUrl(path, generatedInit);
   const projectScoped = isPaidOrLongRunningRequest(inputText);
   const projectController = projectScoped ? new AbortController() : null;
   const scopeEntry = projectController
