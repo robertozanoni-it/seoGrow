@@ -1,0 +1,21 @@
+.remediation-host[data-remediation-platform="gptsites"] > .wp-live-remediation,
+.remediation-host[data-remediation-platform="manual"] > .wp-live-remediation {
+  display: none;
+}
+
+.remediation-host-nonwp {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.remediation-host-nonwp .secondary {
+  width: fit-content;
+}
+
+.remediation-host .audit-unified-badge {
+  white-space: nowrap;
+}
+
+.remediation-host .audit-issue-select option:disabled {
+  color: var(--text-muted, #7c8799);
+}
