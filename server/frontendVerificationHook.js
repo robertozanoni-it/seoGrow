@@ -70,6 +70,18 @@ export function hasResponsiveHiddenMarkup(html) {
   return new RegExp(`class\\s*=\\s*["'][^"']*${responsiveHiddenClass}`, "i").test(String(html || ""));
 }
 
+export function elementorRenderedDocuments(html) {
+  const documents = new Map();
+  for (const match of String(html || "").matchAll(/<[^>]+\bdata-elementor-id\s*=\s*["'](\d+)["'][^>]*>/gi)) {
+    const id = Number(match[1]);
+    if (!Number.isSafeInteger(id) || id <= 0) continue;
+    const tag = String(match[0] || "");
+    const type = firstMatch(tag, /\bdata-elementor-type\s*=\s*["']([^"']+)["']/i).toLowerCase() || "unknown";
+    documents.set(`${id}:${type}`, { id, type });
+  }
+  return [...documents.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
+}
+
 function stripAlwaysHiddenMarkup(html) {
   let value = String(html || "")
     .replace(/<(?:script|style|template|noscript)\b[\s\S]*?<\/(?:script|style|template|noscript)>/gi, " ");
@@ -225,6 +237,7 @@ function signals(page) {
   const canonical = canonicalHref(page.html);
   const responsiveHiddenMarkupDetected = hasResponsiveHiddenMarkup(page.html);
   const requiresBrowserVerification = responsiveHiddenMarkupDetected;
+  const elementorDocuments = elementorRenderedDocuments(page.html);
   return {
     title,
     metaDescription,
@@ -243,6 +256,7 @@ function signals(page) {
     visibilityConfidence: requiresBrowserVerification ? "low" : "medium",
     responsiveHiddenMarkupDetected,
     requiresBrowserVerification,
+    elementorDocuments,
   };
 }
 
@@ -271,6 +285,7 @@ async function inspect(url) {
     visibilityConfidence: result.visibilityConfidence,
     responsiveHiddenMarkupDetected: result.responsiveHiddenMarkupDetected,
     requiresBrowserVerification: result.requiresBrowserVerification,
+    elementorDocuments: result.elementorDocuments,
     _visibleText: result.text,
   };
 }
