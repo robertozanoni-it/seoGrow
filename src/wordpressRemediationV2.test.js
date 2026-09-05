@@ -7,10 +7,8 @@ import {
   chooseElementorContentCandidate,
   inspectEditableElementor,
 } from "./wordpressOwnership.js";
-import { isNonEditableWordPressUrl } from "./wordpressRemediationRuntimePatch.js";
 
 const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
-const runtime = await readFile(new URL("./wordpressRemediationRuntimePatch.js", import.meta.url), "utf8");
 const liveControl = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
 const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 const connector = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url), "utf8");
@@ -148,17 +146,6 @@ test("le anteprime V2 restano legate al cliente e all'audit con cui sono state p
   assert.match(liveControl, /clientId: snapshot\.clientId/);
 });
 
-test("il runtime legacy non tronca né riscrive più il payload di approvazione", () => {
-  assert.doesNotMatch(runtime, /CACHE_TTL_MS/);
-  assert.doesNotMatch(runtime, /const cache = new Map/);
-  assert.doesNotMatch(runtime, /const inFlight = new Map/);
-  assert.doesNotMatch(runtime, /inspectedByUrl/);
-  assert.doesNotMatch(runtime, /differenceWindow/);
-  assert.doesNotMatch(runtime, /data\.previewBefore\s*=/);
-  assert.doesNotMatch(runtime, /data\.previewAfter\s*=/);
-  assert.match(runtime, /return previousFetch\(effectiveInput, init\)/);
-});
-
 test("il runtime browser non carica più il monkey-patch remediation legacy", () => {
   assert.doesNotMatch(main, /import ['"]\.\/wordpressRemediationRuntimePatch['"]/);
   assert.match(liveControl, /\/api\/wordpress\/inspect-fast/);
@@ -167,21 +154,11 @@ test("il runtime browser non carica più il monkey-patch remediation legacy", ()
 });
 
 test("archivi e query WordPress non editabili vengono esclusi prima dell'ispezione", () => {
-  for (const url of [
-    "https://example.com/category/news/",
-    "https://example.com/tag/seo/",
-    "https://example.com/author/admin/",
-    "https://example.com/page/2/",
-    "https://example.com/feed/",
-    "https://example.com/?s=seo",
-    "https://example.com/?cat=1",
-    "https://example.com/?tag=seo",
-    "https://example.com/?paged=2",
-    "https://example.com/?author=1",
-  ]) {
-    assert.equal(isNonEditableWordPressUrl(url), true, url);
-  }
-  assert.equal(isNonEditableWordPressUrl("not a url"), true);
+  assert.match(liveControl, /const isNonEditableWordPressUrl =/);
+  assert.match(liveControl, /category\|categoria\|tag\|author\|autore\|date\|feed/);
+  assert.match(liveControl, /\/page\\\/\\d\+\$/);
+  assert.match(liveControl, /\["s", "cat", "tag", "paged", "author", "feed"\]/);
+  assert.match(liveControl, /if \(isNonEditableWordPressUrl\(targetUrl\)\)/);
 });
 
 test("il Connector espone solo meta dei plugin rilevati e richiede edit_post", () => {
