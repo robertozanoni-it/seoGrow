@@ -131,6 +131,70 @@ const clickSidebar = async (label) => {
   if (!clicked) throw new Error(`Voce sidebar visibile non trovata: ${label}`);
 };
 
+const responsiveFixture = `<!doctype html>
+<meta charset="utf-8">
+<style>
+  #desktop-only, #tablet-only, #mobile-only { display: none; }
+  @media (min-width: 1025px) { #desktop-only { display: block; } }
+  @media (min-width: 768px) and (max-width: 1024px) { #tablet-only { display: block; } }
+  @media (max-width: 767px) { #mobile-only { display: block; } }
+  .stylesheet-hidden { display: none; }
+</style>
+<main>
+  <div id="desktop-only">desktop</div>
+  <div id="tablet-only">tablet</div>
+  <div id="mobile-only">mobile</div>
+  <div id="stylesheet-hidden">hidden by stylesheet</div>
+  <div id="runtime-target"></div>
+</main>
+<script>
+  requestAnimationFrame(() => {
+    const node = document.createElement('span');
+    node.id = 'runtime-visible';
+    node.textContent = 'runtime visible';
+    document.querySelector('#runtime-target').append(node);
+    document.body.dataset.visibilityFixtureReady = 'true';
+  });
+</script>`;
+
+const assertViewportVisibility = async (width, expectedId, label) => {
+  await command("Emulation.setDeviceMetricsOverride", {
+    width,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: width < 768,
+  });
+  await command("Page.navigate", { url: `data:text/html;charset=utf-8,${encodeURIComponent(responsiveFixture)}` });
+  await waitFor("document.body?.dataset.visibilityFixtureReady === 'true'", `fixture responsive ${label}`);
+  const state = await evaluate(`(() => {
+    const visible = (selector) => {
+      const node = document.querySelector(selector);
+      if (!node) return false;
+      const style = getComputedStyle(node);
+      const rect = node.getBoundingClientRect();
+      return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) !== 0 && rect.width > 0 && rect.height > 0;
+    };
+    return {
+      desktop: visible('#desktop-only'),
+      tablet: visible('#tablet-only'),
+      mobile: visible('#mobile-only'),
+      stylesheetHidden: visible('#stylesheet-hidden'),
+      runtimeVisible: visible('#runtime-visible'),
+    };
+  })()`);
+  const expected = { desktop: false, tablet: false, mobile: false };
+  expected[expectedId] = true;
+  if (
+    state.desktop !== expected.desktop ||
+    state.tablet !== expected.tablet ||
+    state.mobile !== expected.mobile ||
+    state.stylesheetHidden !== false ||
+    state.runtimeVisible !== true
+  ) {
+    throw new Error(`Visibilità browser ${label} non coerente: ${JSON.stringify(state)}`);
+  }
+};
+
 try {
   await command("Page.enable");
   await command("Runtime.enable");
@@ -190,7 +254,12 @@ try {
     "ritorno ad Audit SEO con RemediationHost",
   );
 
-  console.log(`Browser smoke OK con ${version.Browser}. Navigazione reale Audit SEO → Correzioni → Audit SEO verificata.`);
+  await assertViewportVisibility(1440, "desktop", "desktop");
+  await assertViewportVisibility(900, "tablet", "tablet");
+  await assertViewportVisibility(390, "mobile", "mobile");
+  await command("Emulation.clearDeviceMetricsOverride");
+
+  console.log(`Browser smoke OK con ${version.Browser}. Navigazione reale Audit SEO → Correzioni → Audit SEO e visibilità desktop/tablet/mobile verificate.`);
 } finally {
   socket.close();
   chrome.kill("SIGTERM");
