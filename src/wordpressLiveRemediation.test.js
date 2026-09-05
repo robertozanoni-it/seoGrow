@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const client = await readFile(new URL("./WordPressLiveRemediationControl.jsx", import.meta.url), "utf8");
+const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.url), "utf8");
 const server = await readFile(new URL("../server/wordpressLiveApprovalHook.js", import.meta.url), "utf8");
 const rollback = await readFile(new URL("./liveRollbackRouter.js", import.meta.url), "utf8");
 
@@ -28,10 +29,12 @@ test("la scrittura live non cambia lo status WordPress", () => {
 });
 
 test("Elementor viene modificato solo tramite il meta REST dedicato", () => {
-  assert.match(client, /_elementor_data/);
+  assert.match(client, /changes:\s*\{ meta: \{ _elementor_data:/);
   assert.match(client, /header_size = "h1"/);
   assert.match(client, /header_size = "h2"/);
-  assert.match(client, /widgetType === "text-editor"/);
+  assert.match(ownership, /item\.widgetType === "text-editor"/);
+  assert.match(ownership, /item\.widgetType === "heading"/);
+  assert.match(ownership, /hasElementorDocument/);
 });
 
 test("il rollback ricostruisce i campi meta annidati", () => {
