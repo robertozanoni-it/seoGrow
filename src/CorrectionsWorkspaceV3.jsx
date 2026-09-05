@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, CheckCircle2, ExternalLink, History, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
 import { apiFetch } from "./api";
-import { lastBatch, listCorrections, readCorrection, updateCorrection } from "./remediationStore";
+import { lastBatch, listCorrections, updateCorrection } from "./remediationStore";
 import { verifyCorrectionRecord } from "./remediationIntegrityV2";
 import { forgetResolvedIssue } from "./issueIdentity";
 import { reopenTaskForIssue } from "./taskResolution";
