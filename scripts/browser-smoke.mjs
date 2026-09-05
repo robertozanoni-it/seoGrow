@@ -118,13 +118,17 @@ async function waitFor(expression, label, timeoutMs = 12_000) {
 
 const clickSidebar = async (label) => {
   const clicked = await evaluate(`(() => {
-    const button = [...document.querySelectorAll('.sidebar button')]
+    const matches = (root) => [...root.querySelectorAll('button')]
       .find((node) => String(node.textContent || '').trim().includes(${JSON.stringify(label)}));
+    const guided = document.querySelector('.guided-nav');
+    const button = (guided && matches(guided)) || matches(document.querySelector('.sidebar'));
     if (!button) return false;
+    const style = getComputedStyle(button);
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
     button.click();
     return true;
   })()`);
-  if (!clicked) throw new Error(`Voce sidebar non trovata: ${label}`);
+  if (!clicked) throw new Error(`Voce sidebar visibile non trovata: ${label}`);
 };
 
 try {
@@ -158,6 +162,7 @@ try {
 
   await command("Page.navigate", { url: `${appUrl}#Audit%20SEO` });
   await waitFor("document.readyState === 'complete' && document.querySelector('#root')", "root React con progetto QA");
+  await waitFor("document.querySelector('.guided-nav')", "navigazione guidata visibile");
   await waitFor(
     "document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')",
     "RemediationHost nativo in Audit SEO",
