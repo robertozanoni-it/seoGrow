@@ -103,12 +103,17 @@ const evaluate = async (expression) => {
 
 async function waitFor(expression, label, timeoutMs = 12_000) {
   const started = Date.now();
+  let lastError;
   while (Date.now() - started < timeoutMs) {
-    if (await evaluate(`Boolean(${expression})`)) return;
+    try {
+      if (await evaluate(`Boolean(${expression})`)) return;
+    } catch (error) {
+      lastError = error;
+    }
     await sleep(120);
   }
-  const body = await evaluate("document.body?.innerText || ''");
-  throw new Error(`UI non pronta: ${label}. Testo corrente: ${String(body).slice(0, 1200)}`);
+  const body = await evaluate("document.body?.innerText || ''").catch(() => "");
+  throw new Error(`UI non pronta: ${label}. ${lastError?.message || ""} Testo corrente: ${String(body).slice(0, 1200)}`);
 }
 
 const clickSidebar = async (label) => {
@@ -146,22 +151,27 @@ try {
     localStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
     localStorage.setItem('seogrow-page-audit-history-v2', JSON.stringify({ [client.id]: [audit] }));
     localStorage.setItem('seogrow-analyses-v2', JSON.stringify({ [client.id]: [] }));
-    location.hash = encodeURIComponent('Audit SEO');
     return true;
   })()`);
 
+  await command("Page.navigate", { url: `${appUrl}#${encodeURIComponent("Audit SEO")}` });
   await waitFor(
-    "document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')",
+    "document.readyState === 'complete' && document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')",
     "RemediationHost nativo in Audit SEO",
   );
-  const remediationText = await evaluate("document.querySelector('.remediation-host')?.innerText || ''");
+  const remediationText = await evaluate("document.querySelector('.remediation-host')?.textContent || ''");
   if (!/Correzione controllata/i.test(remediationText) || !/Problema da correggere/i.test(remediationText)) {
     throw new Error(`Host remediation incompleto: ${remediationText}`);
   }
 
+  const activeProject = await evaluate("document.body?.innerText || ''");
+  if (!/Browser QA/.test(activeProject)) {
+    throw new Error("Il browser smoke non ha inizializzato il progetto QA richiesto.");
+  }
+
   await clickSidebar("Correzioni");
   await waitFor("document.querySelector('.corrections-workspace-root')", "workspace Correzioni");
-  const correctionsText = await evaluate("document.querySelector('.corrections-workspace-root')?.innerText || ''");
+  const correctionsText = await evaluate("document.querySelector('.corrections-workspace-root')?.textContent || ''");
   if (!/Rollback WordPress stale-safe/i.test(correctionsText)) {
     throw new Error(`Workspace Correzioni incompleto: ${correctionsText}`);
   }
