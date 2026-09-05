@@ -53,13 +53,27 @@ function canonicalHref(html) {
     firstMatch(html, /<link[^>]+href=["']([^"']+)["'][^>]+rel=["'][^"']*canonical[^"']*["']/i);
 }
 
+function decodeEntity(entity) {
+  const body = String(entity || "").slice(1, -1);
+  const named = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", ndash: "–", mdash: "—", hellip: "…" };
+  if (/^#x/i.test(body)) {
+    const code = Number.parseInt(body.slice(2), 16);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : " ";
+  }
+  if (body.startsWith("#")) {
+    const code = Number.parseInt(body.slice(1), 10);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : " ";
+  }
+  return named[body.toLowerCase()] ?? " ";
+}
+
 function visibleText(html) {
   return String(html || "")
     .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
     .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
     .replace(/<(?:nav|footer|aside)\b[\s\S]*?<\/(?:nav|footer|aside)>/gi, " ")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&(?:#\d+|#x[\da-f]+|\w+);/gi, " ")
+    .replace(/&(?:#\d+|#x[\da-f]+|\w+);/gi, (entity) => decodeEntity(entity))
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -67,7 +81,7 @@ function visibleText(html) {
 function normalizeText(value) {
   return String(value || "")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&(?:#\d+|#x[\da-f]+|\w+);/gi, " ")
+    .replace(/&(?:#\d+|#x[\da-f]+|\w+);/gi, (entity) => decodeEntity(entity))
     .replace(/\s+/g, " ")
     .trim()
     .toLocaleLowerCase("it");
@@ -112,16 +126,29 @@ export function contentOwnershipEvidence(expectedContent, visibleContent, fronte
   };
 }
 
-function pageKind(pathname) {
-  if (/(?:privacy|cookie|gdpr|termini|terms|legal|consent)/i.test(pathname)) return "gdpr";
-  if (/(?:contatt|contact)/i.test(pathname)) return "utility";
-  if (/(?:category|categoria|tag|author|autore|page\/\d+)/i.test(pathname)) return "archive";
+export function pageKind(pathname) {
+  let segments;
+  try {
+    segments = decodeURIComponent(String(pathname || ""))
+      .toLowerCase()
+      .split("/")
+      .filter(Boolean);
+  } catch {
+    segments = String(pathname || "").toLowerCase().split("/").filter(Boolean);
+  }
+  const first = segments[0] || "";
+  if (/^(privacy(?:-policy)?|cookie(?:-policy)?|gdpr|termini(?:-e-condizioni)?|terms(?:-and-conditions)?|legal|consent)$/.test(first)) return "gdpr";
+  if (/^(contatti?|contact|contacts)$/.test(first)) return "utility";
+  if (/^(category|categoria|tag|author|autore)$/.test(first)) return "archive";
+  if (first === "page" && /^\d+$/.test(segments[1] || "")) return "archive";
   return "content";
 }
 
+const canonicalHost = (hostname) => String(hostname || "").toLowerCase().replace(/^www\./, "");
+
 async function fetchPage(initialUrl) {
   let current = await safeTarget(initialUrl);
-  const originalHost = current.hostname.toLowerCase();
+  const originalHost = canonicalHost(current.hostname);
   for (let redirect = 0; redirect < 4; redirect += 1) {
     const response = await fetch(current, {
       redirect: "manual",
@@ -133,7 +160,7 @@ async function fetchPage(initialUrl) {
       await response.body?.cancel();
       if (!location) throw new Error("Redirect frontend senza destinazione.");
       const next = await safeTarget(new URL(location, current).href);
-      if (next.hostname.toLowerCase() !== originalHost)
+      if (canonicalHost(next.hostname) !== originalHost)
         throw new Error("La pagina frontend reindirizza verso un altro dominio.");
       current = next;
       continue;
@@ -156,9 +183,19 @@ async function fetchPage(initialUrl) {
   throw new Error("Troppi redirect durante la verifica frontend.");
 }
 
+function visibleH1Count(html) {
+  return [...String(html || "").matchAll(/<h1\b([^>]*)>/gi)].filter((match) => {
+    const attrs = String(match[1] || "");
+    if (/\bhidden(?:\s|=|$)/i.test(attrs)) return false;
+    if (/aria-hidden\s*=\s*["']?true/i.test(attrs)) return false;
+    if (/style\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(attrs)) return false;
+    return true;
+  }).length;
+}
+
 function signals(page) {
   const title = firstMatch(page.html, /<title[^>]*>([\s\S]*?)<\/title>/i);
-  const h1 = (page.html.match(/<h1\b[^>]*>/gi) || []).length;
+  const h1 = visibleH1Count(page.html);
   const text = visibleText(page.html);
   const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
   const kind = pageKind(new URL(page.url).pathname);
