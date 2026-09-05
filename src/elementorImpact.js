@@ -70,7 +70,7 @@ const normalizeSources = (ownership) => {
     const type = normalizedType(row?.type);
     const key = `${id}:${type}`;
     const impact = IMPACT_BY_TYPE[type];
-    unique.set(key, {
+    const incoming = {
       id,
       type,
       title: String(row?.title || "").trim(),
@@ -80,6 +80,17 @@ const normalizeSources = (ownership) => {
       risk: impact.risk,
       label: impact.label,
       reason: impact.reason,
+    };
+    const previous = unique.get(key);
+    if (!previous) {
+      unique.set(key, incoming);
+      continue;
+    }
+    unique.set(key, {
+      ...previous,
+      title: previous.title || incoming.title,
+      resolved: previous.resolved || incoming.resolved,
+      origins: [...new Set([...previous.origins, ...incoming.origins])],
     });
   }
 
