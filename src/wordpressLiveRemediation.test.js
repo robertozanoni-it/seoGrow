@@ -22,6 +22,11 @@ test("l'ispezione V2 passa sempre la base WordPress separata dal permalink targe
   assert.match(client, /\/api\/wordpress\/inspect-fast/);
 });
 
+test("H1 e contenuto breve non diventano Già risolti se la verifica statica richiede browser reale", () => {
+  assert.match(client, /const verificationSafe = frontend\.verificationSafe !== false && frontend\.requiresBrowserVerification !== true/);
+  assert.match(client, /if \(!verificationSafe && \["h1", "content"\]\.includes\(kind\)\) return ""/);
+});
+
 test("il server usa token monouso e rifiuta anteprime stale", () => {
   assert.match(server, /APPROVALS\.set/);
   assert.match(server, /APPROVALS\.delete/);
