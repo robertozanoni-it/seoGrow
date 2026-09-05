@@ -70,19 +70,15 @@ async function wpFetch(url, options = {}) {
     ...options,
     signal: AbortSignal.timeout(20_000),
   });
-  if ([301, 302, 303, 307, 308].includes(response.status))
-    throw new Error("WordPress ha restituito un redirect inatteso.");
+  if ([301, 302, 303, 307, 308].includes(response.status)) throw new Error("WordPress ha restituito un redirect inatteso.");
   return response;
 }
 
 async function json(response) {
   const text = await response.text();
   let data;
-  try {
-    data = text ? JSON.parse(text) : {};
-  } catch (error) {
-    throw new Error(`Risposta WordPress non valida (HTTP ${response.status}).`, { cause: error });
-  }
+  try { data = text ? JSON.parse(text) : {}; }
+  catch (error) { throw new Error(`Risposta WordPress non valida (HTTP ${response.status}).`, { cause: error }); }
   if (!response.ok) {
     const detail = data?.message || data?.code || `HTTP ${response.status}`;
     throw new Error(`WordPress: ${detail}`);
@@ -157,10 +153,6 @@ function afterState(entity, changes) {
 }
 
 function snapshotHash(entity, changes) {
-  // Lock ottimistico per i soli campi che questa correzione sta per modificare.
-  // Una modifica indipendente (es. canonical) non deve invalidare una seconda anteprima
-  // sulla stessa pagina (es. meta description). Se invece cambia il campo target,
-  // selectedState cambia e la scrittura viene ancora bloccata come stale.
   const payload = {
     id: Number(entity?.id || 0),
     status: String(entity?.status || ""),
@@ -169,20 +161,11 @@ function snapshotHash(entity, changes) {
   return crypto.createHash("sha256").update(JSON.stringify(payload)).digest("hex");
 }
 
-function previewValue(value, max = 900) {
-  const text = typeof value === "string" ? value : JSON.stringify(value);
-  if (text.length <= max) return text;
-  return `${text.slice(0, max)}…`;
-}
-
-function previewState(state) {
-  const result = {};
-  for (const [key, value] of Object.entries(state || {})) {
-    if (key === "meta" && value && typeof value === "object") {
-      result.meta = Object.fromEntries(Object.entries(value).map(([metaKey, metaValue]) => [metaKey, previewValue(metaValue)]));
-    } else result[key] = previewValue(value);
-  }
-  return result;
+function changedFields(changes) {
+  return [
+    ...Object.keys(changes || {}).filter((key) => key !== "meta"),
+    ...Object.keys(changes?.meta || {}).map((key) => `meta.${key}`),
+  ].sort();
 }
 
 function cleanupApprovals() {
@@ -190,6 +173,22 @@ function cleanupApprovals() {
   for (const [token, approval] of APPROVALS.entries()) {
     if (now - approval.createdAt > TTL_MS) APPROVALS.delete(token);
   }
+}
+
+function invalidateOverlappingApprovals({ siteUrl, resource, id, changes }) {
+  const fields = new Set(changedFields(changes));
+  let invalidated = 0;
+  for (const [token, approval] of APPROVALS.entries()) {
+    if (
+      String(approval.siteUrl || "") !== String(siteUrl || "") ||
+      approval.resource !== resource ||
+      Number(approval.id) !== Number(id)
+    ) continue;
+    if (!changedFields(approval.changes).some((field) => fields.has(field))) continue;
+    APPROVALS.delete(token);
+    invalidated += 1;
+  }
+  return invalidated;
 }
 
 async function loadEntity(base, headers, resource, id) {
@@ -213,17 +212,23 @@ function registerRoutes(app) {
       const headers = authHeaders(username, applicationPassword);
       const current = await loadEntity(base, headers, resource, id);
       const status = String(current?.status || "").toLowerCase();
-      if (["trash", "auto-draft", "inherit"].includes(status))
-        throw new Error(`Il contenuto WordPress ha stato ${status} e non può essere modificato.`);
+      if (["trash", "auto-draft", "inherit"].includes(status)) throw new Error(`Il contenuto WordPress ha stato ${status} e non può essere modificato.`);
       const patch = allowedChanges(changes);
       const before = selectedState(current, patch);
       const after = afterState(current, patch);
-      if (JSON.stringify(before) === JSON.stringify(after))
-        throw new Error("La modifica proposta coincide con il valore già presente.");
+      if (JSON.stringify(before) === JSON.stringify(after)) throw new Error("La modifica proposta coincide con il valore già presente.");
+
+      const normalizedSite = String(siteUrl || targetUrl || "");
+      const invalidatedApprovals = invalidateOverlappingApprovals({
+        siteUrl: normalizedSite,
+        resource,
+        id: Number(id),
+        changes: patch,
+      });
       const token = crypto.randomUUID();
       APPROVALS.set(token, {
         createdAt: Date.now(),
-        siteUrl: String(siteUrl || targetUrl || ""),
+        siteUrl: normalizedSite,
         targetUrl: String(targetUrl || ""),
         resource,
         id: Number(id),
@@ -237,18 +242,18 @@ function registerRoutes(app) {
         ok: true,
         approvalToken: token,
         expiresInSeconds: Math.floor(TTL_MS / 1000),
+        invalidatedApprovals,
         resource,
         id: Number(id),
         sourceStatus: status || "unknown",
         adapter: String(adapter || "WordPress"),
         targetUrl: String(targetUrl || current?.link || ""),
-        previewBefore: previewState(before),
-        previewAfter: previewState(after),
-        changed: [
-          ...Object.keys(patch).filter((key) => key !== "meta"),
-          ...Object.keys(patch.meta || {}).map((key) => `meta.${key}`),
-        ],
-        message: "Anteprima pronta. Nessuna modifica è stata ancora applicata al sito.",
+        previewBefore: before,
+        previewAfter: after,
+        changed: changedFields(patch),
+        message: invalidatedApprovals
+          ? `Anteprima pronta. ${invalidatedApprovals} anteprime precedenti sullo stesso campo sono state invalidate. Nessuna modifica è stata ancora applicata.`
+          : "Anteprima pronta. Nessuna modifica è stata ancora applicata al sito.",
       });
     } catch (error) {
       return res.status(400).json({ error: error instanceof Error ? error.message : "Anteprima remediation non riuscita." });
@@ -262,7 +267,7 @@ function registerRoutes(app) {
       const { approvalToken, username, applicationPassword } = req.body || {};
       if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
       const approval = APPROVALS.get(String(approvalToken || ""));
-      if (!approval) return res.status(409).json({ error: "Anteprima scaduta o già utilizzata. Rigenera l'anteprima.", code: "APPROVAL_EXPIRED" });
+      if (!approval) return res.status(409).json({ error: "Anteprima scaduta, sostituita o già utilizzata. Rigenera l'anteprima.", code: "APPROVAL_EXPIRED" });
       APPROVALS.delete(String(approvalToken));
 
       const base = await safeSiteBase(approval.siteUrl || approval.targetUrl);
@@ -288,10 +293,7 @@ function registerRoutes(app) {
         sourceUrl: approval.targetUrl,
         issue: approval.issue,
         status: update?.status || current?.status || "",
-        changed: [
-          ...Object.keys(approval.changes).filter((key) => key !== "meta"),
-          ...Object.keys(approval.changes.meta || {}).map((key) => `meta.${key}`),
-        ],
+        changed: changedFields(approval.changes),
         before,
         after,
         changes: approval.changes,
@@ -302,6 +304,8 @@ function registerRoutes(app) {
     }
   });
 }
+
+export { registerRoutes, invalidateOverlappingApprovals, changedFields };
 
 const originalUse = express.application.use;
 if (!originalUse[USE_PATCHED]) {
