@@ -2,6 +2,7 @@ import {
   basePath,
   elementorLibraryEndpoint,
   elementorLibraryRestDescriptor,
+  elementorSourceTypeEvidence,
   safeBase,
 } from "./wordpressInspectFastHook.js";
 import { inspect as inspectFrontend } from "./frontendVerificationHook.js";
@@ -242,6 +243,93 @@ function typesEndpoint(base) {
   return new URL(`${basePath(base)}/wp-json/wp/v2/types?context=edit`, base.origin);
 }
 
+function connectorImpactEndpoint(base, requested) {
+  const url = new URL(`${basePath(base)}/wp-json/seogrow/v1/elementor-impact-inspect`, base.origin);
+  url.searchParams.set("ids", requested.map((document) => document.id).join(","));
+  return url;
+}
+
+export function normalizeConnectorImpactEvidence(data, requested, targetEntity = null) {
+  if (data?.ok !== true || data?.readOnly !== true || data?.sharedWriteAllowed !== false) {
+    throw new Error("SeoGrow Connector non ha restituito un contratto Elementor impact read-only valido.");
+  }
+  const rows = Array.isArray(data.documents) ? data.documents : [];
+  return requested.map((document) => {
+    const matches = rows.filter((row) => Number(row?.id) === document.id);
+    if (matches.length !== 1) {
+      return {
+        ok: false,
+        id: document.id,
+        type: document.type,
+        origins: document.origins,
+        sharedWriteAllowed: false,
+        displayConditionsResolved: false,
+        targetApplicability: "unknown",
+        affectedPagesEnumerated: false,
+        error: matches.length ? "Il Connector ha restituito più record per lo stesso documento Elementor." : "Il Connector non ha restituito il documento Elementor richiesto.",
+      };
+    }
+    const row = matches[0];
+    if (row?.ok !== true || row?.readOnly !== true || row?.sharedWriteAllowed !== false) {
+      return {
+        ok: false,
+        id: document.id,
+        type: document.type,
+        origins: document.origins,
+        sharedWriteAllowed: false,
+        displayConditionsResolved: false,
+        targetApplicability: "unknown",
+        affectedPagesEnumerated: false,
+        error: String(row?.error || "Il Connector non ha confermato il documento Elementor in sola lettura."),
+      };
+    }
+    const entity = {
+      id: Number(row.id),
+      title: { raw: String(row.title || "") },
+      status: String(row.status || ""),
+      link: String(row.link || ""),
+      meta: {
+        ...(String(row.type || "").trim() ? { _elementor_template_type: String(row.type).trim().toLowerCase() } : {}),
+        ...(row.conditionsObserved === true
+          ? { _elementor_conditions: Array.isArray(row.conditions) ? row.conditions : [] }
+          : {}),
+      },
+    };
+    const typeEvidence = elementorSourceTypeEvidence(document.type, entity);
+    if (typeEvidence.status === "mismatch") {
+      return {
+        ok: false,
+        id: document.id,
+        type: document.type,
+        origins: document.origins,
+        typeEvidence,
+        sharedWriteAllowed: false,
+        displayConditionsResolved: false,
+        targetApplicability: "unknown",
+        affectedPagesEnumerated: false,
+        error: `Il Connector identifica il documento #${document.id} come ${typeEvidence.observedType}, mentre il frontend lo segnala come ${typeEvidence.requestedType}.`,
+      };
+    }
+    const evidence = extractElementorConditionEvidence(entity, document, targetEntity);
+    return {
+      ok: true,
+      ...evidence,
+      typeEvidence,
+      conditionsSource: row.conditionsObserved === true ? "seogrow-connector-read-only" : "not-exposed-by-connector",
+    };
+  });
+}
+
+async function connectorImpactEvidence(base, headers, requested, targetEntity) {
+  const response = await wpFetch(connectorImpactEndpoint(base, requested), { headers });
+  if (response.status === 404) {
+    await response.body?.cancel();
+    return null;
+  }
+  const data = await readJson(response);
+  return normalizeConnectorImpactEvidence(data, requested, targetEntity);
+}
+
 export function impactRateAllowed(key, now = Date.now()) {
   const safeKey = String(key || "local").slice(0, 200);
   const recent = (RATE.get(safeKey) || []).filter((time) => now - time < RATE_WINDOW_MS);
@@ -311,13 +399,7 @@ async function observeRenderedSources(candidateUrls, documentIds) {
   };
 }
 
-async function inspectImpact({ siteUrl, username, applicationPassword, documents, candidateUrls, targetEntity }) {
-  if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
-  const requested = normalizeImpactDocuments(documents);
-  if (!requested.length) throw new Error("Indica almeno un documento Elementor già identificato da SeoGrow.");
-  const normalizedTarget = normalizeImpactTarget(targetEntity);
-  const base = await safeBase(siteUrl);
-  const headers = authHeaders(username, applicationPassword);
+async function fallbackRestImpactEvidence(base, headers, requested, targetEntity) {
   const types = await readJson(await wpFetch(typesEndpoint(base), { headers }));
   const descriptor = elementorLibraryRestDescriptor(types);
   if (!descriptor) throw new Error("Elementor Library non espone una REST base editabile leggibile: impact analysis bloccata.");
@@ -327,7 +409,11 @@ async function inspectImpact({ siteUrl, username, applicationPassword, documents
     try {
       const entity = await readJson(await wpFetch(elementorLibraryEndpoint(base, descriptor, document.id), { headers }));
       if (Number(entity?.id) !== document.id) throw new Error("L'ID restituito da WordPress non coincide con il documento Elementor richiesto.");
-      results.push({ ok: true, ...extractElementorConditionEvidence(entity, document, normalizedTarget) });
+      const typeEvidence = elementorSourceTypeEvidence(document.type, entity);
+      if (typeEvidence.status === "mismatch") {
+        throw new Error(`WordPress identifica il documento #${document.id} come ${typeEvidence.observedType}, mentre il frontend lo segnala come ${typeEvidence.requestedType}.`);
+      }
+      results.push({ ok: true, ...extractElementorConditionEvidence(entity, document, targetEntity), typeEvidence });
     } catch (error) {
       results.push({
         ok: false,
@@ -341,6 +427,23 @@ async function inspectImpact({ siteUrl, username, applicationPassword, documents
         error: error instanceof Error ? error.message : "Ispezione documento Elementor non riuscita.",
       });
     }
+  }
+  return results;
+}
+
+async function inspectImpact({ siteUrl, username, applicationPassword, documents, candidateUrls, targetEntity }) {
+  if (!username || !applicationPassword) throw new Error("Inserisci utente e password applicativa WordPress.");
+  const requested = normalizeImpactDocuments(documents);
+  if (!requested.length) throw new Error("Indica almeno un documento Elementor già identificato da SeoGrow.");
+  const normalizedTarget = normalizeImpactTarget(targetEntity);
+  const base = await safeBase(siteUrl);
+  const headers = authHeaders(username, applicationPassword);
+
+  let evidenceSource = "seogrow-connector-read-only";
+  let results = await connectorImpactEvidence(base, headers, requested, normalizedTarget);
+  if (!results) {
+    evidenceSource = "wordpress-rest-edit-fallback";
+    results = await fallbackRestImpactEvidence(base, headers, requested, normalizedTarget);
   }
 
   const normalizedCandidates = normalizeImpactCandidateUrls(base, candidateUrls);
@@ -367,6 +470,7 @@ async function inspectImpact({ siteUrl, username, applicationPassword, documents
     ok: true,
     readOnly: true,
     mode: "elementor-impact-evidence",
+    evidenceSource,
     targetEntity: normalizedTarget,
     documents: results,
     conditionsSemantics: displayConditionsResolved ? "resolved-known-subset" : "unresolved-or-partial",
