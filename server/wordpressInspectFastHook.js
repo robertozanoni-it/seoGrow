@@ -14,6 +14,7 @@ const SEO_META_CHOICES = {
   canonical: [["rank_math_canonical_url", "Rank Math"], ["_yoast_wpseo_canonical", "Yoast"]],
   noindex: [["rank_math_robots", "Rank Math"], ["_yoast_wpseo_meta-robots-noindex", "Yoast"]],
 };
+const ELEMENTOR_SHARED_TYPES = new Set(["header", "footer", "single", "archive", "popup", "widget"]);
 
 async function safeBase(input) {
   const url = new URL(String(input || ""));
@@ -82,10 +83,17 @@ async function connectorStatus(base, headers) {
   }
   const data = await json(response);
   if (data?.ok !== true || data?.connector !== "SeoGrow Connector") return null;
+  const elementorSharedTemplateTypes = Array.isArray(data.elementorSharedTemplateTypes)
+    ? [...new Set(data.elementorSharedTemplateTypes
+      .map((value) => String(value || "").trim().toLowerCase())
+      .filter((value) => ELEMENTOR_SHARED_TYPES.has(value)))]
+    : [];
   return {
     connector: String(data.connector),
     version: String(data.version || ""),
     elementor: data.elementor === true,
+    elementorPro: data.elementorPro === true,
+    elementorSharedTemplateTypes,
     rankMath: data.rankMath === true,
     yoast: data.yoast === true,
   };
@@ -122,7 +130,18 @@ function filterConnectorOwnedMeta(entity, connector, frontend = null) {
     }
   }
 
-  return { ...source, meta };
+  const elementorSharedTemplateTypes = connector?.elementor === true && Array.isArray(connector.elementorSharedTemplateTypes)
+    ? connector.elementorSharedTemplateTypes.filter((value) => ELEMENTOR_SHARED_TYPES.has(value))
+    : [];
+
+  return {
+    ...source,
+    meta,
+    _seogrowOwnership: {
+      elementorSharedTemplateTypes,
+      elementorPro: connector?.elementorPro === true,
+    },
+  };
 }
 
 function rateLimit(req) {
