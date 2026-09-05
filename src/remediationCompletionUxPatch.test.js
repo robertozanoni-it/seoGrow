@@ -5,13 +5,16 @@ import { readFile } from "node:fs/promises";
 const source = await readFile(new URL("./remediationCompletionUxPatch.js", import.meta.url), "utf8");
 const css = await readFile(new URL("./remediationCompletionUxPatch.css", import.meta.url), "utf8");
 const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
+const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
+const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
 
-test("un problema già risolto viene chiuso come task e non resta Da fare", () => {
+test("il modulo legacy documenta ancora la vecchia chiusura task ma non è montato", () => {
   assert.match(source, /status: "Completato"/);
   assert.match(source, /completedAt: now/);
   assert.match(source, /\.wp-live-preview-row\.resolved/);
   assert.match(source, /Chiusa automaticamente: SeoGrow ha confermato/);
   assert.match(source, /RESOLVED_EVIDENCE_KEY/);
+  assert.doesNotMatch(main, /remediationCompletionUxPatch/);
 });
 
 test("una task completata manualmente non basta a dichiarare risolto un problema SEO", () => {
@@ -27,41 +30,37 @@ test("una nuova task successiva alla verifica non viene chiusa da una vecchia co
   assert.match(source, /activeTasks\.every/);
 });
 
-test("la remediation mostra quale problema attivo è selezionato", () => {
-  assert.match(source, /Problema selezionato/);
-  assert.match(source, /wp-live-selected-issue-label/);
-  assert.match(source, /Prepara solo il problema selezionato/);
-  assert.match(source, /activeAuditIssueRows\(\)\[0\]/);
-  assert.match(source, /!row\.classList\.contains\("seogrow-issue-resolved"\)/);
-  assert.match(source, /seogrow-remediation-open/);
+test("la selezione del problema attivo è ora responsabilità dell'host nativo", () => {
+  assert.match(host, /Problema da correggere/);
+  assert.match(host, /audit-issue-select/);
+  assert.match(host, /activeEntries/);
+  assert.match(host, /record\.status === "Verificato"/);
+  assert.match(live, /Prepara solo questo problema/);
 });
 
-test("il pulsante bulk mostra il numero dei problemi ancora da correggere", () => {
-  assert.match(source, /syncBulkActionTotal/);
-  assert.match(source, /const totalAudit = allAuditIssueRows\(\)\.length/);
-  assert.match(source, /const totalActive = activeAuditIssueRows\(\)\.length/);
-  assert.match(source, /seogrow-bulk-total/);
-  assert.match(source, /problemi ancora da correggere su/);
+test("il bulk V2 usa il numero implicito dei soli problemi attivi", () => {
+  assert.match(host, /activeEntries\.length/);
+  assert.match(live, /context\.activeIssues/);
+  assert.match(live, /Prepara le anteprime dei problemi attivi/);
 });
 
-test("i problemi verificati spariscono dalla lista attiva invece di restare tra i problemi rilevati", () => {
-  assert.match(source, /row\.hidden = true/);
-  assert.match(source, /row\.setAttribute\("aria-hidden", "true"\)/);
-  assert.match(source, /row\.style\.setProperty\("display", "none", "important"\)/);
-  assert.match(source, /risolti dopo l’audit e rimossi da questa lista/);
-  assert.match(source, /I problemi risolti restano disponibili nello storico audit/);
+test("i problemi verificati sono esclusi dai problemi attivi tramite dati, non tramite DOM", () => {
+  assert.match(host, /verifiedKeys\.has\(entry\.key\)/);
+  assert.match(host, /disabled=\{verifiedKeys\.has\(entry\.key\)\}/);
+  assert.doesNotMatch(host, /row\.hidden|aria-hidden|style\.setProperty/);
 });
 
-test("problemi bloccati restano visivamente distinti", () => {
+test("il CSS legacy resta disponibile ma il runtime V2 classifica i blocchi esplicitamente", () => {
   assert.match(css, /\.wp-live-remediation\.panel/);
-  assert.match(css, /rgba\(240, 253, 244/);
-  assert.match(css, /wp-live-preview-row\.unsupported/);
-  assert.match(source, /seogrow-blocked-badge/);
-  assert.match(source, /Non corretto/);
+  assert.match(live, /quality_error/);
+  assert.match(live, /context_error/);
+  assert.match(live, /ownership_error/);
+  assert.match(live, /adapter_error/);
 });
 
-test("il messaggio distingue la verifica automatica dal nuovo audit storico", () => {
-  assert.match(source, /SeoGrow riverifica automaticamente il frontend/);
-  assert.match(source, /nuovo audit serve soltanto ad aggiornare il report storico/);
-  assert.match(main, /remediationCompletionUxPatch/);
+test("il runtime corrente separa applicazione e verifica senza riattivare la patch legacy", () => {
+  assert.match(live, /Scrittura e risoluzione SEO restano stati distinti/);
+  assert.match(live, /Stato: Da verificare/);
+  assert.doesNotMatch(main, /remediationCompletionUxPatch/);
+  assert.match(main, /RemediationRuntime/);
 });
