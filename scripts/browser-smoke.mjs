@@ -111,6 +111,17 @@ async function waitFor(expression, label, timeoutMs = 12_000) {
   throw new Error(`UI non pronta: ${label}. Testo corrente: ${String(body).slice(0, 1200)}`);
 }
 
+const clickSidebar = async (label) => {
+  const clicked = await evaluate(`(() => {
+    const button = [...document.querySelectorAll('.sidebar button')]
+      .find((node) => String(node.textContent || '').trim().includes(${JSON.stringify(label)}));
+    if (!button) return false;
+    button.click();
+    return true;
+  })()`);
+  if (!clicked) throw new Error(`Voce sidebar non trovata: ${label}`);
+};
+
 try {
   await command("Page.enable");
   await command("Runtime.enable");
@@ -148,17 +159,20 @@ try {
     throw new Error(`Host remediation incompleto: ${remediationText}`);
   }
 
-  await evaluate("location.hash = encodeURIComponent('Correzioni')");
+  await clickSidebar("Correzioni");
   await waitFor("document.querySelector('.corrections-workspace-root')", "workspace Correzioni");
   const correctionsText = await evaluate("document.querySelector('.corrections-workspace-root')?.innerText || ''");
   if (!/Rollback WordPress stale-safe/i.test(correctionsText)) {
     throw new Error(`Workspace Correzioni incompleto: ${correctionsText}`);
   }
 
-  await evaluate("location.hash = encodeURIComponent('Problemi')");
-  await waitFor("document.body.innerText.includes('Problemi')", "navigazione Centro Problemi");
+  await clickSidebar("Audit SEO");
+  await waitFor(
+    "document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')",
+    "ritorno ad Audit SEO con RemediationHost",
+  );
 
-  console.log(`Browser smoke OK con ${version.Browser}. Audit SEO, RemediationHost e Correzioni renderizzati.`);
+  console.log(`Browser smoke OK con ${version.Browser}. Navigazione reale Audit SEO → Correzioni → Audit SEO verificata.`);
 } finally {
   socket.close();
   chrome.kill("SIGTERM");
