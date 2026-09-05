@@ -144,19 +144,53 @@ export function deriveProblemState(events = []) {
 
 export function correctionEvent(record = {}) {
   const normalized = exactProblemStatus(record.status);
-  const at = record.verifiedAt || record.rollbackAt || record.appliedAt || record.updatedAt || "";
-  if (normalized === "verified") return { kind: "correction_verified", at, source: "correction", record };
-  if (normalized === "rolled_back") return { kind: "rollback", at, source: "correction", record };
-  if (normalized === "failed") return { kind: "correction_failed", at, source: "correction", record };
-  if (["applied", "needs_verification"].includes(normalized)) return { kind: "correction_applied", at, source: "correction", record };
-  return { kind: "correction_prepared", at, source: "correction", record };
+  if (normalized === "verified") {
+    return {
+      kind: "correction_verified",
+      at: record.verifiedAt || record.updatedAt || record.appliedAt || record.createdAt || "",
+      source: "correction",
+      record,
+    };
+  }
+  if (normalized === "rolled_back") {
+    return {
+      kind: "rollback",
+      at: record.rollbackAt || record.updatedAt || record.verifiedAt || record.appliedAt || record.createdAt || "",
+      source: "correction",
+      record,
+    };
+  }
+  if (normalized === "failed") {
+    return {
+      kind: "correction_failed",
+      at: record.failedAt || record.updatedAt || record.appliedAt || record.createdAt || "",
+      source: "correction",
+      record,
+    };
+  }
+  if (["applied", "needs_verification"].includes(normalized)) {
+    return {
+      kind: "correction_applied",
+      at: record.appliedAt || record.updatedAt || record.createdAt || "",
+      source: "correction",
+      record,
+    };
+  }
+  return {
+    kind: "correction_prepared",
+    at: record.preparedAt || record.updatedAt || record.createdAt || "",
+    source: "correction",
+    record,
+  };
 }
 
 export function taskEvent(task = {}) {
   const normalized = exactProblemStatus(task.status);
   return {
     kind: normalized === "task_completed" ? "task_completed" : "task_open",
-    at: task.updatedAt || task.completedAt || task.createdAt || "",
+    at: normalized === "task_completed"
+      ? task.completedAt || task.updatedAt || task.createdAt || ""
+      : task.updatedAt || task.createdAt || "",
     source: "task",
     record: task,
   };
