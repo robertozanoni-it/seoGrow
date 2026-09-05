@@ -21,12 +21,25 @@ if (!globalThis.fetch.__seogrowPinnedRemediation) {
   globalThis.fetch = guardedFetch;
 }
 
-await import("./wordpressLiveApprovalHook.js");
-await import("./wordpressLiveRollbackHook.js");
-await import("./wordpressSeoAdapterHook.js");
-await import("./wordpressSeoAdapterV2Hook.js");
-await import("./wordpressDraftCopyHook.js");
-await import("./wordpressRemediationHook.js");
-await import("./frontendVerificationHook.js");
-await import("./wordpressInspectFastHook.js");
-await import("./wordpressPatchV2Hook.js");
+const remediationModules = await Promise.all([
+  import("./wordpressLiveApprovalHook.js"),
+  import("./wordpressLiveRollbackHook.js"),
+  import("./wordpressSeoAdapterHook.js"),
+  import("./wordpressSeoAdapterV2Hook.js"),
+  import("./wordpressDraftCopyHook.js"),
+  import("./wordpressRemediationHook.js"),
+  import("./frontendVerificationHook.js"),
+  import("./wordpressInspectFastHook.js"),
+  import("./wordpressPatchV2Hook.js"),
+]);
+
+export function registerRemediationRoutes(app) {
+  if (!app || typeof app.post !== "function") throw new Error("Express app non valida per le route remediation.");
+  for (const module of remediationModules) {
+    if (typeof module.registerRoutes === "function") module.registerRoutes(app);
+  }
+}
+
+export const explicitRemediationRouteModules = remediationModules
+  .filter((module) => typeof module.registerRoutes === "function")
+  .length;
