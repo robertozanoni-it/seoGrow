@@ -5,8 +5,10 @@ import {
   basePath,
   elementorLibraryEndpoint,
   elementorLibraryRestDescriptor,
+  elementorLocalSourceReferences,
   elementorOwnershipEvidence,
   filterConnectorOwnedMeta,
+  mergeElementorSourceCandidates,
 } from "../server/wordpressInspectFastHook.js";
 
 const inspectSource = await readFile(new URL("../server/wordpressInspectFastHook.js", import.meta.url), "utf8");
@@ -136,6 +138,39 @@ test("gli ID Elementor renderizzati distinguono documento locale e documenti con
   assert.deepEqual(evidence.elementorExternalRenderedDocuments, [
     { id: 88, type: "header" },
     { id: 91, type: "footer" },
+  ]);
+});
+
+test("riferimenti locali a Template widget e global widget vengono identificati senza scrittura", () => {
+  const references = elementorLocalSourceReferences({
+    meta: {
+      _elementor_data: JSON.stringify([
+        { id: "tpl", widgetType: "template", settings: { template_id: "123" }, elements: [] },
+        {
+          id: "container",
+          settings: {},
+          elements: [
+            { id: "global", widgetType: "global", settings: { global_widget_id: 456 }, elements: [] },
+          ],
+        },
+      ]),
+    },
+  });
+  assert.deepEqual(references, [
+    { id: 123, type: "template", origin: "local-reference" },
+    { id: 456, type: "widget", origin: "local-reference" },
+  ]);
+});
+
+test("fonti Elementor frontend e locali vengono deduplicate per ID preservando entrambe le provenienze", () => {
+  const merged = mergeElementorSourceCandidates(
+    [{ id: 123, type: "single" }, { id: 88, type: "header" }],
+    [{ id: 123, type: "template" }, { id: 456, type: "widget" }],
+  );
+  assert.deepEqual(merged, [
+    { id: 88, type: "header", origins: ["frontend-rendered"] },
+    { id: 123, type: "single", origins: ["frontend-rendered", "local-reference"] },
+    { id: 456, type: "widget", origins: ["local-reference"] },
   ]);
 });
 
