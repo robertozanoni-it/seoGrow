@@ -5,7 +5,19 @@ export const changedFieldKeys = (changes = {}) => [
   ...Object.keys(changes?.meta || {}).map((key) => `meta.${key}`),
 ].toSorted();
 
-const stableJson = (value) => JSON.stringify(value, Object.keys(value || {}).sort());
+const canonicalJsonValue = (value) => {
+  if (Array.isArray(value)) return value.map(canonicalJsonValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .toSorted()
+        .map((key) => [key, canonicalJsonValue(value[key])]),
+    );
+  }
+  return value;
+};
+
+const stableJson = (value) => JSON.stringify(canonicalJsonValue(value));
 
 const fieldValue = (changes, field) =>
   field.startsWith("meta.") ? changes?.meta?.[field.slice(5)] : changes?.[field];
