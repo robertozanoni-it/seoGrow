@@ -1,32 +1,34 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {
+  remediationTargetFromGenerateBody,
+  shouldBlockGenerationForStatus,
+} from "./remediationBatchGuard.js";
 
 const source = await import("node:fs/promises").then(({ readFile }) =>
   readFile(new URL("./remediationBatchGuard.js", import.meta.url), "utf8"),
 );
 
-const extract = (name) => {
-  const patterns = {
-    shouldBlockGenerationForStatus:
-      /export function shouldBlockGenerationForStatus\(status\) \{([\s\S]*?)\n\}/,
-    remediationTargetFromGenerateBody:
-      /export function remediationTargetFromGenerateBody\(body\) \{([\s\S]*?)\n\}/,
-  };
-  const match = source.match(patterns[name]);
-  assert.ok(match, `${name} deve essere presente`);
-  return match[1];
-};
-
-test("il batch guard lascia passare contenuti pubblicati verso la remediation in bozza", () => {
-  const body = extract("shouldBlockGenerationForStatus");
-  assert.match(body, /trash/);
-  assert.doesNotMatch(body, /normalized !== "draft"/);
+test("il batch guard blocca solo gli stati WordPress non sicuri", () => {
+  assert.equal(shouldBlockGenerationForStatus("trash"), true);
+  assert.equal(shouldBlockGenerationForStatus("auto-draft"), true);
+  assert.equal(shouldBlockGenerationForStatus("inherit"), true);
+  assert.equal(shouldBlockGenerationForStatus("publish"), false);
+  assert.equal(shouldBlockGenerationForStatus("draft"), false);
   assert.match(source, /UNSAFE_SOURCE_STATUS/);
 });
 
 test("il batch guard ricava il target dal contesto remediation", () => {
-  const body = extract("remediationTargetFromGenerateBody");
-  assert.match(body, /Remediation WordPress/);
-  assert.match(body, /context\?\.issue\?\.targetUrl/);
-  assert.match(source, /Correzione \$\{Math\.min\(done \+ 1, total\), total\}\/\$\{total\}/);
+  const targetUrl = "https://example.com/pagina/?utm_source=test";
+  const body = JSON.stringify({
+    topic: "Remediation WordPress content",
+    context: JSON.stringify({ issue: { targetUrl } }),
+  });
+
+  assert.equal(remediationTargetFromGenerateBody(body), targetUrl);
+  assert.equal(
+    remediationTargetFromGenerateBody(JSON.stringify({ topic: "Altro", context: "{}" })),
+    "",
+  );
+  assert.match(source, /Correzione \$\{Math\.min\(done \+ 1, total\)\}\/\$\{total\}/);
 });
