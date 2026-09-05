@@ -69,6 +69,10 @@ export async function inspectElementorImpactEvidence(entity, credentials, candid
         siteUrl: credentials?.url || "",
         username: credentials?.username || "",
         applicationPassword: credentials?.applicationPassword || "",
+        targetEntity: {
+          id: Number(entity?.id),
+          type: String(entity?.type || "").trim().toLowerCase(),
+        },
         documents,
         candidateUrls: Array.isArray(candidateUrls) ? candidateUrls.slice(0, 30) : [],
       }),
@@ -118,15 +122,22 @@ export function elementorOwnershipDetail(entity) {
       const title = String(item?.title || "").trim();
       const condition = Number.isSafeInteger(id) ? conditionById.get(id) : null;
       const observedCount = Number(condition?.observedRenderedCount || 0);
-      const conditionLabel = condition?.ok && condition?.displayConditionsResolved && condition?.conditionInterpretation?.entireSiteIncluded
-        ? " · ambito intero sito confermato"
-        : condition?.ok && condition?.conditionsObserved
-          ? " · condizioni lette (semantica parziale/da verificare)"
-          : condition?.ok
-            ? " · condizioni non esposte"
-            : condition?.error
-              ? " · condizioni non verificabili"
-              : "";
+      const targetApplicability = String(condition?.conditionInterpretation?.targetApplicability || condition?.targetApplicability || "unknown");
+      const conditionLabel = condition?.ok && condition?.displayConditionsResolved && targetApplicability === "applies"
+        ? " · condizioni confermano applicazione sulla risorsa target"
+        : condition?.ok && condition?.displayConditionsResolved && targetApplicability === "excluded"
+          ? " · condizioni escludono la risorsa target"
+          : condition?.ok && condition?.displayConditionsResolved && targetApplicability === "not-applied"
+            ? " · condizioni non includono la risorsa target"
+            : condition?.ok && condition?.displayConditionsResolved && condition?.conditionInterpretation?.entireSiteIncluded
+              ? " · ambito intero sito confermato"
+              : condition?.ok && condition?.conditionsObserved
+                ? " · condizioni lette (semantica parziale/da verificare)"
+                : condition?.ok
+                  ? " · condizioni non esposte"
+                  : condition?.error
+                    ? " · condizioni non verificabili"
+                    : "";
       const observedLabel = observedCount > 0 ? ` · osservato su ${observedCount} URL del crawl disponibile` : "";
       return `${type}${Number.isSafeInteger(id) ? ` #${id}` : ""}${title ? ` “${title}”` : ""}${conditionLabel}${observedLabel}`;
     });
@@ -134,10 +145,13 @@ export function elementorOwnershipDetail(entity) {
     const coverageNote = coverage?.inspected > 0
       ? ` Sono state controllate ${coverage.inspected} URL candidate${coverage.failed ? `; ${coverage.failed} non verificabili` : ""}. Questo non equivale a una enumerazione completa del sito.`
       : "";
+    const targetNote = impactEvidence?.targetApplicabilityResolved
+      ? " L'applicazione alla risorsa WordPress target è stata valutata per tutte le condizioni del sottoinsieme supportato."
+      : "";
     const evidenceNote = impactEvidence?.ok === false
       ? ` La lettura read-only delle condizioni non è riuscita: ${impactEvidence.error}`
       : impactEvidence?.displayConditionsResolved
-        ? ` La semantica delle condizioni note è risolta per il sottoinsieme supportato, ma il raggio completo sulle URL non è enumerato.${coverageNote}`
+        ? ` La semantica delle condizioni note è risolta per il sottoinsieme supportato, ma il raggio completo sulle URL non è enumerato.${targetNote}${coverageNote}`
         : impactEvidence
           ? ` Le condizioni disponibili sono state lette in sola lettura; le regole non riconosciute restano semanticamente non risolte.${coverageNote}`
           : " Le Display Conditions e il raggio sulle altre URL non sono ancora dimostrati.";
