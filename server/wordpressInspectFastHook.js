@@ -91,13 +91,13 @@ async function resolveEntity(base, headers, requestedUrl) {
     url.searchParams.set("per_page", "10");
     const rows = await json(await wpFetch(url, { headers }));
     if (Array.isArray(rows)) candidatesFound += rows.length;
-    const match = pickExactWordPressEntity(rows, pathname);
+    const match = pickExactWordPressEntity(rows, pathname, target.hostname);
     if (match) return { resource, entity: match };
   }
 
   if (candidatesFound > 0) {
     throw new Error(
-      `WordPress ha restituito ${candidatesFound} contenuti con slug compatibile, ma nessun permalink coincide esattamente con ${target.pathname}. SeoGrow blocca l'ispezione per evitare di modificare la risorsa sbagliata.`,
+      `WordPress ha restituito ${candidatesFound} contenuti con slug compatibile, ma nessun permalink coincide esattamente con ${target.hostname}${target.pathname}. SeoGrow blocca l'ispezione per evitare di modificare la risorsa sbagliata.`,
     );
   }
   throw new Error(`Nessuna pagina o articolo WordPress trovato per ${target.href}`);
