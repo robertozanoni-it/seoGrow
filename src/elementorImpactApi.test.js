@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 import {
   boundConditionValue,
   extractElementorConditionEvidence,
+  interpretElementorConditions,
+  normalizeImpactCandidateUrls,
   normalizeImpactDocuments,
 } from "../server/elementorImpactHook.js";
 
@@ -23,7 +25,29 @@ test("impact API accetta solo documenti Elementor con ID validi, deduplicati e l
   ]);
 });
 
-test("le condizioni Elementor restano evidenza raw bounded e non vengono dichiarate semanticamente risolte", () => {
+test("include/general viene interpretata come intero sito senza autorizzare scritture condivise", () => {
+  const interpretation = interpretElementorConditions(["include/general"]);
+  assert.equal(interpretation.entireSiteIncluded, true);
+  assert.equal(interpretation.semanticStatus, "resolved");
+  assert.equal(interpretation.displayConditionsResolved, true);
+  assert.equal(interpretation.entries[0].semanticStatus, "resolved-entire-site");
+
+  const evidence = extractElementorConditionEvidence({
+    id: 88,
+    title: { raw: "Header principale" },
+    status: "publish",
+    meta: {
+      _elementor_template_type: "header",
+      _elementor_conditions: ["include/general"],
+    },
+  }, { id: 88, type: "header", origins: ["frontend-rendered"] });
+  assert.equal(evidence.displayConditionsResolved, true);
+  assert.equal(evidence.conditionInterpretation.entireSiteIncluded, true);
+  assert.equal(evidence.affectedPagesEnumerated, false);
+  assert.equal(evidence.sharedWriteAllowed, false);
+});
+
+test("condizioni Elementor miste restano evidenza bounded e semanticamente parziale", () => {
   const evidence = extractElementorConditionEvidence({
     id: 120,
     type: "elementor_library",
@@ -41,6 +65,8 @@ test("le condizioni Elementor restano evidenza raw bounded e non vengono dichiar
   assert.deepEqual(evidence.conditions, ["include/general", "exclude/singular/post/44"]);
   assert.equal(evidence.conditionsObserved, true);
   assert.equal(evidence.conditionsSource, "elementor-rest-edit-context");
+  assert.equal(evidence.conditionInterpretation.semanticStatus, "partial");
+  assert.equal(evidence.conditionInterpretation.entries[1].explicitNumericTarget, 44);
   assert.equal(evidence.displayConditionsResolved, false);
   assert.equal(evidence.affectedPagesEnumerated, false);
   assert.equal(evidence.sharedWriteAllowed, false);
@@ -56,7 +82,26 @@ test("assenza di _elementor_conditions resta unknown e non viene trasformata in 
   assert.equal(evidence.conditionsObserved, false);
   assert.equal(evidence.conditions, null);
   assert.equal(evidence.conditionsSource, "not-exposed");
+  assert.equal(evidence.displayConditionsResolved, false);
   assert.match(evidence.note, /nessuna inferenza/i);
+});
+
+test("le URL candidate per impact analysis restano HTTPS same-host, deduplicate e bounded", () => {
+  const base = new URL("https://www.example.com/blog/");
+  const urls = normalizeImpactCandidateUrls(base, [
+    "https://example.com/a/",
+    "https://www.example.com/a/",
+    "https://www.example.com/b/?x=1#frag",
+    "http://example.com/insecure/",
+    "https://evil.example.net/a/",
+    "%%%",
+  ]);
+  assert.deepEqual(urls, [
+    "https://example.com/a/",
+    "https://www.example.com/a/",
+    "https://www.example.com/b/?x=1",
+  ]);
+  assert.ok(urls.every((value) => value.startsWith("https://")));
 });
 
 test("payload condizioni enorme viene limitato senza perdere il fail-closed", () => {
@@ -72,6 +117,9 @@ test("la route Elementor impact è solo POST read-only ed è dichiarata nelle ca
   assert.match(source, /app\.post\("\/api\/wordpress\/elementor-impact-inspect"/);
   assert.match(source, /readOnly:\s*true/);
   assert.match(source, /sharedWriteAllowed:\s*false/);
+  assert.match(source, /affectedPagesEnumerated:\s*false/);
+  assert.doesNotMatch(source, /sharedWriteAllowed:\s*true/);
+  assert.doesNotMatch(source, /affectedPagesEnumerated:\s*true/);
   assert.doesNotMatch(source, /app\.(?:put|patch|delete)\(/);
   assert.doesNotMatch(source, /update_post_meta|delete_post_meta|wp_update_post/i);
   assert.match(bootstrap, /elementor-impact-read-only/);
