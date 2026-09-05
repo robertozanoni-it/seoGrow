@@ -56,3 +56,24 @@ test("rollbackRequest usa i campi WordPress V2 come fallback", () => {
   assert.equal(payload.username, "fallback");
   assert.equal(payload.applicationPassword, "secret");
 });
+
+test("rollbackRequest conserva adapter, tassonomia e campo single-field", () => {
+  const payload = rollbackRequest({
+    siteUrl: "https://example.it/wordpress/",
+    sourceUrl: "https://example.it/argomenti/seo/",
+    resource: "taxonomy",
+    entityId: 77,
+    adapter: "rank-math",
+    taxonomy: "category",
+    taxonomyField: "meta_description",
+    before: { meta_description: "Prima" },
+    after: { meta_description: "Dopo" },
+  }, { username: "editor", applicationPassword: "secret" });
+
+  assert.equal(payload.resource, "taxonomy");
+  assert.equal(payload.adapter, "rank-math");
+  assert.equal(payload.taxonomy, "category");
+  assert.equal(payload.taxonomyField, "meta_description");
+  assert.deepEqual(payload.changes, { meta_description: "Prima" });
+  assert.deepEqual(payload.expectedCurrent, { meta_description: "Dopo" });
+});
