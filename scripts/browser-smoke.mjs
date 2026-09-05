@@ -151,12 +151,17 @@ try {
     localStorage.setItem('seogrow-selected-client-v1', JSON.stringify(client.id));
     localStorage.setItem('seogrow-page-audit-history-v2', JSON.stringify({ [client.id]: [audit] }));
     localStorage.setItem('seogrow-analyses-v2', JSON.stringify({ [client.id]: [] }));
+    history.replaceState(null, '', `#${encodeURIComponent('Audit SEO')}`);
     return true;
   })()`);
 
-  await command("Page.navigate", { url: `${appUrl}#${encodeURIComponent("Audit SEO")}` });
+  // Ricarica davvero il documento: il core App deve inizializzarsi dagli stessi dati
+  // locali usati dai layer Audit/Remediation, evitando un falso test con stato React
+  // precedente ancora puntato al progetto di esempio.
+  await command("Page.reload", { ignoreCache: true });
+  await waitFor("document.readyState === 'complete' && document.querySelector('#root')", "reload progetto QA");
   await waitFor(
-    "document.readyState === 'complete' && document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')",
+    "document.querySelector('.remediation-host') && document.querySelector('.audit-issue-select')",
     "RemediationHost nativo in Audit SEO",
   );
   const remediationText = await evaluate("document.querySelector('.remediation-host')?.textContent || ''");
@@ -165,8 +170,8 @@ try {
   }
 
   const activeProject = await evaluate("document.body?.innerText || ''");
-  if (!/Browser QA/.test(activeProject)) {
-    throw new Error("Il browser smoke non ha inizializzato il progetto QA richiesto.");
+  if (!/Browser QA/.test(activeProject) || /Progetto di esempio/.test(activeProject)) {
+    throw new Error("Il browser smoke non ha inizializzato in modo univoco il progetto QA richiesto.");
   }
 
   await clickSidebar("Correzioni");
