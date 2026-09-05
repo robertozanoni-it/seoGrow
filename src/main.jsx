@@ -13,7 +13,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import AuditWorkspace from './AuditWorkspace';
-import AuditUnifiedRemediation from './AuditUnifiedRemediation';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
 import WordPressConnectionControl from './WordPressConnectionControl';
 import WordPressLiveRemediationControl from './WordPressLiveRemediationControl';
@@ -48,7 +47,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AppErrorBoundary>
       <App />
       <AuditWorkspace />
-      <AuditUnifiedRemediation />
       <WordPressConnectionControl />
       <WordPressLiveRemediationControl />
       <WordPressConnectorControl />
