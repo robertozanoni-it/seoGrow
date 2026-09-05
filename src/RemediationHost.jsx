@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ExternalLink, ListChecks, ShieldCheck, Sparkles, Target } from "lucide-react";
 import { normalizeAnalysisHistory } from "./platform";
@@ -81,14 +81,12 @@ export default function RemediationHost() {
     issueIndex: index,
   });
 
-  const issueEntries = useMemo(
-    () => issues.map((issue, index) => ({ issue, index, key: issueKeyAt(issue, index) })),
-    // revision deliberately invalidates localStorage-backed audit data.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [clientId, latest?.type, auditTimestamp(latest), revision, verifiedKeys],
-  );
+  const issueEntries = issues.map((issue, index) => ({ issue, index, key: issueKeyAt(issue, index) }));
   const activeEntries = issueEntries.filter((entry) => !verifiedKeys.has(entry.key));
-  const selectedEntry = issueEntries.find((entry) => entry.index === selectedIndex) || activeEntries[0] || issueEntries[0] || null;
+  const selectedCandidate = issueEntries.find((entry) => entry.index === selectedIndex) || null;
+  const selectedEntry = selectedCandidate && !verifiedKeys.has(selectedCandidate.key)
+    ? selectedCandidate
+    : activeEntries[0] || issueEntries[0] || null;
   const selectedIssue = selectedEntry?.issue || null;
   const selectedUrl = safeHttpHref(issueUrl(selectedIssue, latest?.item, client));
 
@@ -129,10 +127,7 @@ export default function RemediationHost() {
 
   useEffect(() => {
     let cancelled = false;
-    if (!clientId) {
-      setVerifiedKeys(new Set());
-      return undefined;
-    }
+    if (!clientId) return undefined;
     listCorrections({ clientId }).then((records) => {
       if (cancelled) return;
       setVerifiedKeys(new Set(
@@ -145,14 +140,6 @@ export default function RemediationHost() {
     });
     return () => { cancelled = true; };
   }, [clientId, revision]);
-
-  useEffect(() => {
-    if (!issueEntries.length) return;
-    const current = issueEntries.find((entry) => entry.index === selectedIndex);
-    if (current && !verifiedKeys.has(current.key)) return;
-    const firstActive = activeEntries[0] || issueEntries[0];
-    if (firstActive && firstActive.index !== selectedIndex) setSelectedIndex(firstActive.index);
-  }, [issueEntries, activeEntries, selectedIndex, verifiedKeys]);
 
   useEffect(() => {
     const open = (event) => {
