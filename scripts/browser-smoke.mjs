@@ -144,7 +144,7 @@ const responsiveFixture = `<!doctype html>
   <div id="desktop-only">desktop</div>
   <div id="tablet-only">tablet</div>
   <div id="mobile-only">mobile</div>
-  <div id="stylesheet-hidden">hidden by stylesheet</div>
+  <div id="stylesheet-hidden" class="stylesheet-hidden">hidden by stylesheet</div>
   <div id="runtime-target"></div>
 </main>
 <script>
