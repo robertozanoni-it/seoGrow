@@ -14,6 +14,7 @@ import './backupImportGuard';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import GuidedUxLayer from './GuidedUxLayer';
 import AuditWorkspace from './AuditWorkspace';
 import AuditUnifiedRemediation from './AuditUnifiedRemediation';
 import CorrectionsWorkspace from './CorrectionsWorkspace';
@@ -49,6 +50,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <AppErrorBoundary>
       <App />
+      <GuidedUxLayer />
       <AuditWorkspace />
       <AuditUnifiedRemediation />
       <WordPressConnectionControl />
