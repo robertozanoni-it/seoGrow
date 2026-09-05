@@ -92,6 +92,33 @@ const ownershipUndetermined = (kind, detail) => {
   return error;
 };
 
+const elementorOwnershipDetail = (entity) => {
+  const ownership = entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
+    ? entity._seogrowOwnership
+    : {};
+  const resolved = Array.isArray(ownership.elementorResolvedExternalDocuments)
+    ? ownership.elementorResolvedExternalDocuments.filter((item) => item?.resolved === true)
+    : [];
+  const rendered = Array.isArray(ownership.elementorExternalRenderedDocuments)
+    ? ownership.elementorExternalRenderedDocuments
+    : [];
+  const sources = resolved.length ? resolved : rendered;
+  if (sources.length) {
+    const labels = sources.slice(0, 6).map((item) => {
+      const type = String(item?.type || "documento");
+      const id = Number(item?.id);
+      const title = String(item?.title || "").trim();
+      return `${type}${Number.isSafeInteger(id) ? ` #${id}` : ""}${title ? ` “${title}”` : ""}`;
+    });
+    return `Il frontend della URL usa anche documenti Elementor condivisi: ${labels.join(", ")}. SeoGrow ha identificato l'ownership esterna ma non modifica automaticamente un template condiviso senza analizzarne l'impatto sulle altre pagine.`;
+  }
+  if (ownership.elementorEvidenceStatus === "shared-templates-present-unresolved") {
+    const types = Array.isArray(ownership.elementorSharedTemplateTypes) ? ownership.elementorSharedTemplateTypes : [];
+    return `Nel sito risultano template Elementor condivisi${types.length ? ` (${types.join(", ")})` : ""}, ma il documento sorgente applicato a questa URL non è stato identificato con certezza.`;
+  }
+  return "La pagina contiene ownership Elementor locale o condivisa che non può essere attribuita con certezza a un singolo widget modificabile.";
+};
+
 const metaKey = (entity, kind) => {
   const meta = pluginMeta(entity);
   const has = (key) => Object.prototype.hasOwnProperty.call(meta, key);
@@ -146,7 +173,12 @@ async function inspectWordPress(targetUrl, credentials) {
   const response = await apiFetch("/api/wordpress/inspect-fast", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ url: targetUrl, username: credentials.username, applicationPassword: credentials.applicationPassword }),
+    body: JSON.stringify({
+      siteUrl: credentials.url,
+      url: targetUrl,
+      username: credentials.username,
+      applicationPassword: credentials.applicationPassword,
+    }),
   });
   const data = await response.json();
   if (!response.ok) {
@@ -300,7 +332,9 @@ async function buildPlan(kind, issue, inspected, targetUrl, frontendContext) {
       if (elementor) return elementor;
       throw ownershipUndetermined(kind, "Sono presenti widget Elementor pertinenti, ma non è stato possibile preparare una modifica senza ambiguità. Il fallback su post_content è bloccato.");
     }
-    if (elementorState.state === "valid" && elementorState.hasDocument) throw ownershipUndetermined(kind, "La pagina contiene un documento Elementor non vuoto ma nessun widget statico pertinente modificabile con certezza. Il fallback su post_content è bloccato.");
+    if (elementorState.state === "valid" && elementorState.hasDocument) {
+      throw ownershipUndetermined(kind, `${elementorOwnershipDetail(entity)} Il fallback su post_content è bloccato.`);
+    }
     if (ownership.ok) {
       const coreContent = entity?.content?.raw || entity?.content?.rendered || "";
       const generated = await generateCorePatch(kind, issue, entity, targetUrl, undefined, kind === "content" ? contentMeasurement(ownership.frontend, coreContent) : undefined);
