@@ -3,13 +3,22 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const host = await readFile(new URL("./RemediationHost.jsx", import.meta.url), "utf8");
+const runtime = await readFile(new URL("./RemediationRuntime.jsx", import.meta.url), "utf8");
 const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
 
 test("il motore legacy non è più montato nel runtime principale", () => {
   assert.doesNotMatch(main, /AuditUnifiedRemediation/);
   assert.doesNotMatch(main, /legacyRemediationGuard/);
-  assert.match(main, /RemediationHost/);
+  assert.match(main, /RemediationRuntime/);
+  assert.match(runtime, /RemediationHost/);
+});
+
+test("il runtime remediation viene montato solo in Audit SEO e si rimonta alla navigazione", () => {
+  assert.match(runtime, /state\.page !== "Audit SEO"/);
+  assert.match(runtime, /generation: current\.generation \+ 1/);
+  assert.match(runtime, /hashchange/);
+  assert.match(runtime, /seogrow-locationchange/);
 });
 
 test("l'host nativo espone solo il contratto DOM necessario al live flow V2", () => {
@@ -37,4 +46,10 @@ test("le piattaforme non WordPress non espongono la scrittura live", () => {
   assert.match(host, /data-remediation-platform=\{platform\}/);
   assert.match(host, /platform !== "wordpress"/);
   assert.match(host, /Apri nel SEO Agent/);
+});
+
+test("i vecchi observer DOM di remediation non vengono più caricati dal main", () => {
+  for (const legacyModule of ["remediationUiOrderPatch", "remediationCompletionUxPatch", "remediationReportUx"]) {
+    assert.doesNotMatch(main, new RegExp(legacyModule));
+  }
 });
