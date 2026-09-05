@@ -134,15 +134,41 @@ test("target escluso dalle condizioni viene esplicitato e non mascherato come ap
   assert.match(detail, /non modifica automaticamente un template condiviso/i);
 });
 
+test("enumerazione completa viene mostrata solo quando server, coverage e condizioni concordano", () => {
+  const detail = elementorOwnershipDetail({
+    _seogrowOwnership: {
+      elementorResolvedSourceDocuments: [
+        { id: 88, type: "header", title: "Header principale", resolved: true },
+      ],
+      elementorImpactEvidence: {
+        ok: true,
+        displayConditionsResolved: true,
+        affectedPagesEnumerated: true,
+        observedUrlCoverage: { inspected: 12, failed: 0, completeSiteEnumeration: true },
+        documents: [{
+          id: 88,
+          ok: true,
+          displayConditionsResolved: true,
+          targetApplicability: "applies",
+          observedRenderedCount: 12,
+        }],
+      },
+    },
+  });
+  assert.match(detail, /enumerazione completa dichiarata/i);
+  assert.match(detail, /tutte le 12 URL/i);
+  assert.match(detail, /non modifica automaticamente un template condiviso/i);
+});
+
 test("il client conserva il contratto fail-closed e accetta candidate URL solo come diagnostica", () => {
   assert.match(source, /sharedWriteAllowed:\s*false/);
-  assert.match(source, /affectedPagesEnumerated:\s*false/);
+  assert.match(source, /completeSiteEnumeration\s*=\s*data\?\.observedUrlCoverage\?\.completeSiteEnumeration\s*===\s*true/);
+  assert.match(source, /affectedPagesEnumerated\s*=\s*data\?\.affectedPagesEnumerated\s*===\s*true[\s\S]*completeSiteEnumeration[\s\S]*displayConditionsResolved/);
   assert.match(source, /catch \(error\)[\s\S]*return failedEvidence\(error\)/);
   assert.match(source, /candidateUrls:\s*Array\.isArray\(candidateUrls\)/);
   assert.match(source, /targetEntity:\s*\{/);
   assert.match(source, /id:\s*Number\(entity\?\.id\)/);
   assert.doesNotMatch(source, /sharedWriteAllowed:\s*data/);
-  assert.doesNotMatch(source, /affectedPagesEnumerated:\s*data/);
 });
 
 test("il live flow passa al diagnostico Elementor le URL del crawl disponibili", () => {
