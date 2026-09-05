@@ -1,132 +1,181 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { shouldPreferElementorOwnership } from "./wordpressRemediationRuntimePatch.js";
 import { countVisibleWords, shortContentTarget } from "../server/wordpressContentTarget.js";
+import {
+  assessCoreOwnership,
+  chooseElementorContentCandidate,
+  inspectEditableElementor,
+} from "./wordpressOwnership.js";
+import { isNonEditableWordPressUrl } from "./wordpressRemediationRuntimePatch.js";
 
 const patchServer = await readFile(new URL("../server/wordpressPatchV2Hook.js", import.meta.url), "utf8");
 const runtime = await readFile(new URL("./wordpressRemediationRuntimePatch.js", import.meta.url), "utf8");
 const liveControl = await readFile(new URL("./WordPressLiveRemediationControl.jsx", import.meta.url), "utf8");
-const ownership = await readFile(new URL("./wordpressOwnership.js", import.meta.url), "utf8");
-const frontendVerification = await readFile(new URL("../server/frontendVerificationHook.js", import.meta.url), "utf8");
 const connector = await readFile(new URL("../wordpress-plugin/seogrow-connector/seogrow-connector.php", import.meta.url), "utf8");
 
-const extractFunction = (source, name) => {
-  const marker = `export function ${name}`;
-  assert.ok(source.includes(marker), `${name} deve essere esportata`);
-};
-
-test("il patch engine unisce tutti i chunk output_text prima del parsing", () => {
-  extractFunction(patchServer, "collectOutputText");
-  assert.match(patchServer, /parts\.push\(content\.text\)/);
-  assert.match(patchServer, /parts\.join\(""\)/);
-  assert.match(patchServer, /source\.indexOf\("\{"\)/);
-  assert.match(patchServer, /source\.lastIndexOf\("\}"\)/);
+const words = (count) => Array.from({ length: count }, (_, index) => `parola${index}`).join(" ");
+const shortIssue = { label: "Contenuto breve per pagina content: 90 parole" };
+const measuredPage = (frontendWords, fieldWords, minimumWords = 180) => ({
+  content: `<p>${words(fieldWords)}</p>`,
+  remediationMeasurement: {
+    frontendWords,
+    fieldWords,
+    minimumWords,
+    marginWords: minimumWords >= 180 ? 30 : 20,
+  },
 });
 
-test("la remediation contenuto breve calcola un target con margine oltre la soglia", () => {
-  const widgetContent = `<p>${Array.from({ length: 116 }, (_, index) => `parola${index}`).join(" ")}</p>`;
-  assert.equal(countVisibleWords(widgetContent), 116);
-  assert.equal(
-    shortContentTarget(
-      { label: "Contenuto breve per pagina content: 90 parole" },
-      { content: widgetContent },
-    ),
-    230,
+test("il target short-content usa il frontend corrente, non il conteggio storico dell'audit", () => {
+  assert.equal(countVisibleWords(`<p>${words(110)}</p>`), 110);
+  assert.equal(shortContentTarget(shortIssue, measuredPage(141, 110)), 179);
+  assert.equal(shortContentTarget(shortIssue, measuredPage(141, 141)), 210);
+  assert.equal(shortContentTarget(shortIssue, measuredPage(90, 90)), 210);
+});
+
+test("short-content fallisce chiuso senza una misura frontend coerente", () => {
+  assert.throws(
+    () => shortContentTarget(shortIssue, { content: `<p>${words(110)}</p>` }),
+    /Misura frontend corrente assente/,
   );
-  assert.equal(
-    shortContentTarget(
-      { label: "Contenuto breve per pagina utility: 16 parole" },
-      { content: `<p>${Array(16).fill("parola").join(" ")}</p>` },
-    ),
-    80,
+  assert.throws(
+    () => shortContentTarget(shortIssue, measuredPage(141, 200)),
+    /non valide o non coerenti/,
   );
 });
 
-test("il target esplicito della remediation viene rispettato e limitato in sicurezza", () => {
-  assert.equal(shortContentTarget({ remediationTargetWords: 215 }, { content: "testo" }), 215);
-  assert.equal(shortContentTarget({ remediationTargetWords: 9999 }, { content: "testo" }), 1200);
+test("il target esplicito non viene abbassato silenziosamente", () => {
+  assert.equal(shortContentTarget({ remediationTargetWords: 215 }, {}), 215);
+  assert.throws(
+    () => shortContentTarget({ remediationTargetWords: 9999 }, {}),
+    /oltre il limite sicuro/,
+  );
 });
 
-test("una patch contenuto troppo breve viene rigenerata e mai proposta come applicabile", () => {
-  assert.match(patchServer, /generatedWords < targetWords/);
-  assert.match(patchServer, /remediationTargetWords: targetWords/);
-  assert.match(patchServer, /rigenera l'intero contenuto/);
-  assert.match(patchServer, /Nessuna anteprima applicabile è stata creata/);
-  assert.match(patchServer, /almeno \$\{targetWords\} parole di testo visibile/);
+test("una pagina con documento Elementor non può ricadere su WordPress core", () => {
+  const entity = {
+    content: { raw: `<p>${words(40)}</p>` },
+    meta: {
+      _elementor_data: JSON.stringify([
+        {
+          id: "dynamic",
+          widgetType: "text-editor",
+          settings: {
+            editor: `<p>${words(40)}</p>`,
+            __dynamic__: { editor: "[elementor-tag]" },
+          },
+          elements: [],
+        },
+      ]),
+    },
+  };
+  const state = inspectEditableElementor("content", entity);
+  assert.equal(state.state, "valid");
+  assert.equal(state.hasDocument, true);
+  assert.equal(state.widgets.length, 0);
+  const ownership = assessCoreOwnership("content", entity, {
+    words: 40,
+    expectedWords: 40,
+    contentCoverageStrong: true,
+    contentProbeVisible: true,
+    contentProbeCount: 3,
+    contentProbeMatches: 3,
+  });
+  assert.equal(ownership.ok, false);
+  assert.match(ownership.reason, /fallback su post_content è bloccato/);
 });
 
-test("gli H1 vengono corretti deterministicamente senza chiamare OpenAI", () => {
-  extractFunction(patchServer, "deterministicH1Patch");
-  assert.match(patchServer, /openings\.length === 0/);
-  assert.match(patchServer, /replace\(\/\^<h1\/i, "<h2"\)/);
-  assert.match(patchServer, /if \(kind === "h1"\)/);
-  assert.match(patchServer, /deterministicH1Patch/);
+test("Elementor sceglie un widget solo con copertura forte e univoca", () => {
+  const candidates = [
+    { id: "a", item: {}, value: words(110), words: 110 },
+    { id: "b", item: {}, value: words(50), words: 50 },
+  ];
+  const weak = chooseElementorContentCandidate(candidates.slice(0, 1), [{
+    contentProbeVisible: true,
+    contentCoverageStrong: false,
+    contentProbeCount: 3,
+    contentProbeMatches: 1,
+  }]);
+  assert.equal(weak.candidate, null);
+
+  const unique = chooseElementorContentCandidate(candidates.slice(0, 1), [{
+    contentProbeVisible: true,
+    contentCoverageStrong: true,
+    contentProbeCount: 3,
+    contentProbeMatches: 3,
+  }]);
+  assert.equal(unique.candidate?.id, "a");
+
+  const ambiguous = chooseElementorContentCandidate(candidates, [
+    { contentCoverageStrong: true, contentProbeCount: 3, contentProbeMatches: 3 },
+    { contentCoverageStrong: true, contentProbeCount: 3, contentProbeMatches: 3 },
+  ]);
+  assert.equal(ambiguous.candidate, null);
+  assert.match(ambiguous.reason, /sola lunghezza non è sufficiente/);
 });
 
-test("la remediation H1 usa WordPress core solo se la copertura core è forte e gli H1 coincidono", () => {
-  assert.match(ownership, /contentCoverageStrong/);
-  assert.match(ownership, /frontendH1 === coreH1/);
-  assert.match(liveControl, /assessCoreOwnership/);
+test("il patch engine rifiuta output AI incompleti o semanticamente più corti", () => {
+  assert.match(patchServer, /data\.status !== "completed"/);
+  assert.match(patchServer, /data\.incomplete_details/);
+  assert.match(patchServer, /typeof parsed\.value !== "string"/);
+  assert.match(patchServer, /La patch è più corta del contenuto originale/);
+  assert.match(patchServer, /remediationFeedback/);
+  assert.doesNotMatch(patchServer, /CONTENUTO RIDOTTO PER GENERAZIONE/);
 });
 
-test("un audit H1 stale viene marcato già risolto invece di tentare una patch inutile", () => {
-  assert.match(liveControl, /const alreadyResolvedReason =/);
-  assert.match(liveControl, /Number\(frontend\.h1\) === 1/);
-  assert.match(liveControl, /status: "resolved"/);
-  assert.match(liveControl, /problemi già risolti nel frontend corrente/);
-});
-
-test("la remediation usa l'audit aperto e non forza sempre l'ultimo audit", () => {
-  assert.match(liveControl, /const selectAudit =/);
-  assert.match(liveControl, /entry\.type === requested\.auditType/);
-  assert.match(liveControl, /String\(auditTimestamp\(entry\)\) === String\(requested\.analyzedAt/);
-  assert.match(liveControl, /seogrow-remediation-open/);
-});
-
-test("l'anteprima live ha un fallback locale e mostra i campi interessati", () => {
-  assert.match(liveControl, /const localPreview =/);
-  assert.match(liveControl, /if \(!hasUsefulPreview\(data\.previewBefore\)\) data\.previewBefore = fallback\.before/);
-  assert.match(liveControl, /Campi interessati:/);
-});
-
-test("il resolver Elementor precede WordPress core per content e blocca fallback ambiguo", () => {
-  assert.match(liveControl, /inspectEditableElementor\(kind, entity\)/);
-  assert.match(liveControl, /elementorPlan\(kind, issue, entity, targetUrl, elementorState, ownership\.frontend\)/);
-  const elementorIndex = liveControl.indexOf("if (elementorState.state === \"valid\" && elementorState.widgets.length > 0)");
-  const coreIndex = liveControl.indexOf("if (ownership.ok)", elementorIndex);
-  assert.ok(elementorIndex >= 0 && coreIndex > elementorIndex, "Elementor deve essere valutato prima del fallback core");
+test("il live planner passa la misura frontend al generatore e blocca Elementor non risolvibile", () => {
+  assert.match(liveControl, /const contentMeasurement =/);
+  assert.match(liveControl, /frontendWords/);
+  assert.match(liveControl, /fieldWords/);
+  assert.match(liveControl, /minimumWords/);
+  assert.match(liveControl, /elementorState\.hasDocument/);
   assert.match(liveControl, /Il fallback su post_content è bloccato/);
-  assert.match(ownership, /chooseElementorContentCandidate/);
-  assert.match(frontendVerification, /contentProbeMatches/);
-  assert.match(frontendVerification, /contentCoverageStrong/);
 });
 
-test("il runtime patch non decide più l'ownership Elementor", () => {
-  const inspected = { entity: { meta: { _elementor_data: "[]" } } };
-  assert.equal(shouldPreferElementorOwnership(inspected, { expected: { content: "testo" } }), true);
-  assert.doesNotMatch(runtime, /data\.contentProbeVisible = false/);
-  assert.doesNotMatch(runtime, /data\.seogrowOwnership = "elementor"/);
+test("un audit richiesto non ricade silenziosamente sull'ultimo audit", () => {
+  assert.match(liveControl, /if \(!requested\) return list\[0\] \|\| null/);
+  assert.match(liveControl, /if \(Number\(requested\.clientId\) !== Number\(clientId\)\) return null/);
+  assert.match(liveControl, /return matches\.length === 1 \? matches\[0\] : null/);
+  assert.doesNotMatch(liveControl, /\) \|\| list\[0\] \|\| null/);
 });
 
-test("la cache runtime non include mai la password applicativa", () => {
-  extractFunction(runtime, "safeCacheKey");
-  assert.match(runtime, /delete safe\.applicationPassword/);
-  assert.match(runtime, /CACHE_TTL_MS/);
-  assert.match(runtime, /inFlight/);
+test("le anteprime restano legate al cliente con cui sono state preparate", () => {
+  assert.match(liveControl, /contextSnapshot/);
+  assert.match(liveControl, /Il cliente selezionato è cambiato dopo la preparazione/);
+  assert.match(liveControl, /clientId: snapshot\.clientId/);
 });
 
-test("archivi e tassonomie vengono esclusi prima dell'ispezione WordPress", () => {
-  extractFunction(runtime, "isNonEditableWordPressUrl");
-  assert.match(runtime, /category\|categoria\|tag\|author\|autore\|date\|feed/);
-  assert.match(runtime, /NON_EDITABLE_ARCHIVE/);
+test("le evidenze di ownership non vengono più cacheate nel runtime browser", () => {
+  assert.doesNotMatch(runtime, /CACHE_TTL_MS/);
+  assert.doesNotMatch(runtime, /const cache = new Map/);
+  assert.doesNotMatch(runtime, /const inFlight = new Map/);
+  assert.match(runtime, /inspectedByUrl/);
 });
 
-test("il Connector espone solo meta esplicitamente autorizzati e richiede edit_post", () => {
+test("archivi e query WordPress non editabili vengono esclusi prima dell'ispezione", () => {
+  for (const url of [
+    "https://example.com/category/news/",
+    "https://example.com/tag/seo/",
+    "https://example.com/author/admin/",
+    "https://example.com/page/2/",
+    "https://example.com/feed/",
+    "https://example.com/?s=seo",
+    "https://example.com/?cat=1",
+    "https://example.com/?tag=seo",
+    "https://example.com/?paged=2",
+    "https://example.com/?author=1",
+  ]) {
+    assert.equal(isNonEditableWordPressUrl(url), true, url);
+  }
+  assert.equal(isNonEditableWordPressUrl("not a url"), true);
+});
+
+test("il Connector espone solo meta dei plugin rilevati e richiede edit_post", () => {
   assert.match(connector, /_elementor_data/);
   assert.match(connector, /rank_math_title/);
   assert.match(connector, /_yoast_wpseo_metadesc/);
   assert.match(connector, /current_user_can\('edit_post'/);
-  assert.match(connector, /seogrow\/v1/);
-  assert.doesNotMatch(connector, /register_post_meta\([^,]+,\s*\$meta_key/);
+  assert.match(connector, /\$has_elementor/);
+  assert.match(connector, /\$has_rank_math/);
+  assert.match(connector, /\$has_yoast/);
 });
