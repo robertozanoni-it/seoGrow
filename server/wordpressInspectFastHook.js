@@ -230,6 +230,38 @@ function mergeElementorSourceCandidates(externalDocuments = [], localReferences 
   return [...merged.values()].toSorted((a, b) => a.id - b.id || a.type.localeCompare(b.type));
 }
 
+function elementorSourceTypeEvidence(requestedType, entity) {
+  const requested = String(requestedType || "unknown").trim().toLowerCase() || "unknown";
+  const meta = entity?.meta && typeof entity.meta === "object" && !Array.isArray(entity.meta) ? entity.meta : {};
+  const observed = String(meta._elementor_template_type || "").trim().toLowerCase();
+  const requestedStrict = ELEMENTOR_SHARED_TYPES.has(requested);
+  const observedStrict = ELEMENTOR_SHARED_TYPES.has(observed);
+
+  if (!observed) {
+    return {
+      requestedType: requested,
+      observedType: "",
+      status: "not-exposed",
+      verified: null,
+    };
+  }
+  if (requestedStrict && observedStrict) {
+    const verified = requested === observed;
+    return {
+      requestedType: requested,
+      observedType: observed,
+      status: verified ? "verified" : "mismatch",
+      verified,
+    };
+  }
+  return {
+    requestedType: requested,
+    observedType: observed,
+    status: "observed-noncomparable",
+    verified: null,
+  };
+}
+
 async function resolveElementorRenderedSources(base, headers, documents = []) {
   const requested = (Array.isArray(documents) ? documents : [])
     .filter((document) => Number.isSafeInteger(Number(document?.id)) && Number(document.id) > 0)
@@ -263,16 +295,35 @@ async function resolveElementorRenderedSources(base, headers, documents = []) {
     try {
       const entity = await json(await wpFetch(elementorLibraryEndpoint(base, descriptor, document.id), { headers }));
       if (Number(entity?.id) !== document.id) throw new Error("L'ID restituito da WordPress non coincide con il documento Elementor richiesto.");
+      const typeEvidence = elementorSourceTypeEvidence(document.type, entity);
+      if (typeEvidence.status === "mismatch") {
+        resolved.push({
+          ...document,
+          resolved: false,
+          identityResolved: true,
+          sourceIdentity: "exact-elementor-library-id",
+          typeEvidence,
+          reason: `Il documento Elementor #${document.id} esiste, ma WordPress lo identifica come ${typeEvidence.observedType} mentre il frontend lo segnala come ${typeEvidence.requestedType}. Ownership bloccata.`,
+          wordpressType: String(entity?.type || "elementor_library"),
+          title: String(entity?.title?.raw || entity?.title?.rendered || ""),
+          status: String(entity?.status || ""),
+          link: String(entity?.link || ""),
+        });
+        continue;
+      }
       resolved.push({
         ...document,
         resolved: true,
+        identityResolved: true,
+        sourceIdentity: "exact-elementor-library-id",
+        typeEvidence,
         wordpressType: String(entity?.type || "elementor_library"),
         title: String(entity?.title?.raw || entity?.title?.rendered || ""),
         status: String(entity?.status || ""),
         link: String(entity?.link || ""),
       });
     } catch (error) {
-      resolved.push({ ...document, resolved: false, reason: error.message });
+      resolved.push({ ...document, resolved: false, identityResolved: false, reason: error.message });
     }
   }
 
@@ -444,6 +495,7 @@ export {
   elementorOwnershipEvidence,
   elementorLocalSourceReferences,
   mergeElementorSourceCandidates,
+  elementorSourceTypeEvidence,
   elementorLibraryRestDescriptor,
   elementorLibraryEndpoint,
   resolveElementorRenderedSources,
