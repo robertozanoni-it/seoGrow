@@ -18,14 +18,17 @@ test("il batch guard blocca solo gli stati WordPress non sicuri", () => {
   assert.match(source, /UNSAFE_SOURCE_STATUS/);
 });
 
-test("il batch guard ricava il target dal contesto remediation", () => {
+test("il batch guard ricava e normalizza il target dal contesto remediation", () => {
   const targetUrl = "https://example.com/pagina/?utm_source=test";
   const body = JSON.stringify({
     topic: "Remediation WordPress content",
     context: JSON.stringify({ issue: { targetUrl } }),
   });
 
-  assert.equal(remediationTargetFromGenerateBody(body), targetUrl);
+  assert.equal(
+    remediationTargetFromGenerateBody(body),
+    "https://example.com/pagina?utm_source=test",
+  );
   assert.equal(
     remediationTargetFromGenerateBody(JSON.stringify({ topic: "Altro", context: "{}" })),
     "",
