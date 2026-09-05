@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   AlertTriangle,
@@ -98,6 +98,11 @@ const readPage = () => {
 
 const navigate = (page) => {
   const next = `#${encodeURIComponent(page)}`;
+  if (page === "Correzioni") {
+    if (window.location.hash !== next) window.history.pushState(null, "", next);
+    window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
+    return;
+  }
   if (window.location.hash !== next) window.location.hash = next;
   else window.dispatchEvent(new CustomEvent("seogrow-locationchange"));
 };
@@ -126,7 +131,7 @@ const latestAnalysis = (value) => {
 };
 
 function useUiSnapshot() {
-  const [version, setVersion] = useState(0);
+  const [, setVersion] = useState(0);
   const [page, setPage] = useState(readPage);
   const [mode, setMode] = useState(readMode);
   const [targets, setTargets] = useState({ sidebar: null, topbar: null, main: null });
@@ -182,12 +187,17 @@ function useUiSnapshot() {
   }, [mode]);
 
   useEffect(() => {
-    setDashboardHost(null);
-    if (page !== "Panoramica" || !targets.main) return undefined;
     let host = null;
     const frame = window.requestAnimationFrame(() => {
+      if (page !== "Panoramica" || !targets.main) {
+        setDashboardHost(null);
+        return;
+      }
       const title = targets.main.querySelector(":scope > .page-title");
-      if (!title) return;
+      if (!title) {
+        setDashboardHost(null);
+        return;
+      }
       host = document.createElement("div");
       host.className = "guided-next-actions-host";
       title.insertAdjacentElement("afterend", host);
@@ -199,7 +209,7 @@ function useUiSnapshot() {
     };
   }, [page, targets.main]);
 
-  return { version, page, mode, setMode, targets, dashboardHost };
+  return { page, mode, setMode, targets, dashboardHost };
 }
 
 function GuidedNav({ page, mode, setMode }) {
@@ -361,12 +371,12 @@ function NextActions({ client, tasks, dataset, analysis, corrections }) {
       </div>
       <div className="guided-action-grid">
         {shown.length ? (
-          shown.map(({ page, Icon, tone, title, text }) => (
+          shown.map(({ page: targetPage, Icon, tone, title, text }) => (
             <button
               type="button"
               className={`guided-action-card ${tone}`}
-              key={`${page}-${title}`}
-              onClick={() => navigate(page)}
+              key={`${targetPage}-${title}`}
+              onClick={() => navigate(targetPage)}
             >
               <span className="guided-action-icon"><Icon /></span>
               <span>
@@ -392,31 +402,29 @@ function NextActions({ client, tasks, dataset, analysis, corrections }) {
 }
 
 export default function GuidedUxLayer() {
-  const { version, page, mode, setMode, targets, dashboardHost } = useUiSnapshot();
+  const { page, mode, setMode, targets, dashboardHost } = useUiSnapshot();
 
-  const snapshot = useMemo(() => {
-    const clients = readJson(CLIENTS_KEY, []);
-    const domClientId = Number(document.querySelector(".client-select select")?.value || 0);
-    const selectedClientId = domClientId || Number(readJson(SELECTED_CLIENT_KEY, 0));
-    const client = clients.find((item) => item.id === selectedClientId) || clients[0] || null;
-    const tasks = readJson(TASKS_KEY, []).filter(
-      (task) =>
-        task.sourceClientId === client?.id ||
-        (!task.sourceClientId && task.client === client?.name),
-    );
-    const gscData = readJson(GSC_KEY, {});
-    const analyses = readJson(ANALYSES_KEY, {});
-    const corrections = readJson(REMEDIATION_INDEX_KEY, []).filter(
-      (item) => Number(item.clientId) === Number(client?.id),
-    );
-    return {
-      client,
-      tasks,
-      dataset: client ? gscData[client.id] || null : null,
-      analysis: client ? latestAnalysis(analyses[client.id]) : null,
-      corrections,
-    };
-  }, [version, page]);
+  const clients = readJson(CLIENTS_KEY, []);
+  const domClientId = Number(document.querySelector(".client-select select")?.value || 0);
+  const selectedClientId = domClientId || Number(readJson(SELECTED_CLIENT_KEY, 0));
+  const client = clients.find((item) => item.id === selectedClientId) || clients[0] || null;
+  const tasks = readJson(TASKS_KEY, []).filter(
+    (task) =>
+      task.sourceClientId === client?.id ||
+      (!task.sourceClientId && task.client === client?.name),
+  );
+  const gscData = readJson(GSC_KEY, {});
+  const analyses = readJson(ANALYSES_KEY, {});
+  const corrections = readJson(REMEDIATION_INDEX_KEY, []).filter(
+    (item) => Number(item.clientId) === Number(client?.id),
+  );
+  const snapshot = {
+    client,
+    tasks,
+    dataset: client ? gscData[client.id] || null : null,
+    analysis: client ? latestAnalysis(analyses[client.id]) : null,
+    corrections,
+  };
 
   return (
     <>
