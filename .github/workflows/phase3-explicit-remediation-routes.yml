@@ -1,0 +1,124 @@
+name: Phase3 Explicit Remediation Routes
+
+on:
+  push:
+    branches:
+      - fix/astra-full-reliability-ux-20260905
+    paths:
+      - .github/workflows/phase3-explicit-remediation-routes.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/astra-full-reliability-ux-20260905
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Replace Express compatibility with explicit registration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          index = Path('server/index.js')
+          source = index.read_text()
+          import_needle = '''import {
+            credentialEncryptionKey,
+            dataDir,
+            localApiToken,
+          } from "./localSecurity.js";
+          '''
+          import_replacement = import_needle + 'import { registerRemediationRoutes } from "./remediationBootstrap.js";\n'
+          if 'from "./remediationBootstrap.js"' not in source:
+              if import_needle not in source:
+                  raise SystemExit('Import insertion point not found in server/index.js')
+              source = source.replace(import_needle, import_replacement, 1)
+          fallback_needle = 'const dist = path.resolve(dirname, "../dist");\n'
+          if 'registerRemediationRoutes(app);' not in source:
+              if fallback_needle not in source:
+                  raise SystemExit('Fallback insertion point not found in server/index.js')
+              source = source.replace(fallback_needle, 'registerRemediationRoutes(app);\n\n' + fallback_needle, 1)
+          index.write_text(source)
+
+          bootstrap = Path('server/remediationBootstrap.js')
+          source = bootstrap.read_text()
+          source = source.replace('import express from "express";\n', '', 1)
+          marker = 'const USE_PATCHED = Symbol.for("seogrow.remediationBootstrapUsePatched");\n'
+          source = source.replace(marker, '', 1)
+          compatibility = '''\n// Compatibilità temporanea con NODE_OPTIONS --import: una sola intercettazione
+          // centralizzata monta le route appena prima del fallback app.use("/api", ...).
+          // I singoli hook non modificano più express.application.
+          const originalUse = express.application.use;
+          if (!originalUse[USE_PATCHED]) {
+            const patchedUse = function (...args) {
+              if (!this[ROUTES_ATTACHED] && args[0] === "/api") registerRemediationRoutes(this);
+              return originalUse.apply(this, args);
+            };
+            patchedUse[USE_PATCHED] = true;
+            express.application.use = patchedUse;
+          }
+          '''
+          if compatibility not in source:
+              raise SystemExit('Express compatibility block not found in remediationBootstrap.js')
+          source = source.replace(compatibility, '\n', 1)
+          bootstrap.write_text(source)
+
+          test = Path('src/remediationBootstrapArchitecture.test.js')
+          source = test.read_text()
+          if 'const serverIndex = await readServer("index.js");' not in source:
+              source = source.replace(
+                  'const bootstrap = await readServer("remediationBootstrap.js");\n',
+                  'const bootstrap = await readServer("remediationBootstrap.js");\nconst serverIndex = await readServer("index.js");\n',
+                  1,
+              )
+          old = '''test("il bootstrap remediation usa una sola compatibilità Express prima del fallback API", () => {
+            assert.match(bootstrap, /function registerRemediationRoutes/);
+            assert.match(bootstrap, /seogrow\\.remediationBootstrapUsePatched/);
+            assert.match(bootstrap, /args\\[0\\] === "\\/api"/);
+            assert.doesNotMatch(bootstrap, /remediationBootstrapListenPatched|express\\.application\\.listen/);
+          });
+          '''
+          new = '''test("server/index registra esplicitamente le route remediation prima del fallback API", () => {
+            assert.match(bootstrap, /function registerRemediationRoutes/);
+            assert.doesNotMatch(bootstrap, /express\\.application|remediationBootstrapUsePatched/);
+            assert.match(serverIndex, /import \\{ registerRemediationRoutes \\} from "\\.\\/remediationBootstrap\\.js"/);
+            const registration = serverIndex.indexOf("registerRemediationRoutes(app);");
+            const fallback = serverIndex.indexOf('app.use("/api"');
+            assert.ok(registration >= 0, "registrazione remediation assente");
+            assert.ok(fallback >= 0, "fallback API assente");
+            assert.ok(registration < fallback, "le route remediation devono precedere il fallback API");
+          });
+          '''
+          if old not in source:
+              raise SystemExit('Architecture test block not found')
+          source = source.replace(old, new, 1)
+          test.write_text(source)
+          PY
+      - name: Verify migration
+        run: |
+          npm run lint
+          npm test
+          npm run build
+          if grep -R "express\.application" server/remediationBootstrap.js server/*Hook.js; then
+            echo "Global Express patch still present" >&2
+            exit 1
+          fi
+          grep -q 'registerRemediationRoutes(app);' server/index.js
+      - name: Commit migration and remove one-time workflow
+        shell: bash
+        run: |
+          rm .github/workflows/phase3-explicit-remediation-routes.yml
+          git config user.name "SeoGrow QA"
+          git config user.email "actions@users.noreply.github.com"
+          git add server/index.js server/remediationBootstrap.js src/remediationBootstrapArchitecture.test.js .github/workflows/phase3-explicit-remediation-routes.yml
+          git commit -m "refactor: register remediation routes explicitly"
+          git push origin HEAD:fix/astra-full-reliability-ux-20260905
