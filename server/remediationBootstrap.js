@@ -32,6 +32,7 @@ const remediationModules = await Promise.all([
   import("./elementorImpactHook.js"),
   import("./wordpressTaxonomyHook.js"),
   import("./wordpressPatchV2Hook.js"),
+  import("./elementorPublicCoverageHook.js"),
 ]);
 
 const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
@@ -53,6 +54,7 @@ export function registerRemediationRoutes(app) {
         "inspect-taxonomy",
         "elementor-impact-read-only",
         "elementor-impact-server-attested-coverage",
+        "elementor-public-coverage-read-only",
         "taxonomy-preview",
         "taxonomy-apply",
         "taxonomy-rollback-preview",
@@ -67,6 +69,7 @@ export function registerRemediationRoutes(app) {
       liveMode: "single-explicit-approval",
       taxonomyMode: "single-field-explicit-approval-stale-safe",
       elementorImpactMode: "read-only-server-attested-coverage-no-shared-write",
+      elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write",
       taxonomyConnectorMinimum: "1.3.0",
       draftCopyCompatibility: false,
     });
