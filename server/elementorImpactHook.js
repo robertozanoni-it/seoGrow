@@ -118,9 +118,13 @@ export function interpretElementorConditions(input, targetEntity = null) {
     // Only the exact singular/<post-type>/<numeric-id> shape is safe to interpret.
     // Nested rules such as singular/page/by-author/12 remain unresolved instead of
     // accidentally treating the final numeric token as a WordPress entity ID.
-    const explicitSingularTarget = operator !== "unknown" && path[0] === "singular" && path.length === 3 && explicitNumericTarget !== null;
-    const targetMatches = explicitSingularTarget && target.id !== null
-      ? explicitNumericTarget === target.id
+    const explicitSingularTarget = operator !== "unknown" && path[0] === "singular" && path.length === 3 && Boolean(path[1]) && explicitNumericTarget !== null;
+    const explicitTargetType = explicitSingularTarget ? String(path[1]).toLowerCase() : "";
+    const targetTypeMatches = explicitSingularTarget && target.type
+      ? explicitTargetType === target.type
+      : null;
+    const targetMatches = explicitSingularTarget && target.id !== null && target.type
+      ? explicitNumericTarget === target.id && targetTypeMatches === true
       : null;
 
     let semanticStatus = "unresolved";
@@ -128,7 +132,7 @@ export function interpretElementorConditions(input, targetEntity = null) {
     if (general) {
       semanticStatus = operator === "include" ? "resolved-entire-site" : "resolved-entire-site-exclusion";
       targetEffect = operator;
-    } else if (explicitSingularTarget && target.id !== null) {
+    } else if (explicitSingularTarget && target.id !== null && target.type) {
       semanticStatus = "resolved-explicit-singular-target";
       targetEffect = targetMatches ? operator : "no-match";
     }
@@ -140,6 +144,8 @@ export function interpretElementorConditions(input, targetEntity = null) {
       entireSite,
       explicitNumericTarget,
       explicitSingularTarget,
+      explicitTargetType,
+      targetTypeMatches,
       targetMatches,
       targetEffect,
       semanticStatus,
@@ -149,7 +155,7 @@ export function interpretElementorConditions(input, targetEntity = null) {
   const displayConditionsResolved = entries.length > 0 && resolvedEntries === entries.length;
   const includeRules = entries.filter((entry) => entry.operator === "include");
   let targetApplicability = "unknown";
-  if (displayConditionsResolved && target.id !== null) {
+  if (displayConditionsResolved && target.id !== null && target.type) {
     if (entries.some((entry) => entry.targetEffect === "exclude")) targetApplicability = "excluded";
     else if (entries.some((entry) => entry.targetEffect === "include")) targetApplicability = "applies";
     else if (includeRules.length > 0) targetApplicability = "not-applied";
@@ -354,7 +360,7 @@ async function inspectImpact({ siteUrl, username, applicationPassword, documents
   const resolvedRows = results.filter((row) => row.ok);
   const displayConditionsResolved = resolvedRows.length > 0 && resolvedRows.length === results.length &&
     resolvedRows.every((row) => row.displayConditionsResolved === true);
-  const targetApplicabilityResolved = normalizedTarget.id !== null && resolvedRows.length > 0 &&
+  const targetApplicabilityResolved = normalizedTarget.id !== null && Boolean(normalizedTarget.type) && resolvedRows.length > 0 &&
     resolvedRows.length === results.length && resolvedRows.every((row) => row.targetApplicability !== "unknown");
 
   return {
