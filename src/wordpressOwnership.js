@@ -1,3 +1,5 @@
+import { summarizeElementorImpact } from "./elementorImpact.js";
+
 const pluginMeta = (entity) => entity?.meta && typeof entity.meta === "object" ? entity.meta : {};
 
 const clone = (value) => {
@@ -71,6 +73,7 @@ const elementorRaw = (entity) => pluginMeta(entity)._elementor_data;
 const ownership = (entity) => entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
   ? entity._seogrowOwnership
   : {};
+const impactFor = (entity) => summarizeElementorImpact(ownership(entity));
 const sharedElementorTemplateTypes = (entity) => {
   const values = ownership(entity).elementorSharedTemplateTypes;
   return Array.isArray(values)
@@ -147,6 +150,7 @@ export function inspectEditableElementor(kind, entity) {
   const raw = elementorRaw(entity);
   const sharedReferences = externalSharedReferences(entity);
   const localObserved = localElementorDocumentObserved(entity);
+  const impact = impactFor(entity);
   if (raw === undefined || raw === null || raw === "") {
     if (sharedReferences.length || localObserved) {
       return {
@@ -155,14 +159,15 @@ export function inspectEditableElementor(kind, entity) {
         widgets: [],
         hasDocument: true,
         sharedReferences,
+        impact,
       };
     }
-    return { state: "absent", parsed: null, widgets: [], hasDocument: false, sharedReferences: [] };
+    return { state: "absent", parsed: null, widgets: [], hasDocument: false, sharedReferences: [], impact };
   }
 
   try {
     const data = typeof raw === "string" ? JSON.parse(raw) : clone(raw);
-    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences };
+    if (!Array.isArray(data)) return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact };
 
     const widgets = [];
     const valid = walk(data, (item) => {
@@ -206,7 +211,7 @@ export function inspectEditableElementor(kind, entity) {
       }
     });
 
-    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0, sharedReferences };
+    if (!valid) return { state: "invalid", parsed: null, widgets: [], hasDocument: data.length > 0, sharedReferences, impact };
 
     const uniqueSharedReferences = [...new Map(sharedReferences.map((reference) => [
       `${reference.type}:${reference.templateType}:${reference.id}`,
@@ -223,12 +228,13 @@ export function inspectEditableElementor(kind, entity) {
         widgets: [],
         hasDocument: true,
         sharedReferences: uniqueSharedReferences,
+        impact,
       };
     }
 
-    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0, sharedReferences: [] };
+    return { state: "valid", parsed: { data }, widgets, hasDocument: data.length > 0, sharedReferences: [], impact };
   } catch {
-    return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences };
+    return { state: "invalid", parsed: null, widgets: [], hasDocument: true, sharedReferences, impact };
   }
 }
 
@@ -261,11 +267,13 @@ export function assessCoreOwnership(kind, entity, frontend) {
   );
 
   if (hasElementorDocument(entity)) {
+    const impact = impactFor(entity);
     return {
       ok: false,
       frontend,
       coreWords,
-      reason: "La pagina contiene ownership Elementor locale o condivisa: il fallback su post_content è bloccato.",
+      impact,
+      reason: `La pagina contiene ownership Elementor locale o condivisa: il fallback su post_content è bloccato. ${impact.summary}`,
     };
   }
 
