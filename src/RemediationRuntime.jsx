@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import RemediationHost from "./RemediationHost";
 import WordPressConnectionControl from "./WordPressConnectionControl";
 import WordPressLiveRemediationControlV2 from "./WordPressLiveRemediationControlV2";
+import WordPressTaxonomyRemediationControl from "./WordPressTaxonomyRemediationControl";
 import WordPressConnectorControl from "./WordPressConnectorControl";
 
 const currentPage = () => {
@@ -31,6 +32,7 @@ export default function RemediationRuntime() {
       <RemediationHost key={`${key}-host`} />
       <WordPressConnectionControl key={`${key}-connection`} />
       <WordPressLiveRemediationControlV2 key={`${key}-live`} />
+      <WordPressTaxonomyRemediationControl key={`${key}-taxonomy`} />
       <WordPressConnectorControl key={`${key}-connector`} />
     </>
   );
