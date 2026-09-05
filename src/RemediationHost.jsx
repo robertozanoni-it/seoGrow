@@ -106,29 +106,26 @@ export default function RemediationHost() {
   const wpPassword = passwordDraft.clientId === clientId ? passwordDraft.value : "";
 
   useEffect(() => {
-    let frame = 0;
-    let attempts = 0;
+    let timer = 0;
+    let disposed = false;
     const scan = () => {
+      if (disposed) return;
       const next = resolveTarget();
-      setTarget((current) => current === next ? current : next);
-      if (!next && attempts < 120) {
-        attempts += 1;
-        frame = window.requestAnimationFrame(scan);
-      }
+      setTarget((current) => {
+        if (current === next && (!current || current.isConnected)) return current;
+        return next;
+      });
+      timer = window.setTimeout(scan, 100);
     };
-    const refresh = () => {
-      window.cancelAnimationFrame(frame);
-      attempts = 0;
-      setRevision((value) => value + 1);
-      scan();
-    };
+    const refresh = () => setRevision((value) => value + 1);
     scan();
     window.addEventListener("hashchange", refresh);
     window.addEventListener("seogrow-locationchange", refresh);
     window.addEventListener("storage", refresh);
     window.addEventListener("seogrow-storage-ok", refresh);
     return () => {
-      window.cancelAnimationFrame(frame);
+      disposed = true;
+      window.clearTimeout(timer);
       window.removeEventListener("hashchange", refresh);
       window.removeEventListener("seogrow-locationchange", refresh);
       window.removeEventListener("storage", refresh);
@@ -168,7 +165,7 @@ export default function RemediationHost() {
     return () => window.removeEventListener("seogrow-remediation-open", open);
   }, [clientId]);
 
-  if (!target || !client || !selectedAudit?.item || !issues.length) return null;
+  if (!target || !target.isConnected || !client || !selectedAudit?.item || !issues.length) return null;
 
   const savePlatform = (next) => {
     setPlatformChoice({ clientId, value: next });
