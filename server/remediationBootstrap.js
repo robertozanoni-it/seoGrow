@@ -33,6 +33,7 @@ const remediationModules = await Promise.all([
   import("./wordpressTaxonomyHook.js"),
   import("./wordpressPatchV2Hook.js"),
   import("./elementorPublicCoverageHook.js"),
+  import("./elementorCoverageAttestationHook.js"),
 ]);
 
 const ELEMENTOR_IMPACT_MODULE_INDEX = 6;
@@ -55,6 +56,8 @@ export function registerRemediationRoutes(app) {
         "elementor-impact-read-only",
         "elementor-impact-server-attested-coverage",
         "elementor-public-coverage-read-only",
+        "wordpress-public-inventory-read-only",
+        "elementor-coverage-attestation",
         "taxonomy-preview",
         "taxonomy-apply",
         "taxonomy-rollback-preview",
@@ -70,7 +73,9 @@ export function registerRemediationRoutes(app) {
       taxonomyMode: "single-field-explicit-approval-stale-safe",
       elementorImpactMode: "read-only-server-attested-coverage-no-shared-write",
       elementorPublicCoverageMode: "sitemap-crawl-reconciled-non-authoritative-no-shared-write",
+      elementorCoverageAttestationMode: "connector-inventory-plus-public-coverage-exact-match-no-shared-write",
       taxonomyConnectorMinimum: "1.3.0",
+      elementorInventoryConnectorMinimum: "1.3.0",
       draftCopyCompatibility: false,
     });
   });
