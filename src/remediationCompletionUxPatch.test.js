@@ -1,67 +1,66 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { issueFamily, issueKey } from "./issueIdentity.js";
 
-const source = await readFile(new URL("./remediationCompletionUxPatch.js", import.meta.url), "utf8");
-const css = await readFile(new URL("./remediationCompletionUxPatch.css", import.meta.url), "utf8");
+const audit = await readFile(new URL("./AuditWorkspaceV2.jsx", import.meta.url), "utf8");
+const live = await readFile(new URL("./WordPressLiveRemediationControlV2.jsx", import.meta.url), "utf8");
+const taskResolution = await readFile(new URL("./taskResolution.js", import.meta.url), "utf8");
+const integrity = await readFile(new URL("./remediationIntegrityV2.js", import.meta.url), "utf8");
+const css = await readFile(new URL("./WordPressLiveRemediationV2.css", import.meta.url), "utf8");
 const main = await readFile(new URL("./main.jsx", import.meta.url), "utf8");
 
-test("un problema già risolto viene chiuso come task e non resta Da fare", () => {
-  assert.match(source, /status: "Completato"/);
-  assert.match(source, /completedAt: now/);
-  assert.match(source, /\.wp-live-preview-row\.resolved/);
-  assert.match(source, /Chiusa automaticamente: SeoGrow ha confermato/);
-  assert.match(source, /RESOLVED_EVIDENCE_KEY/);
+test("l'identità short-content non cambia quando cambia il numero di parole", () => {
+  const first = { type: "thin", label: "Contenuto breve per pagina content: 90 parole" };
+  const second = { type: "thin", label: "Contenuto breve per pagina content: 176 parole" };
+  assert.equal(issueFamily(first), "short-content");
+  assert.equal(issueFamily(second), "short-content");
+  assert.equal(issueKey(first, "https://example.it/pagina/"), issueKey(second, "https://example.it/pagina"));
 });
 
-test("una task completata manualmente non basta a dichiarare risolto un problema SEO", () => {
-  assert.match(source, /autoVerifiedTask/);
-  assert.match(source, /hasVerifiedEvidence/);
-  assert.match(source, /!hasActiveTask && hasVerifiedEvidence/);
-  assert.doesNotMatch(source, /hasCompletedTask\s*\|\|\s*verifiedCorrection/);
+test("un problema verificato completa la task senza cancellarne lo storico", () => {
+  assert.match(taskResolution, /status: "Completato"/);
+  assert.match(taskResolution, /completedAt:/);
+  assert.doesNotMatch(taskResolution, /tasks\.filter\([^]*status !== "Completato"/);
+  assert.match(integrity, /completeTaskForIssue/);
+  assert.match(integrity, /rememberResolvedIssue/);
 });
 
-test("una nuova task successiva alla verifica non viene chiusa da una vecchia correzione", () => {
-  assert.match(source, /latestVerifiedAt/);
-  assert.match(source, /taskTime\(task\) <= latestVerifiedAt/);
-  assert.match(source, /activeTasks\.every/);
+test("la lista audit è derivata dai soli problemi attivi", () => {
+  assert.match(audit, /activeIssueEntries/);
+  assert.match(audit, /!isIssueResolved/);
+  assert.match(audit, /Problemi da correggere/);
+  assert.match(audit, /activeEntries\.map/);
+  assert.match(audit, /risolti dopo l’audit/);
 });
 
-test("la remediation mostra quale problema attivo è selezionato", () => {
-  assert.match(source, /Problema selezionato/);
-  assert.match(source, /wp-live-selected-issue-label/);
-  assert.match(source, /Prepara solo il problema selezionato/);
-  assert.match(source, /activeAuditIssueRows\(\)\[0\]/);
-  assert.match(source, /!row\.classList\.contains\("seogrow-issue-resolved"\)/);
-  assert.match(source, /seogrow-remediation-open/);
+test("la remediation mostra un problema selezionato reale e il totale attivo", () => {
+  assert.match(live, /Prepara solo il problema selezionato/);
+  assert.match(live, /Prepara anteprima di tutte le correzioni \(\$\{activeCount\}\)/);
+  assert.match(live, /activeIssues/);
+  assert.match(live, /!isIssueResolved/);
+  assert.match(main, /AuditRemediationShell/);
+  assert.match(main, /WordPressLiveRemediationControlV2/);
 });
 
-test("il pulsante bulk mostra il numero dei problemi ancora da correggere", () => {
-  assert.match(source, /syncBulkActionTotal/);
-  assert.match(source, /const totalAudit = allAuditIssueRows\(\)\.length/);
-  assert.match(source, /const totalActive = activeAuditIssueRows\(\)\.length/);
-  assert.match(source, /seogrow-bulk-total/);
-  assert.match(source, /problemi ancora da correggere su/);
+test("gli stati bloccati ed errore sono distinti visivamente dal successo", () => {
+  assert.match(css, /wp-live-preview-row\.blocked/);
+  assert.match(css, /wp-live-preview-row\.error/);
+  assert.match(css, /wp-live-preview-row\.resolved/);
+  assert.match(live, /NON CORRETTO/);
 });
 
-test("i problemi verificati spariscono dalla lista attiva invece di restare tra i problemi rilevati", () => {
-  assert.match(source, /row\.hidden = true/);
-  assert.match(source, /row\.setAttribute\("aria-hidden", "true"\)/);
-  assert.match(source, /row\.style\.setProperty\("display", "none", "important"\)/);
-  assert.match(source, /risolti dopo l’audit e rimossi da questa lista/);
-  assert.match(source, /I problemi risolti restano disponibili nello storico audit/);
+test("la riverifica richiede evidenza frontend e un nuovo controllo SEO", () => {
+  assert.match(integrity, /inspectFrontend/);
+  assert.match(integrity, /freshAudit/);
+  assert.match(integrity, /positiveFrontendEvidence/);
+  assert.match(integrity, /familyIssuePresent/);
+  assert.match(integrity, /status: "Verificato"/);
 });
 
-test("problemi bloccati restano visivamente distinti", () => {
-  assert.match(css, /\.wp-live-remediation\.panel/);
-  assert.match(css, /rgba\(240, 253, 244/);
-  assert.match(css, /wp-live-preview-row\.unsupported/);
-  assert.match(source, /seogrow-blocked-badge/);
-  assert.match(source, /Non corretto/);
-});
-
-test("il messaggio distingue la verifica automatica dal nuovo audit storico", () => {
-  assert.match(source, /SeoGrow riverifica automaticamente il frontend/);
-  assert.match(source, /nuovo audit serve soltanto ad aggiornare il report storico/);
-  assert.match(main, /remediationCompletionUxPatch/);
+test("un errore operativo di riverifica non retrocede una correzione già verificata", () => {
+  assert.match(integrity, /if \(record\.status === "Verificato"\)/);
+  assert.match(integrity, /lastVerificationError/);
+  const verifiedCatch = integrity.slice(integrity.lastIndexOf('if (record.status === "Verificato")'));
+  assert.doesNotMatch(verifiedCatch.slice(0, verifiedCatch.indexOf("return updateCorrection") + 500), /status: "Da verificare"/);
 });
