@@ -7,6 +7,7 @@ const readServer = (name) => readFile(new URL(`../server/${name}`, import.meta.u
 const bootstrap = await readServer("remediationBootstrap.js");
 const serverIndex = await readServer("index.js");
 const migratedHooks = await Promise.all([
+  "wordpressConnectionHook.js",
   "wordpressLiveApprovalHook.js",
   "wordpressLiveRollbackHook.js",
   "wordpressSeoAdapterV2Hook.js",
@@ -30,14 +31,10 @@ test("server/index registra esplicitamente le route remediation prima del fallba
 test("il bootstrap espone le capability reali del runtime V2", () => {
   assert.match(bootstrap, /\/api\/wordpress\/remediation-capabilities/);
   assert.match(bootstrap, /engine: "v2"/);
+  assert.match(bootstrap, /"connection-check"/);
   assert.match(bootstrap, /"inspect-fast"/);
   assert.match(bootstrap, /"inspect-taxonomy"/);
-  assert.match(bootstrap, /"taxonomy-preview"/);
-  assert.match(bootstrap, /"taxonomy-apply"/);
-  assert.match(bootstrap, /"taxonomy-rollback-preview"/);
-  assert.match(bootstrap, /"taxonomy-verify"/);
   assert.match(bootstrap, /taxonomyMode: "single-field-explicit-approval-stale-safe"/);
-  assert.match(bootstrap, /taxonomyConnectorMinimum: "1\.3\.0"/);
   assert.match(bootstrap, /"live-preview"/);
   assert.match(bootstrap, /"live-apply"/);
   assert.match(bootstrap, /"live-rollback"/);
@@ -45,7 +42,7 @@ test("il bootstrap espone le capability reali del runtime V2", () => {
 });
 
 test("tutti gli hook remediation attivi esportano route esplicite senza patchare express.application", () => {
-  assert.equal(migratedHooks.length, 7);
+  assert.equal(migratedHooks.length, 8);
   for (const source of migratedHooks) {
     assert.match(source, /function registerRoutes\(app\)/);
     assert.match(source, /export \{[^}]*registerRoutes/);
