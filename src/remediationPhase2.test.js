@@ -8,11 +8,18 @@ const rollbackRouter = await readFile(new URL("./liveRollbackRouter.js", import.
 const rollbackServer = await readFile(new URL("../server/wordpressLiveRollbackHook.js", import.meta.url), "utf8");
 const corrections = await readFile(new URL("./CorrectionsWorkspace.jsx", import.meta.url), "utf8");
 const store = await readFile(new URL("./remediationStore.js", import.meta.url), "utf8");
+const guard = await readFile(new URL("./legacyRemediationGuard.js", import.meta.url), "utf8");
 
 test("bulk live lavora sui soli problemi attivi e non sull'intero storico audit", () => {
   assert.match(live, /const activeIssues = issues\.filter/);
   assert.match(live, /all\s*\? context\.activeIssues/);
   assert.doesNotMatch(live, /const selected = all \? context\.issues/);
+});
+
+test("il bulk live non transazionale non può applicare più elementi", () => {
+  assert.match(guard, /const count = liveBatchCount/);
+  assert.match(guard, /if \(count <= 1\) return/);
+  assert.match(guard, /Applicazione bulk live bloccata per sicurezza/);
 });
 
 test("apply invalida preview stale su client auditType e analyzedAt", () => {
