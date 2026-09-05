@@ -311,4 +311,4 @@ function registerRoutes(app) {
   });
 }
 
-export { registerRoutes, visibleText, stripAlwaysHiddenMarkup, visibleH1Count };
+export { inspect, registerRoutes, visibleText, stripAlwaysHiddenMarkup, visibleH1Count };
