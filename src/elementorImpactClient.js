@@ -1,4 +1,4 @@
-import { apiFetch } from "./api";
+import { apiFetch } from "./api.js";
 
 const ownershipOf = (entity) => entity?._seogrowOwnership && typeof entity._seogrowOwnership === "object"
   ? entity._seogrowOwnership
