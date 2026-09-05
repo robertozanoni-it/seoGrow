@@ -93,6 +93,22 @@ test("se entrambi i plugin coincidono col frontend l'ambiguità resta bloccabile
   assert.equal(entity.meta._yoast_wpseo_title, "Stesso titolo");
 });
 
+test("l'ispezione conserva separatamente il rischio di ownership Elementor condivisa", () => {
+  const entity = filterConnectorOwnedMeta({
+    id: 42,
+    meta: { _elementor_data: "[]" },
+  }, {
+    elementor: true,
+    elementorPro: true,
+    elementorSharedTemplateTypes: ["single", "popup"],
+    rankMath: false,
+    yoast: false,
+  });
+  assert.equal(entity.meta._elementor_data, "[]");
+  assert.equal(entity._seogrowOwnership.elementorPro, true);
+  assert.deepEqual(entity._seogrowOwnership.elementorSharedTemplateTypes, ["single", "popup"]);
+});
+
 test("l'ispezione WordPress conserva la sottocartella dell'installazione", () => {
   assert.equal(basePath(new URL("https://example.com/wordpress/")), "/wordpress");
   assert.equal(basePath(new URL("https://example.com/")), "");
