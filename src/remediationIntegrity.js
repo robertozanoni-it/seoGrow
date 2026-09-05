@@ -1,5 +1,7 @@
+import { apiFetch } from "./api";
 import {
   listCorrections,
+  readCorrection,
   removeVerifiedTask,
   reopenTask,
   updateCorrection,
@@ -13,34 +15,6 @@ let recheckRunning = false;
 let recheckTimer = null;
 
 const issueText = (issue) => `${issue?.type || ""} ${issue?.label || ""} ${issue?.detail || ""}`;
-
-const originalFetch = window.fetch.bind(window);
-if (!window.fetch.__seogrowSeoTitleGuard) {
-  const guardedFetch = async (input, init = {}) => {
-    const url = typeof input === "string" ? input : input?.url;
-    const method = String(init?.method || "GET").toUpperCase();
-    if (url === "/api/wordpress/generate-patch" && method === "POST") {
-      try {
-        const body = typeof init.body === "string" ? JSON.parse(init.body) : null;
-        let context = {};
-        try { context = JSON.parse(String(body?.context || "{}")); } catch { context = {}; }
-        if (DUPLICATE_TITLE.test(issueText(context.issue))) {
-          return new Response(JSON.stringify({
-            error: "Title duplicato non corretto automaticamente: il title SEO del frontend può essere gestito dal plugin SEO, mentre l'adapter WordPress core modifica solo il titolo del contenuto. Serve un adapter Rank Math/Yoast e un crawl completo di verifica.",
-          }), {
-            status: 422,
-            headers: { "content-type": "application/json; charset=utf-8" },
-          });
-        }
-      } catch {
-        // Lascia gestire al backend richieste non interpretabili.
-      }
-    }
-    return originalFetch(input, init);
-  };
-  guardedFetch.__seogrowSeoTitleGuard = true;
-  window.fetch = guardedFetch;
-}
 
 const syncTaskWithVerification = (before, after) => {
   if (!after) return;
@@ -59,13 +33,21 @@ async function updateAndSync(record, patch) {
   return updated;
 }
 
-async function recheckRecord(record) {
-  if (!record?.sourceUrl || record.status === "Ripristinato") return false;
-  const text = issueText(record.issue || { label: record.issueLabel });
+export async function recheckCorrection(record) {
+  if (!record?.sourceUrl || record.status === "Ripristinato") return { changed: false, record };
+  const text = issueText(record.issue || { type: record.issueType, label: record.issueLabel });
   const relevant = DUPLICATE_TITLE.test(text) || SHORT_CONTENT.test(text) || H1.test(text) || (record.fields || []).includes("title");
-  if (!relevant) return false;
+  if (!relevant) {
+    const updated = await updateAndSync(record, {
+      status: record.status === "Verificato" ? "Verificato" : "Da verificare",
+      verificationNote: "Questo tipo di correzione richiede un nuovo audit mirato o completo: la verifica frontend generica non è sufficiente.",
+      lastVerificationAttemptAt: new Date().toISOString(),
+    });
+    return { changed: true, record: updated, needsAudit: true };
+  }
+
   try {
-    const response = await window.fetch("/api/wordpress/verify-frontend", {
+    const response = await apiFetch("/api/wordpress/verify-frontend", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ url: record.sourceUrl, expected: record.after || {} }),
@@ -86,89 +68,100 @@ async function recheckRecord(record) {
             status: "Da verificare",
             frontendConfirmed: true,
             frontendFailure: false,
-            verificationNote: "Il title frontend coincide con il valore inviato, ma il problema di duplicazione richiede comunque un crawl completo del sito.",
+            verificationNote: "Il title frontend coincide con il valore inviato, ma un duplicato può essere dichiarato risolto solo dopo un nuovo crawl che confronti tutti i documenti coinvolti.",
           };
-      const changed = record.status !== patch.status || record.frontendConfirmed !== patch.frontendConfirmed || record.frontendFailure !== patch.frontendFailure || record.frontendSnapshot?.title !== data.title;
-      if (changed) await updateAndSync(record, {
+      const updated = await updateAndSync(record, {
         ...patch,
-        verifiedAt: new Date().toISOString(),
+        lastVerificationAttemptAt: new Date().toISOString(),
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
-      return changed;
+      return { changed: true, record: updated, needsAudit: true };
     }
 
     if (SHORT_CONTENT.test(text)) {
       const thresholdReached = data.pageKind === "gdpr" || Number(data.words) >= Number(data.minimumWords || 180);
       const modifiedContentVisible = data.contentProbeVisible === true;
-      const fixed = thresholdReached && modifiedContentVisible;
-      const nextStatus = fixed ? "Verificato" : "Da verificare";
-      const changed = record.status !== nextStatus || record.frontendConfirmed !== fixed || record.frontendFailure !== !fixed || Number(record.frontendSnapshot?.words) !== Number(data.words);
-      if (changed) await updateAndSync(record, {
-        status: nextStatus,
+      const qualityAccepted = record.editorialQuality?.publishable !== false;
+      const fixed = thresholdReached && modifiedContentVisible && qualityAccepted;
+      const updated = await updateAndSync(record, {
+        status: fixed ? "Verificato" : "Da verificare",
         frontendConfirmed: fixed,
         frontendFailure: !fixed,
-        verifiedAt: new Date().toISOString(),
+        verifiedAt: fixed ? new Date().toISOString() : record.verifiedAt || "",
+        lastVerificationAttemptAt: new Date().toISOString(),
         verificationNote: fixed
           ? `Frontend verificato: il contenuto modificato è visibile e la pagina contiene ${data.words} parole (soglia ${data.minimumWords}).`
-          : thresholdReached
-            ? "La soglia di parole è raggiunta, ma SeoGrow non ha dimostrato che il contenuto modificato sia quello effettivamente visibile. La correzione resta Da verificare."
-            : `La pagina pubblica contiene ancora ${data.words} parole (soglia ${data.minimumWords}). La correzione non è confermata nel frontend.`,
+          : !thresholdReached
+            ? `La pagina pubblica contiene ancora ${data.words} parole (soglia ${data.minimumWords}). La correzione non è confermata nel frontend.`
+            : !modifiedContentVisible
+              ? "La soglia di parole è raggiunta, ma SeoGrow non ha dimostrato che il contenuto modificato sia quello effettivamente visibile. La correzione resta Da verificare."
+              : "Il contenuto è visibile ma il quality gate editoriale non consente di dichiararlo verificato automaticamente.",
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
-      return changed;
+      return { changed: true, record: updated };
     }
 
     if (H1.test(text)) {
       const h1CountCorrect = Number(data.h1) === 1;
-      const changed = record.status !== "Da verificare" || record.frontendConfirmed !== false || Number(record.frontendSnapshot?.h1) !== Number(data.h1);
-      if (changed) await updateAndSync(record, {
+      const updated = await updateAndSync(record, {
         status: "Da verificare",
         frontendConfirmed: false,
         frontendFailure: !h1CountCorrect,
-        verifiedAt: new Date().toISOString(),
+        lastVerificationAttemptAt: new Date().toISOString(),
         verificationNote: h1CountCorrect
-          ? "Il frontend contiene un solo H1, ma questo controllo non prova che sia la modifica applicata da SeoGrow ad aver risolto il problema. Esegui un nuovo audit per confermare la correzione."
+          ? "Il frontend contiene un solo H1, ma questo controllo non prova da solo che il problema SEO originale sia risolto. Esegui un nuovo audit della pagina per confermare."
           : `Frontend non corretto: risultano ${data.h1} H1.`,
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
-      return changed;
+      return { changed: true, record: updated, needsAudit: true };
     }
 
-    if ((record.fields || []).includes("title") && data.titleMatchesExpected === false) {
-      const changed = record.status !== "Da verificare" || record.frontendFailure !== true || record.frontendSnapshot?.title !== data.title;
-      if (changed) await updateAndSync(record, {
-        status: "Da verificare",
-        frontendConfirmed: false,
-        frontendFailure: true,
-        verifiedAt: new Date().toISOString(),
-        verificationNote: `Il titolo WordPress è stato scritto, ma il <title> pubblico è “${data.title || "non rilevato"}”.`,
+    if ((record.fields || []).includes("title")) {
+      const matches = data.titleMatchesExpected === true;
+      const updated = await updateAndSync(record, {
+        status: matches ? "Da verificare" : "Da verificare",
+        frontendConfirmed: matches,
+        frontendFailure: !matches,
+        lastVerificationAttemptAt: new Date().toISOString(),
+        verificationNote: matches
+          ? "Il <title> pubblico coincide con il valore applicato. Se il problema originale era un duplicato o dipendeva dal sito intero, serve comunque un nuovo crawl per confermarne la risoluzione."
+          : `Il titolo WordPress è stato scritto, ma il <title> pubblico è “${data.title || "non rilevato"}”.`,
         frontendSnapshot: { title: data.title, h1: data.h1, words: data.words },
       });
-      return changed;
+      return { changed: true, record: updated, needsAudit: true };
     }
-    return false;
+
+    return { changed: false, record };
   } catch (error) {
-    const note = `Verifica frontend non conclusa: ${error.message}. Lo stato precedente è stato mantenuto.`;
-    if (record.verificationNote !== note) {
-      await updateCorrection(record.id, {
-        verificationNote: note,
-        lastVerificationErrorAt: new Date().toISOString(),
-      });
-      return true;
-    }
-    return false;
+    const updated = await updateCorrection(record.id, {
+      verificationNote: `Verifica frontend non conclusa: ${error.message}. Lo stato precedente è stato mantenuto.`,
+      lastVerificationErrorAt: new Date().toISOString(),
+      lastVerificationAttemptAt: new Date().toISOString(),
+    });
+    return { changed: true, record: updated, error };
   }
 }
 
-async function recheckCorrections() {
-  if (recheckRunning) return;
+export async function recheckCorrectionById(id) {
+  const record = await readCorrection(id);
+  if (!record) throw new Error("Correzione non trovata nello storico.");
+  return recheckCorrection(record);
+}
+
+export async function recheckCorrections({ clientId, limit = 20 } = {}) {
+  if (recheckRunning) return { checked: 0, changed: 0, busy: true };
   recheckRunning = true;
   try {
-    const rows = await listCorrections();
-    const pending = rows.filter((record) => ["Applicato", "Da verificare"].includes(record.status)).slice(0, 20);
-    for (const record of pending) await recheckRecord(record);
-  } catch (error) {
-    console.warn("Controllo integrità remediation non eseguito:", error);
+    const rows = await listCorrections(clientId == null ? {} : { clientId });
+    const pending = rows
+      .filter((record) => ["Applicato", "Da verificare"].includes(record.status))
+      .slice(0, Math.max(1, Math.min(100, Number(limit) || 20)));
+    let changed = 0;
+    for (const record of pending) {
+      const result = await recheckCorrection(record);
+      if (result.changed) changed += 1;
+    }
+    return { checked: pending.length, changed, busy: false };
   } finally {
     recheckRunning = false;
   }
@@ -178,9 +171,20 @@ const scheduleRecheck = (delay = 500) => {
   if (recheckRunning || recheckTimer) return;
   recheckTimer = window.setTimeout(() => {
     recheckTimer = null;
-    void recheckCorrections();
+    void recheckCorrections().catch((error) =>
+      console.warn("Controllo integrità remediation non eseguito:", error),
+    );
   }, delay);
 };
 
-window.addEventListener("load", () => scheduleRecheck(800), { once: true });
-window.addEventListener("seogrow-remediation-applied", () => scheduleRecheck(500));
+if (typeof window !== "undefined") {
+  window.addEventListener("load", () => scheduleRecheck(800), { once: true });
+  window.addEventListener("seogrow-remediation-applied", () => scheduleRecheck(500));
+  window.addEventListener("seogrow-verify-correction", (event) => {
+    const id = event?.detail?.id;
+    if (!id) return;
+    void recheckCorrectionById(id).catch((error) =>
+      console.warn("Riverifica correzione non riuscita:", error),
+    );
+  });
+}
